@@ -22,7 +22,7 @@ However, the entire js context of the library is available via the `context` acc
     
     libphonenumber.context.call "i18n.phonenumbers.PhoneNumberUtil.extractPossibleNumber", "19255550100"
 
-And one additional function that I've put together to tie some of these things together in a useful way,
+And two additional functions that I've put together to tie some of these things together in a useful way,
 with the goal of trying to get a valid E164 formatted number back or not in one call.
 
 You can pass:
@@ -35,6 +35,11 @@ Example (see tests for more examples):
 
     libphonenumber.simple.get_e164_phone_number("5550100", "US", "925")  # => "+19255550100"
     libphonenumber.simple.get_e164_phone_number("+19255550100")  # => "+19255550100"
+
+Or to get back an array in the form of [ formatted, cc, ndc ]:
+
+    libphonenumber.simple.get_e164_phone_number_with_meta("+19255550100")  # => [ "+19255550100", "1", "925" ]
+    libphonenumber.simple.get_e164_phone_number_with_meta("fake")  # => []
 
 ## Development/Recompiling sources
 

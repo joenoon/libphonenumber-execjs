@@ -32,6 +32,10 @@ class Libphonenumber
     def get_e164_phone_number(str, cc=nil, ndc=nil)
       @context.call "getE164PhoneNumber", str, cc, ndc
     end
+
+    def get_e164_phone_number_with_meta(str, cc=nil, ndc=nil)
+      @context.call "getE164PhoneNumberWithMeta", str, cc, ndc
+    end
     
   end
   

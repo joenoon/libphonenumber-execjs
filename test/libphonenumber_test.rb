@@ -13,7 +13,9 @@ class LibphonenumberTest < MiniTest::Spec
       },
       :expected => {
         :normalized => "9255550100",
-        :e164 => "+19255550100"
+        :e164 => "+19255550100",
+        :cc => "1",
+        :ndc => "925"
       }
     },
     {
@@ -23,7 +25,9 @@ class LibphonenumberTest < MiniTest::Spec
       },
       :expected => {
         :normalized => "19255550100",
-        :e164 => "+19255550100"
+        :e164 => "+19255550100",
+        :cc => "1",
+        :ndc => "925"
       }
     },
     {
@@ -34,7 +38,9 @@ class LibphonenumberTest < MiniTest::Spec
       },
       :expected => {
         :normalized => "5550100",
-        :e164 => "+19255550100"
+        :e164 => "+19255550100",
+        :cc => "1",
+        :ndc => "925"
       }
     },
     {
@@ -44,7 +50,9 @@ class LibphonenumberTest < MiniTest::Spec
       },
       :expected => {
         :normalized => "5550100",
-        :e164 => nil
+        :e164 => nil,
+        :cc => nil,
+        :ndc => nil
       }
     },
     {
@@ -54,7 +62,9 @@ class LibphonenumberTest < MiniTest::Spec
       },
       :expected => {
         :normalized => "5550100",
-        :e164 => nil
+        :e164 => nil,
+        :cc => nil,
+        :ndc => nil
       }
     },
     {
@@ -65,7 +75,9 @@ class LibphonenumberTest < MiniTest::Spec
       },
       :expected => {
         :normalized => "9255550100",
-        :e164 => "+19255550100"
+        :e164 => "+19255550100",
+        :cc => "1",
+        :ndc => "925"
       }
     },
     {
@@ -75,7 +87,9 @@ class LibphonenumberTest < MiniTest::Spec
       },
       :expected => {
         :normalized => "19255550100",
-        :e164 => "+19255550100"
+        :e164 => "+19255550100",
+        :cc => "1",
+        :ndc => "925"
       }
     },
     {
@@ -85,7 +99,9 @@ class LibphonenumberTest < MiniTest::Spec
       },
       :expected => {
         :normalized => "19255550100",
-        :e164 => "+19255550100"
+        :e164 => "+19255550100",
+        :cc => "1",
+        :ndc => "925"
       }
     },
     {
@@ -95,7 +111,9 @@ class LibphonenumberTest < MiniTest::Spec
       },
       :expected => {
         :normalized => "9255550100",
-        :e164 => "+19255550100"
+        :e164 => "+19255550100",
+        :cc => "1",
+        :ndc => "925"
       }
     },
     {
@@ -106,7 +124,9 @@ class LibphonenumberTest < MiniTest::Spec
       },
       :expected => {
         :normalized => "5550100",
-        :e164 => "+19255550100"
+        :e164 => "+19255550100",
+        :cc => "1",
+        :ndc => "925"
       }
     }
   ]
@@ -135,15 +155,23 @@ class LibphonenumberTest < MiniTest::Spec
     it "does not expose COMPILED" do
       @lib.context.exec("return ('COMPILED' in this);").must_equal false
     end
-
+    
+    i = 0
+    
     SCENARIOS.each do |scenario|
-      d = "given #{scenario[:given].inspect}"
+      d = "spec#{i+=1} #{scenario.inspect}"
       describe d do
         it "will normalize the number correctly" do
           @lib.normalize(scenario[:given][:number]).must_equal(scenario[:expected][:normalized], d)
         end
         it "will parse the e164 formatted version correctly" do
           @lib.simple.get_e164_phone_number(scenario[:given][:number], scenario[:given][:cc], scenario[:given][:ndc]).must_equal(scenario[:expected][:e164], d)
+        end
+        it "will return the expected cc" do
+          @lib.simple.get_e164_phone_number_with_meta(scenario[:given][:number], scenario[:given][:cc], scenario[:given][:ndc])[1].must_equal(scenario[:expected][:cc], d)
+        end
+        it "will return the expected ndc" do
+          @lib.simple.get_e164_phone_number_with_meta(scenario[:given][:number], scenario[:given][:cc], scenario[:given][:ndc])[2].must_equal(scenario[:expected][:ndc], d)
         end
       end
     end

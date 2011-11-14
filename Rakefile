@@ -21,8 +21,6 @@ task :build_js do
         --input="#{libphonenumber}javascript/i18n/phonenumbers/phonenumber.pb.js" \
         --input="#{libphonenumber}javascript/i18n/phonenumbers/metadata.js" \
         --input="#{libphonenumber}javascript/i18n/phonenumbers/phonenumberutil.js" \
-        --input="#{libphonenumber}javascript/i18n/phonenumbers/asyoutypeformatter.js" \
-        --namespace="i18n.phonenumbers.AsYouTypeFormatter" \
         --namespace="i18n.phonenumbers.metadata" \
         --namespace="i18n.phonenumbers.NumberFormat" \
         --namespace="i18n.phonenumbers.PhoneNumberDesc" \
@@ -38,8 +36,7 @@ task :build_js do
         "#{libphonenumber}javascript/i18n/phonenumbers/phonemetadata.pb.js" \
         "#{libphonenumber}javascript/i18n/phonenumbers/phonenumber.pb.js" \
         "#{libphonenumber}javascript/i18n/phonenumbers/metadata.js" \
-        "#{libphonenumber}javascript/i18n/phonenumbers/phonenumberutil.js" \
-        "#{libphonenumber}javascript/i18n/phonenumbers/asyoutypeformatter.js"
+        "#{libphonenumber}javascript/i18n/phonenumbers/phonenumberutil.js"
   }
   out = `#{cmd.strip}`
   simple = CoffeeScript.compile(File.read(File.join(File.dirname(__FILE__), "support", "simple.coffee")))
