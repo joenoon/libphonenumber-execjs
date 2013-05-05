@@ -86,6 +86,20 @@ goog.LOCALE = 'en';  // default to en
 
 
 /**
+ * @define {boolean} Whether this code is running on trusted sites.
+ *
+ * On untrusted sites, several native functions can be defined or overridden by
+ * external libraries like Prototype, Datejs, and JQuery and setting this flag
+ * to false forces closure to use its own implementations when possible.
+ *
+ * If your javascript can be loaded by a third party site and you are wary about
+ * relying on non-standard implementations, specify
+ * "--define goog.TRUSTED_SITE=false" to the JSCompiler.
+ */
+goog.TRUSTED_SITE = true;
+
+
+/**
  * Creates object stubs for a namespace.  The presence of one or more
  * goog.provide() calls indicate that the file defines the given
  * objects/namespaces.  Build tools also scan for provide/require statements
@@ -938,8 +952,7 @@ goog.removeUid = function(obj) {
  * @type {string}
  * @private
  */
-goog.UID_PROPERTY_ = 'closure_uid_' +
-    Math.floor(Math.random() * 2147483648).toString(36);
+goog.UID_PROPERTY_ = 'closure_uid_' + ((Math.random() * 1e9) >>> 0);
 
 
 /**
@@ -1143,7 +1156,7 @@ goog.mixin = function(target, source) {
  * @return {number} An integer value representing the number of milliseconds
  *     between midnight, January 1, 1970 and the current time.
  */
-goog.now = Date.now || (function() {
+goog.now = (goog.TRUSTED_SITE && Date.now) || (function() {
   // Unary plus operator converts its operand to a number which in the case of
   // a date is done by calling getTime().
   return +new Date();
@@ -1338,7 +1351,17 @@ if (!COMPILED && goog.global.CLOSURE_CSS_NAME_MAPPING) {
 
 
 /**
- * Abstract implementation of goog.getMsg for use with localized messages.
+ * Gets a localized message.
+ *
+ * This function is a compiler primitive. If you give the compiler a localized
+ * message bundle, it will replace the string at compile-time with a localized
+ * version, and expand goog.getMsg call to a concatenated string.
+ *
+ * Messages must be initialized in the form:
+ * <code>
+ * var MSG_NAME = goog.getMsg('Hello {$placeholder}', {'placeholder': 'world'});
+ * </code>
+ *
  * @param {string} str Translatable string, places holders in the form {$foo}.
  * @param {Object=} opt_values Map of place holder name to value.
  * @return {string} message with placeholders filled.
@@ -1350,6 +1373,26 @@ goog.getMsg = function(str, opt_values) {
     str = str.replace(new RegExp('\\{\\$' + key + '\\}', 'gi'), value);
   }
   return str;
+};
+
+
+/**
+ * Gets a localized message. If the message does not have a translation, gives a
+ * fallback message.
+ *
+ * This is useful when introducing a new message that has not yet been
+ * translated into all languages.
+ *
+ * This function is a compiler primtive. Must be used in the form:
+ * <code>var x = goog.getMsgWithFallback(MSG_A, MSG_B);</code>
+ * where MSG_A and MSG_B were initialized with goog.getMsg.
+ *
+ * @param {string} a The preferred message.
+ * @param {string} b The fallback message.
+ * @return {string} The best translated message.
+ */
+goog.getMsgWithFallback = function(a, b) {
+  return a;
 };
 
 
@@ -1800,9 +1843,10 @@ goog.string.isEmpty = function(str) {
 
 
 /**
- * Checks if a string is null, empty or contains only whitespaces.
+ * Checks if a string is null, undefined, empty or contains only whitespaces.
  * @param {*} str The string to check.
- * @return {boolean} True if{@code str} is null, empty, or whitespace only.
+ * @return {boolean} True if{@code str} is null, undefined, empty, or
+ *     whitespace only.
  */
 goog.string.isEmptySafe = function(str) {
   return goog.string.isEmpty(goog.string.makeSafe(str));
@@ -3610,11 +3654,12 @@ goog.provide('goog.object');
 /**
  * Calls a function for each element in an object/map/hash.
  *
- * @param {Object} obj The object over which to iterate.
- * @param {Function} f The function to call for every element. This function
- *     takes 3 arguments (the element, the index and the object)
- *     and the return value is irrelevant.
- * @param {Object=} opt_obj This is used as the 'this' object within f.
+ * @param {Object.<K,V>} obj The object over which to iterate.
+ * @param {function(this:T,V,?,Object.<K,V>):?} f The function to call
+ *     for every element. This function takes 3 arguments (the element, the
+ *     index and the object) and the return value is ignored.
+ * @param {T=} opt_obj This is used as the 'this' object within f.
+ * @template T,K,V
  */
 goog.object.forEach = function(obj, f, opt_obj) {
   for (var key in obj) {
@@ -3627,15 +3672,17 @@ goog.object.forEach = function(obj, f, opt_obj) {
  * Calls a function for each element in an object/map/hash. If that call returns
  * true, adds the element to a new object.
  *
- * @param {Object} obj The object over which to iterate.
- * @param {Function} f The function to call for every element. This
+ * @param {Object.<K,V>} obj The object over which to iterate.
+ * @param {function(this:T,V,?,Object.<K,V>):boolean} f The function to call
+ *     for every element. This
  *     function takes 3 arguments (the element, the index and the object)
  *     and should return a boolean. If the return value is true the
  *     element is added to the result object. If it is false the
  *     element is not included.
- * @param {Object=} opt_obj This is used as the 'this' object within f.
- * @return {!Object} a new object in which only elements that passed the test
- *     are present.
+ * @param {T=} opt_obj This is used as the 'this' object within f.
+ * @return {!Object.<K,V>} a new object in which only elements that passed the
+ *     test are present.
+ * @template T,K,V
  */
 goog.object.filter = function(obj, f, opt_obj) {
   var res = {};
@@ -3652,13 +3699,15 @@ goog.object.filter = function(obj, f, opt_obj) {
  * For every element in an object/map/hash calls a function and inserts the
  * result into a new object.
  *
- * @param {Object} obj The object over which to iterate.
- * @param {Function} f The function to call for every element. This function
+ * @param {Object.<K,V>} obj The object over which to iterate.
+ * @param {function(this:T,V,?,Object.<K,V>):R} f The function to call
+ *     for every element. This function
  *     takes 3 arguments (the element, the index and the object)
  *     and should return something. The result will be inserted
  *     into a new object.
- * @param {Object=} opt_obj This is used as the 'this' object within f.
- * @return {!Object} a new object with the results from f.
+ * @param {T=} opt_obj This is used as the 'this' object within f.
+ * @return {!Object.<T,R>} a new object with the results from f.
+ * @template T,K,V,R
  */
 goog.object.map = function(obj, f, opt_obj) {
   var res = {};
@@ -3674,12 +3723,14 @@ goog.object.map = function(obj, f, opt_obj) {
  * call returns true, returns true (without checking the rest). If
  * all calls return false, returns false.
  *
- * @param {Object} obj The object to check.
- * @param {Function} f The function to call for every element. This function
+ * @param {Object.<K,V>} obj The object to check.
+ * @param {function(this:T,V,?,Object.<K,V>):boolean} f The function to
+ *     call for every element. This function
  *     takes 3 arguments (the element, the index and the object) and should
  *     return a boolean.
- * @param {Object=} opt_obj This is used as the 'this' object within f.
+ * @param {T=} opt_obj This is used as the 'this' object within f.
  * @return {boolean} true if any element passes the test.
+ * @template T,K,V
  */
 goog.object.some = function(obj, f, opt_obj) {
   for (var key in obj) {
@@ -3696,12 +3747,14 @@ goog.object.some = function(obj, f, opt_obj) {
  * all calls return true, returns true. If any call returns false, returns
  * false at this point and does not continue to check the remaining elements.
  *
- * @param {Object} obj The object to check.
- * @param {Function} f The function to call for every element. This function
+ * @param {Object.<K,V>} obj The object to check.
+ * @param {?function(this:T,V,?,Object.<K,V>):boolean} f The function to
+ *     call for every element. This function
  *     takes 3 arguments (the element, the index and the object) and should
  *     return a boolean.
- * @param {Object=} opt_obj This is used as the 'this' object within f.
+ * @param {T=} opt_obj This is used as the 'this' object within f.
  * @return {boolean} false if any element fails the test.
+ * @template T,K,V
  */
 goog.object.every = function(obj, f, opt_obj) {
   for (var key in obj) {
@@ -3752,8 +3805,9 @@ goog.object.getAnyKey = function(obj) {
  * For map literals the returned value will be the first one in most of the
  * browsers (a know exception is Konqueror).
  *
- * @param {Object} obj The object to pick a value from.
- * @return {*} The value or undefined if the object is empty.
+ * @param {Object.<K,V>} obj The object to pick a value from.
+ * @return {V|undefined} The value or undefined if the object is empty.
+ * @template K,V
  */
 goog.object.getAnyValue = function(obj) {
   for (var key in obj) {
@@ -3766,9 +3820,10 @@ goog.object.getAnyValue = function(obj) {
  * Whether the object/hash/map contains the given object as a value.
  * An alias for goog.object.containsValue(obj, val).
  *
- * @param {Object} obj The object in which to look for val.
- * @param {*} val The object for which to check.
+ * @param {Object.<K,V>} obj The object in which to look for val.
+ * @param {V} val The object for which to check.
  * @return {boolean} true if val is present.
+ * @template K,V
  */
 goog.object.contains = function(obj, val) {
   return goog.object.containsValue(obj, val);
@@ -3778,8 +3833,9 @@ goog.object.contains = function(obj, val) {
 /**
  * Returns the values of the object/map/hash.
  *
- * @param {Object} obj The object from which to get the values.
- * @return {!Array} The values in the object/map/hash.
+ * @param {Object.<K,V>} obj The object from which to get the values.
+ * @return {!Array.<V>} The values in the object/map/hash.
+ * @template K,V
  */
 goog.object.getValues = function(obj) {
   var res = [];
@@ -3814,7 +3870,7 @@ goog.object.getKeys = function(obj) {
  *
  * @param {!Object} obj An object to get the value from.  Can be array-like.
  * @param {...(string|number|!Array.<number|string>)} var_args A number of keys
- *     (as strings, or nubmers, for array-like objects).  Can also be
+ *     (as strings, or numbers, for array-like objects).  Can also be
  *     specified as a single array of keys.
  * @return {*} The resulting value.  If, at any point, the value for a key
  *     is undefined, returns undefined.
@@ -3850,9 +3906,10 @@ goog.object.containsKey = function(obj, key) {
 /**
  * Whether the object/map/hash contains the given value. This is O(n).
  *
- * @param {Object} obj The object in which to look for val.
- * @param {*} val The value for which to check.
+ * @param {Object.<K,V>} obj The object in which to look for val.
+ * @param {V} val The value for which to check.
  * @return {boolean} true If the map contains the value.
+ * @template K,V
  */
 goog.object.containsValue = function(obj, val) {
   for (var key in obj) {
@@ -3867,13 +3924,14 @@ goog.object.containsValue = function(obj, val) {
 /**
  * Searches an object for an element that satisfies the given condition and
  * returns its key.
- * @param {Object} obj The object to search in.
- * @param {function(*, string, Object): boolean} f The function to call for
- *     every element. Takes 3 arguments (the value, the key and the object) and
- *     should return a boolean.
- * @param {Object=} opt_this An optional "this" context for the function.
+ * @param {Object.<K,V>} obj The object to search in.
+ * @param {function(this:T,V,string,Object.<K,V>):boolean} f The
+ *      function to call for every element. Takes 3 arguments (the value,
+ *     the key and the object) and should return a boolean.
+ * @param {T=} opt_this An optional "this" context for the function.
  * @return {string|undefined} The key of an element for which the function
  *     returns true or undefined if no such element is found.
+ * @template T,K,V
  */
 goog.object.findKey = function(obj, f, opt_this) {
   for (var key in obj) {
@@ -3888,13 +3946,14 @@ goog.object.findKey = function(obj, f, opt_this) {
 /**
  * Searches an object for an element that satisfies the given condition and
  * returns its value.
- * @param {Object} obj The object to search in.
- * @param {function(*, string, Object): boolean} f The function to call for
- *     every element. Takes 3 arguments (the value, the key and the object) and
- *     should return a boolean.
- * @param {Object=} opt_this An optional "this" context for the function.
- * @return {*} The value of an element for which the function returns true or
+ * @param {Object.<K,V>} obj The object to search in.
+ * @param {function(this:T,V,string,Object.<K,V>):boolean} f The function
+ *     to call for every element. Takes 3 arguments (the value, the key
+ *     and the object) and should return a boolean.
+ * @param {T=} opt_this An optional "this" context for the function.
+ * @return {V} The value of an element for which the function returns true or
  *     undefined if no such element is found.
+ * @template T,K,V
  */
 goog.object.findValue = function(obj, f, opt_this) {
   var key = goog.object.findKey(obj, f, opt_this);
@@ -3948,9 +4007,10 @@ goog.object.remove = function(obj, key) {
  * Adds a key-value pair to the object. Throws an exception if the key is
  * already in use. Use set if you want to change an existing pair.
  *
- * @param {Object} obj The object to which to add the key-value pair.
+ * @param {Object.<K,V>} obj The object to which to add the key-value pair.
  * @param {string} key The key to add.
- * @param {*} val The value to add.
+ * @param {V} val The value to add.
+ * @template K,V
  */
 goog.object.add = function(obj, key, val) {
   if (key in obj) {
@@ -3963,11 +4023,12 @@ goog.object.add = function(obj, key, val) {
 /**
  * Returns the value for the given key.
  *
- * @param {Object} obj The object from which to get the value.
+ * @param {Object.<K,V>} obj The object from which to get the value.
  * @param {string} key The key for which to get the value.
- * @param {*=} opt_val The value to return if no item is found for the given
+ * @param {R=} opt_val The value to return if no item is found for the given
  *     key (default is undefined).
- * @return {*} The value for the given key.
+ * @return {V|R|undefined} The value for the given key.
+ * @template K,V,R
  */
 goog.object.get = function(obj, key, opt_val) {
   if (key in obj) {
@@ -3980,9 +4041,10 @@ goog.object.get = function(obj, key, opt_val) {
 /**
  * Adds a key-value pair to the object/map/hash.
  *
- * @param {Object} obj The object to which to add the key-value pair.
+ * @param {Object.<K,V>} obj The object to which to add the key-value pair.
  * @param {string} key The key to add.
- * @param {*} value The value to add.
+ * @param {K} value The value to add.
+ * @template K,V
  */
 goog.object.set = function(obj, key, value) {
   obj[key] = value;
@@ -3992,10 +4054,11 @@ goog.object.set = function(obj, key, value) {
 /**
  * Adds a key-value pair to the object/map/hash if it doesn't exist yet.
  *
- * @param {Object} obj The object to which to add the key-value pair.
+ * @param {Object.<K,V>} obj The object to which to add the key-value pair.
  * @param {string} key The key to add.
- * @param {*} value The value to add if the key wasn't present.
- * @return {*} The value of the entry at the end of the function.
+ * @param {V} value The value to add if the key wasn't present.
+ * @return {V} The value of the entry at the end of the function.
+ * @template K,V
  */
 goog.object.setIfUndefined = function(obj, key, value) {
   return key in obj ? obj[key] : (obj[key] = value);
@@ -4005,8 +4068,9 @@ goog.object.setIfUndefined = function(obj, key, value) {
 /**
  * Does a flat clone of the object.
  *
- * @param {Object} obj Object to clone.
- * @return {!Object} Clone of the input object.
+ * @param {Object.<K,V>} obj Object to clone.
+ * @return {!Object.<K,V>} Clone of the input object.
+ * @template K,V
  */
 goog.object.clone = function(obj) {
   // We cannot use the prototype trick because a lot of methods depend on where
@@ -4179,9 +4243,10 @@ goog.object.createSet = function(var_args) {
  * In default mode, writes to this view will fail silently. In strict mode,
  * they will throw an error.
  *
- * @param {!Object} obj An object.
- * @return {!Object} An immutable view of that object, or the original object
- *     if this browser does not support immutables.
+ * @param {!Object.<K,V>} obj An object.
+ * @return {!Object.<K,V>} An immutable view of that object, or the
+ *     original object if this browser does not support immutables.
+ * @template K,V
  */
 goog.object.createImmutableView = function(obj) {
   var result = obj;
@@ -4237,8 +4302,11 @@ goog.require('goog.asserts');
  * If your javascript can be loaded by a third party site and you are wary about
  * relying on the prototype functions, specify
  * "--define goog.NATIVE_ARRAY_PROTOTYPES=false" to the JSCompiler.
+ *
+ * Setting goog.TRUSTED_SITE to false will automatically set
+ * NATIVE_ARRAY_PROTOTYPES to false.
  */
-goog.NATIVE_ARRAY_PROTOTYPES = true;
+goog.NATIVE_ARRAY_PROTOTYPES = goog.TRUSTED_SITE;
 
 
 /**
@@ -4357,20 +4425,15 @@ goog.array.lastIndexOf = goog.NATIVE_ARRAY_PROTOTYPES &&
 
 
 /**
- * Calls a function for each element in an array.
- *
+ * Calls a function for each element in an array. Skips holes in the array.
  * See {@link http://tinyurl.com/developer-mozilla-org-array-foreach}
  *
- * @param {Array.<T>|goog.array.ArrayLike} arr Array or array
- *     like object over which to iterate.
+ * @param {Array.<T>|goog.array.ArrayLike} arr Array or array like object over
+ *     which to iterate.
  * @param {?function(this: S, T, number, ?): ?} f The function to call for every
- *     element.
- *     This function takes 3 arguments (the element, the index and the array).
- *     The return value is ignored. The function is called only for indexes of
- *     the array which have assigned values; it is not called for indexes which
- *     have been deleted or which have never been assigned values.
- * @param {S=} opt_obj The object to be used as the value of 'this'
- *     within f.
+ *     element. This function takes 3 arguments (the element, the index and the
+ *     array). The return value is ignored.
+ * @param {S=} opt_obj The object to be used as the value of 'this' within f.
  * @template T,S
  */
 goog.array.forEach = goog.NATIVE_ARRAY_PROTOTYPES &&
@@ -4648,6 +4711,29 @@ goog.array.every = goog.NATIVE_ARRAY_PROTOTYPES &&
       }
       return true;
     };
+
+
+/**
+ * Counts the array elements that fulfill the predicate, i.e. for which the
+ * callback function returns true. Skips holes in the array.
+ *
+ * @param {!(Array.<T>|goog.array.ArrayLike)} arr Array or array like object
+ *     over which to iterate.
+ * @param {function(this: S, T, number, ?): boolean} f The function to call for
+ *     every element. Takes 3 arguments (the element, the index and the array).
+ * @param {S=} opt_obj The object to be used as the value of 'this' within f.
+ * @return {number} The number of the matching elements.
+ * @template T,S
+ */
+goog.array.count = function(arr, f, opt_obj) {
+  var count = 0;
+  goog.array.forEach(arr, function(element, index, arr) {
+    if (f.call(opt_obj, element, index, arr)) {
+      ++count;
+    }
+  }, opt_obj);
+  return count;
+};
 
 
 /**
@@ -4982,9 +5068,8 @@ goog.array.extend = function(arr1, var_args) {
         (isArrayLike = goog.isArrayLike(arr2)) &&
             // The getter for callee throws an exception in strict mode
             // according to section 10.6 in ES5 so check for presence instead.
-            arr2.hasOwnProperty('callee')) {
+            Object.prototype.hasOwnProperty.call(arr2, 'callee')) {
       arr1.push.apply(arr1, arr2);
-
     } else if (isArrayLike) {
       // Otherwise loop over arr2 to prevent copying the object.
       var len1 = arr1.length;
@@ -5493,6 +5578,54 @@ goog.array.toObject = function(arr, keyFunc, opt_obj) {
 
 
 /**
+ * Creates a range of numbers in an arithmetic progression.
+ *
+ * Range takes 1, 2, or 3 arguments:
+ * <pre>
+ * range(5) is the same as range(0, 5, 1) and produces [0, 1, 2, 3, 4]
+ * range(2, 5) is the same as range(2, 5, 1) and produces [2, 3, 4]
+ * range(-2, -5, -1) produces [-2, -3, -4]
+ * range(-2, -5, 1) produces [], since stepping by 1 wouldn't ever reach -5.
+ * </pre>
+ *
+ * @param {number} startOrEnd The starting value of the range if an end argument
+ *     is provided. Otherwise, the start value is 0, and this is the end value.
+ * @param {number=} opt_end The optional end value of the range.
+ * @param {number=} opt_step The step size between range values. Defaults to 1
+ *     if opt_step is undefined or 0.
+ * @return {!Array.<number>} An array of numbers for the requested range. May be
+ *     an empty array if adding the step would not converge toward the end
+ *     value.
+ */
+goog.array.range = function(startOrEnd, opt_end, opt_step) {
+  var array = [];
+  var start = 0;
+  var end = startOrEnd;
+  var step = opt_step || 1;
+  if (opt_end !== undefined) {
+    start = startOrEnd;
+    end = opt_end;
+  }
+
+  if (step * (end - start) < 0) {
+    // Sign mismatch: start + step will never reach the end value.
+    return [];
+  }
+
+  if (step > 0) {
+    for (var i = start; i < end; i += step) {
+      array.push(i);
+    }
+  } else {
+    for (var i = start; i > end; i += step) {
+      array.push(i);
+    }
+  }
+  return array;
+};
+
+
+/**
  * Returns an array consisting of the given value repeated N times.
  *
  * @param {*} value The value to repeat.
@@ -5993,8 +6126,9 @@ goog.proto2.Message.prototype.setUnknown = function(tag, value) {
 goog.proto2.Message.prototype.forEachUnknown = function(callback, opt_scope) {
   var scope = opt_scope || this;
   for (var key in this.values_) {
-    if (!this.fields_[/** @type {number} */ (key)]) {
-      callback.call(scope, Number(key), this.values_[key]);
+    var keyNum = Number(key);
+    if (!this.fields_[keyNum]) {
+      callback.call(scope, keyNum, this.values_[key]);
     }
   }
 };
@@ -6014,7 +6148,7 @@ goog.proto2.Message.prototype.getDescriptor = function() {
   var Ctor = this.constructor;
   return Ctor.descriptor_ ||
       (Ctor.descriptor_ = goog.proto2.Message.create$Descriptor(
-           Ctor, Ctor.descriptorObj_));
+          Ctor, Ctor.descriptorObj_));
 };
 
 
@@ -6179,9 +6313,9 @@ goog.proto2.Message.prototype.equals = function(other) {
     if (this.has(field)) {
       var isComposite = field.isCompositeType();
 
-      function fieldsEqual(value1, value2) {
+      var fieldsEqual = function(value1, value2) {
         return isComposite ? value1.equals(value2) : value1 == value2;
-      }
+      };
 
       var thisValue = this.getValueForField_(field);
       var otherValue = other.getValueForField_(field);
@@ -6215,11 +6349,13 @@ goog.proto2.Message.prototype.copyFrom = function(message) {
   goog.proto2.Util.assert(this.constructor == message.constructor,
       'The source message must have the same type.');
 
-  this.values_ = {};
-  if (this.deserializedFields_) {
-    this.deserializedFields_ = {};
+  if (this != message) {
+    this.values_ = {};
+    if (this.deserializedFields_) {
+      this.deserializedFields_ = {};
+    }
+    this.mergeFrom(message);
   }
-  this.mergeFrom(message);
 };
 
 
@@ -6462,7 +6598,7 @@ goog.proto2.Message.prototype.array$Values = function(tag) {
   var field = this.getFieldByTag_(tag);
   var value = this.getValueForField_(field);
   goog.proto2.Util.assert(value == null || goog.isArray(value));
-  return (/** @type {Array} */value) || [];
+  return /** @type {Array} */ (value) || [];
 };
 
 
@@ -9016,7 +9152,7 @@ i18n.phonenumbers.metadata.countryCodeToRegionCodeMap = {
 ,95:["MM"]
 ,98:["IR"]
 ,211:["SS"]
-,212:["MA"]
+,212:["MA","EH"]
 ,213:["DZ"]
 ,216:["TN"]
 ,218:["LY"]
@@ -9123,7 +9259,7 @@ i18n.phonenumbers.metadata.countryCodeToRegionCodeMap = {
 ,596:["MQ"]
 ,597:["SR"]
 ,598:["UY"]
-,599:["CW","AN","BQ"]
+,599:["CW","BQ"]
 ,670:["TL"]
 ,672:["NF"]
 ,673:["BN"]
@@ -9225,7 +9361,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"AE":[,[,,"[2-79]\\d{7,8}|800\\d{2,9}","\\d{5,12}"]
-,[,,"(?:[2-4679][2-8]\\d|600[25])\\d{5}","\\d{7,9}",,,"22345678"]
+,[,,"[2-4679][2-8]\\d{6}","\\d{7,8}",,,"22345678"]
 ,[,,"5[0256]\\d{7}","\\d{9}",,,"501234567"]
 ,[,,"400\\d{6}|800\\d{2,9}","\\d{5,12}",,,"800123456"]
 ,[,,"900[02]\\d{5}","\\d{9}",,,"900234567"]
@@ -9236,14 +9372,14 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"0$1","",0]
 ,[,"(5[0256])(\\d{3})(\\d{4})","$1 $2 $3",["5"]
 ,"0$1","",0]
-,[,"([4679]00)(\\d)(\\d{5})","$1 $2 $3",["[4679]0"]
+,[,"([479]00)(\\d)(\\d{5})","$1 $2 $3",["[479]0"]
 ,"$1","",0]
-,[,"(800)(\\d{2,9})","$1 $2",["8"]
+,[,"([68]00)(\\d{2,9})","$1 $2",["60|8"]
 ,"$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
+,[,,"600[25]\\d{5}","\\d{9}",,,"600212345"]
 ,,[,,"112|99[789]","\\d{3}",,,"112"]
 ,[,,"NA","NA"]
 ]
@@ -9335,20 +9471,6 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,,[,,"10[123]","\\d{3}",,,"102"]
-,[,,"NA","NA"]
-]
-,"AN":[,[,,"5\\d{6}","\\d{7}"]
-,[,,"5(?:4[2-8]|8[239])\\d{4}","\\d{7}",,,"5451234"]
-,[,,"5(?:1[02]|2\\d|5[0-79]|8[016-8])\\d{4}","\\d{7}",,,"5101234"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"AN",599,"00",,,,,,,,,,[,,"NA","NA"]
-,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"112|911","\\d{3}",,,"112"]
 ,[,,"NA","NA"]
 ]
 ,"AO":[,[,,"[29]\\d{8}","\\d{9}"]
@@ -9493,7 +9615,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"AW":[,[,,"[25-9]\\d{6}","\\d{7}"]
 ,[,,"5(?:2\\d|8[1-9])\\d{4}","\\d{7}",,,"5212345"]
-,[,,"(?:5(?:6\\d|9[2-478])|6(?:[039]0|22|[46][01])|7[34]\\d|9(?:6[45]|9[4-8]))\\d{4}","\\d{7}",,,"5601234"]
+,[,,"(?:5(?:6\\d|9[2-478])|6(?:[039]0|22|4[01]|6[0-2])|7[34]\\d|9(?:6[45]|9[4-8]))\\d{4}","\\d{7}",,,"5601234"]
 ,[,,"800\\d{4}","\\d{7}",,,"8001234"]
 ,[,,"900\\d{4}","\\d{7}",,,"9001234"]
 ,[,,"NA","NA"]
@@ -9578,20 +9700,20 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"BD":[,[,,"[2-79]\\d{5,9}|1\\d{9}|8[0-7]\\d{4,8}","\\d{6,10}"]
-,[,,"2(?:7(?:1[0-267]|2[0-289]|3[0-29]|[46][01]|5[1-3]|7[017]|91)|8(?:0[125]|[139][1-6]|2[0157-9]|6[1-35]|7[1-5]|8[1-8])|9(?:0[0-2]|1[1-4]|2[568]|3[3-6]|5[5-7]|6[0167]|7[15]|8[016-8]))\\d{4}|3(?:[6-8]1|(?:0[23]|[25][12]|82|416)\\d|(?:31|12?[5-7])\\d{2})\\d{3}|4(?:(?:02|[49]6|[68]1)|(?:0[13]|21\\d?|[23]2|[457][12]|6[28])\\d|(?:23|[39]1)\\d{2}|1\\d{3})\\d{3}|5(?:(?:[457-9]1|62)|(?:1\\d?|2[12]|3[1-3]|52)\\d|61{2})|6(?:[45]1|(?:11|2[15]|[39]1)\\d|(?:[06-8]1|62)\\d{2})|7(?:(?:32|91)|(?:02|31|[67][12])\\d|[458]1\\d{2}|21\\d{3})\\d{3}|8(?:(?:4[12]|[5-7]2|1\\d?)|(?:0|3[12]|[5-7]1|217)\\d)\\d{4}|9(?:[35]1|(?:[024]2|81)\\d|(?:1|[24]1)\\d{2})\\d{3}","\\d{6,9}",,,"27111234"]
+,[,,"2(?:7(?:1[0-267]|2[0-289]|3[0-29]|[46][01]|5[1-3]|7[017]|91)|8(?:0[125]|[139][1-6]|2[0157-9]|6[1-35]|7[1-5]|8[1-8])|9(?:0[0-2]|1[1-4]|2[568]|3[3-6]|5[5-7]|6[0167]|7[15]|8[016-8]))\\d{4}|3(?:12?[5-7]\\d{2}|0(?:2(?:[025-79]\\d|[348]\\d{1,2})|3(?:[2-4]\\d|[56]\\d?))|2(?:1\\d{2}|2(?:[12]\\d|[35]\\d{1,2}|4\\d?))|3(?:1\\d{2}|2(?:[2356]\\d|4\\d{1,2}))|4(?:1\\d{2}|2(?:2\\d{1,2}|[47]|5\\d{2}))|5(?:1\\d{2}|29)|[67]1\\d{2}|8(?:1\\d{2}|2(?:2\\d{2}|3|4\\d))|)\\d{3}|4(?:0(?:2(?:[09]\\d|7)|33\\d{2})|1\\d{3}|2(?:1\\d{2}|2(?:[25]\\d?|[348]\\d|[67]\\d{1,2}))|3(?:1\\d{2}(?:\\d{2})?|2(?:[045]\\d|[236-9]\\d{1,2})|32\\d{2})|4(?:[18]\\d{2}|2(?:[2-46]\\d{2}|3)|5[25]\\d{2})|5(?:1\\d{2}|2(?:3\\d|5))|6(?:[18]\\d{2}|2(?:3(?:\\d{2})?|[46]\\d{1,2}|5\\d{2}|7\\d)|5(?:3\\d?|4\\d|[57]\\d{1,2}|6\\d{2}|8))|71\\d{2}|8(?:[18]\\d{2}|23\\d{2}|54\\d{2})|9(?:[18]\\d{2}|2[2-5]\\d{2}|53\\d{1,2}))\\d{3}|5(?:02[03489]\\d{2}|1\\d{2}|2(?:1\\d{2}|2(?:2(?:\\d{2})?|[457]\\d{2}))|3(?:1\\d{2}|2(?:[37](?:\\d{2})?|[569]\\d{2}))|4(?:1\\d{2}|2[46]\\d{2})|5(?:1\\d{2}|26\\d{1,2})|6(?:[18]\\d{2}|2|53\\d{2})|7(?:1|24)\\d{2}|8(?:1|26)\\d{2}|91\\d{2})\\d{3}|6(?:0(?:1\\d{2}|2(?:3\\d{2}|4\\d{1,2}))|2(?:2[2-5]\\d{2}|5(?:[3-5]\\d{2}|7)|8\\d{2})|3(?:1|2[3478])\\d{2}|4(?:1|2[34])\\d{2}|5(?:1|2[47])\\d{2}|6(?:[18]\\d{2}|6(?:2(?:2\\d|[34]\\d{2})|5(?:[24]\\d{2}|3\\d|5\\d{1,2})))|72[2-5]\\d{2}|8(?:1\\d{2}|2[2-5]\\d{2})|9(?:1\\d{2}|2[2-6]\\d{2}))\\d{3}|7(?:(?:02|[3-589]1|6[12]|72[24])\\d{2}|21\\d{3}|32)\\d{3}|8(?:(?:4[12]|[5-7]2|1\\d?)|(?:0|3[12]|[5-7]1|217)\\d)\\d{4}|9(?:[35]1|(?:[024]2|81)\\d|(?:1|[24]1)\\d{2})\\d{3}","\\d{6,9}",,,"27111234"]
 ,[,,"(?:1[13-9]\\d|(?:3[78]|44)[02-9]|6(?:44|6[02-9]))\\d{7}","\\d{10}",,,"1812345678"]
 ,[,,"80[03]\\d{7}","\\d{10}",,,"8001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"BD",880,"00[12]?","0",,,"0",,"00",,[[,"(2)(\\d{7})","$1 $2",["2"]
+,[,,"96(?:0[49]|1[0-4]|6[69])\\d{6}","\\d{10}",,,"9604123456"]
+,"BD",880,"00[12]?","0",,,"0",,"00",,[[,"(2)(\\d{7})","$1-$2",["2"]
 ,"0$1","",0]
-,[,"(\\d{2})(\\d{4,6})","$1 $2",["[3-79]1"]
+,[,"(\\d{2})(\\d{4,6})","$1-$2",["[3-79]1"]
 ,"0$1","",0]
-,[,"(\\d{3})(\\d{3,7})","$1 $2",["[3-79][2-9]|8"]
+,[,"(\\d{4})(\\d{3,6})","$1-$2",["1|3(?:0|[2-58]2)|4(?:0|[25]2|3[23]|[4689][25])|5(?:[02-578]2|6[25])|6(?:[0347-9]2|[26][25])|7[02-9]2|8(?:[023][23]|[4-7]2)|9(?:[02][23]|[458]2|6[016])"]
 ,"0$1","",0]
-,[,"(\\d{4})(\\d{6})","$1 $2",["1"]
+,[,"(\\d{3})(\\d{3,7})","$1-$2",["[3-79][2-9]|8"]
 ,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
@@ -9601,11 +9723,11 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"BE":[,[,,"[1-9]\\d{7,8}","\\d{8,9}"]
-,[,,"(?:1[0-69]|[23][2-8]|[49][23]|5\\d|6[013-57-9]|7[18])\\d{6}|8(?:0[1-9]|[1-69]\\d)\\d{5}","\\d{8}",,,"12345678"]
-,[,,"4(?:[679]\\d|8[3-9])\\d{6}","\\d{9}",,,"470123456"]
+,[,,"(?:1[0-69]|[23][2-8]|[49][23]|5\\d|6[013-57-9]|71)\\d{6}|8(?:0[1-9]|[1-79]\\d)\\d{5}","\\d{8}",,,"12345678"]
+,[,,"4(?:[679]\\d|8[03-9])\\d{6}","\\d{9}",,,"470123456"]
 ,[,,"800\\d{5}","\\d{8}",,,"80012345"]
 ,[,,"(?:90|7[07])\\d{6}","\\d{8}",,,"90123456"]
-,[,,"87\\d{6}","\\d{8}",,,"87123456"]
+,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"BE",32,"00","0",,,"0",,,,[[,"(4[6-9]\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["4[6-9]"]
@@ -9619,13 +9741,13 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
+,[,,"78\\d{6}","\\d{8}",,,"78123456"]
 ,,[,,"1(?:0[01]|12)","\\d{3}",,,"112"]
 ,[,,"NA","NA"]
 ]
 ,"BF":[,[,,"[24-7]\\d{7}","\\d{8}"]
 ,[,,"(?:20(?:49|5[23]|9[016-9])|40(?:4[56]|5[4-6]|7[0179])|50[34]\\d)\\d{4}","\\d{8}",,,"20491234"]
-,[,,"(?:6(?:[05]\\d|1[01]|6[0-7]|8[0-2])|7(?:[02-68]\\d|1[0-4689]|7[0-69]|9[0-689]))\\d{5}","\\d{8}",,,"70123456"]
+,[,,"(?:6(?:[056]\\d|1[0-36-9]|8[0-5]|90)|7(?:[02-68]\\d|1[0-4689]|7[0-69]|9[0-689]))\\d{5}","\\d{8}",,,"70123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -9670,7 +9792,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"BH":[,[,,"[136-9]\\d{7}","\\d{8}"]
 ,[,,"(?:1(?:3[3-6]|6[0156]|7\\d)\\d|6(?:1[16]\\d|6(?:0\\d|3[12]|44)|9(?:69|9[6-9]))|77\\d{2})\\d{4}","\\d{8}",,,"17001234"]
-,[,,"(?:3(?:[23469]\\d|5[35]|77|8[348])\\d|6(?:1[16]\\d|6(?:[06]\\d|3[03-9]|44)|9(?:69|9[6-9]))|77\\d{2})\\d{4}","\\d{8}",,,"36001234"]
+,[,,"(?:3(?:[23469]\\d|5[35]|77|8[348])\\d|6(?:1[16]\\d|3(?:00|33|6[16])|6(?:[069]\\d|3[03-9]|44)|9(?:69|9[6-9]))|77\\d{2})\\d{4}","\\d{8}",,,"36001234"]
 ,[,,"80\\d{6}","\\d{8}",,,"80123456"]
 ,[,,"(?:87|9[014578])\\d{6}","\\d{8}",,,"90123456"]
 ,[,,"84\\d{6}","\\d{8}",,,"84123456"]
@@ -9801,7 +9923,11 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"[34]00\\d{5}","\\d{8}",,,"40041234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"BR",55,"00(?:1[45]|2[135]|[34]1|43)","0",,,"0(?:(1[245]|2[135]|[34]1)(\\d{10,11}))?","$2",,,[[,"(\\d{2})(\\d{5})(\\d{4})","$1 $2-$3",["119"]
+,"BR",55,"00(?:1[45]|2[135]|[34]1|43)","0",,,"0(?:(1[245]|2[135]|[34]1)(\\d{10,11}))?","$2",,,[[,"(\\d{4})(\\d{4})","$1-$2",["[2-9](?:[1-9]|0[1-9])"]
+,"$1","",0]
+,[,"(\\d{5})(\\d{4})","$1-$2",["9(?:[1-9]|0[1-9])"]
+,"$1","",0]
+,[,"(\\d{2})(\\d{5})(\\d{4})","$1 $2-$3",["119"]
 ,"($1)","0 $CC ($1)",0]
 ,[,"(\\d{2})(\\d{4})(\\d{4})","$1 $2-$3",["[1-9][1-9]"]
 ,"($1)","0 $CC ($1)",0]
@@ -9810,7 +9936,16 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,"([3589]00)(\\d{2,3})(\\d{4})","$1 $2 $3",["[3589]00"]
 ,"0$1","",0]
 ]
-,,[,,"NA","NA"]
+,[[,"(\\d{2})(\\d{5})(\\d{4})","$1 $2-$3",["119","119"]
+,"($1)","0 $CC ($1)",0]
+,[,"(\\d{2})(\\d{4})(\\d{4})","$1 $2-$3",["[1-9][1-9]","[1-9][1-9]"]
+,"($1)","0 $CC ($1)",0]
+,[,"([34]00\\d)(\\d{4})","$1-$2",["[34]00","[34]00"]
+,"","",0]
+,[,"([3589]00)(\\d{2,3})(\\d{4})","$1 $2 $3",["[3589]00","[3589]00"]
+,"0$1","",0]
+]
+,[,,"NA","NA"]
 ,,,[,,"[34]00\\d{5}","\\d{8}",,,"40041234"]
 ,[,,"NA","NA"]
 ,,[,,"1(?:12|28|9[023])|911","\\d{3}",,,"190"]
@@ -9851,7 +9986,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"BW":[,[,,"[2-79]\\d{6,7}","\\d{7,8}"]
 ,[,,"(?:2(?:4[0-48]|6[0-24]|9[0578])|3(?:1[0235-9]|55|6\\d|7[01]|9[0-57])|4(?:6[03]|7[1267]|9[0-5])|5(?:3[0389]|4[0489]|7[1-47]|88|9[0-49])|6(?:2[1-35]|5[149]|8[067]))\\d{4}","\\d{7}",,,"2401234"]
-,[,,"7(?:[1-35]\\d{6}|[46][0-7]\\d{5})","\\d{8}",,,"71123456"]
+,[,,"7(?:[1-35]\\d{6}|[46][0-7]\\d{5}|7[01]\\d{5})","\\d{8}",,,"71123456"]
 ,[,,"NA","NA"]
 ,[,,"90\\d{5}","\\d{7}",,,"9012345"]
 ,[,,"NA","NA"]
@@ -9871,7 +10006,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"BY":[,[,,"[1-4]\\d{8}|[89]\\d{9,10}","\\d{7,11}"]
-,[,,"(?:1(?:5(?:1[1-5]|2\\d|6[1-4]|9[1-7])|6(?:[235]\\d|4[1-7])|7\\d{2})|2(?:1(?:[246]\\d|3[0-35-9]|5[1-9])|2(?:[235]\\d|4[0-8])|3(?:2\\d|3[02-79]|4[024-7]|5[0-7])))\\d{5}","\\d{7,9}",,,"152450911"]
+,[,,"(?:1(?:5(?:1[1-5]|2\\d|6[2-4]|9[1-7])|6(?:[235]\\d|4[1-7])|7\\d{2})|2(?:1(?:[246]\\d|3[0-35-9]|5[1-9])|2(?:[235]\\d|4[0-8])|3(?:2\\d|3[02-79]|4[024-7]|5[0-7])))\\d{5}","\\d{7,9}",,,"152450911"]
 ,[,,"(?:2(?:5[5679]|9[1-9])|33\\d|44\\d)\\d{6}","\\d{9}",,,"294911911"]
 ,[,,"8(?:0[13]|20\\d)\\d{7}","\\d{10,11}",,,"8011234567"]
 ,[,,"(?:810|902)\\d{7}","\\d{10}",,,"9021234567"]
@@ -9911,8 +10046,8 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"CA":[,[,,"[2-9]\\d{9}|3\\d{6}","\\d{7}(?:\\d{3})?"]
-,[,,"(?:2(?:04|26|[48]9|50)|3(?:06|43)|4(?:03|1[68]|3[18]|5[06])|5(?:0[06]|1[49]|79|8[17])|6(?:0[04]|13|47)|7(?:0[059]|80|78)|8(?:[06]7|19|73)|90[25])[2-9]\\d{6}|310\\d{4}","\\d{7}(?:\\d{3})?",,,"2042345678"]
-,[,,"(?:2(?:04|26|[48]9|50)|3(?:06|43)|4(?:03|1[68]|3[18]|5[06])|5(?:0[06]|1[49]|79|8[17])|6(?:0[04]|13|47)|7(?:0[059]|80|78)|8(?:[06]7|19|73)|90[25])[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"2042345678"]
+,[,,"(?:2(?:04|[23]6|[48]9|50)|3(?:06|43|65)|4(?:03|1[68]|3[178]|5[06])|5(?:0[06]|1[49]|79|8[17])|6(?:0[04]|13|39|47)|7(?:0[059]|80|78)|8(?:[06]7|19|73)|90[25])[2-9]\\d{6}|310\\d{4}","\\d{7}(?:\\d{3})?",,,"2042345678"]
+,[,,"(?:2(?:04|[23]6|[48]9|50)|3(?:06|43|65)|4(?:03|1[68]|3[178]|5[06])|5(?:0[06]|1[49]|79|8[17])|6(?:0[04]|13|39|47)|7(?:0[059]|80|78)|8(?:[06]7|19|73)|90[25])[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"2042345678"]
 ,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}|310\\d{4}","\\d{7}(?:\\d{3})?",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
@@ -9938,15 +10073,17 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,,[,,"000|112","\\d{3}",,,"112"]
 ,[,,"NA","NA"]
 ]
-,"CD":[,[,,"[1-6]\\d{6}|8\\d{6,8}|9\\d{8}","\\d{7,9}"]
-,[,,"[1-6]\\d{6}","\\d{7}",,,"1234567"]
+,"CD":[,[,,"[2-6]\\d{6}|[18]\\d{6,8}|9\\d{8}","\\d{7,9}"]
+,[,,"1(?:2\\d{7}|\\d{6})|[2-6]\\d{6}","\\d{7,9}",,,"1234567"]
 ,[,,"8(?:[0-259]\\d{2}|[48])\\d{5}|9[7-9]\\d{7}","\\d{7,9}",,,"991234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"CD",243,"00","0",,,"0",,,,[[,"([89]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["8[0-259]|9"]
+,"CD",243,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["12"]
+,"0$1","",0]
+,[,"([89]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["8[0-259]|9"]
 ,"0$1","",0]
 ,[,"(\\d{2})(\\d{2})(\\d{3})","$1 $2 $3",["8[48]"]
 ,"0$1","",0]
@@ -10048,14 +10185,14 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"CL":[,[,,"(?:[2-9]|600|123)\\d{7,8}","\\d{6,11}"]
-,[,,"(?:2|32|41)\\d{7}|(?:3[3-5]|4[235]|5[1-3578]|6[13-57]|7[1-35])\\d{6,7}","\\d{6,9}",,,"21234567"]
+,[,,"(?:[23]2|41|58)\\d{7}|(?:3[3-5]|4[235]|5[1-357]|6[13-57]|7[1-35])\\d{6,7}","\\d{6,9}",,,"221234567"]
 ,[,,"9[5-9]\\d{7}","\\d{8,9}",,,"961234567"]
 ,[,,"800\\d{6}|1230\\d{7}","\\d{9,11}",,,"800123456"]
 ,[,,"NA","NA"]
 ,[,,"600\\d{7,8}","\\d{10,11}",,,"6001234567"]
 ,[,,"NA","NA"]
 ,[,,"44\\d{7}","\\d{9}",,,"441234567"]
-,"CL",56,"(?:0|1(?:1[0-69]|2[0-57]|5[13-58]|69|7[0167]|8[018]))0","0",,,"0|(1(?:1[0-69]|2[0-57]|5[13-58]|69|7[0167]|8[018]))",,,,[[,"(2)(\\d{3})(\\d{4})","$1 $2 $3",["2"]
+,"CL",56,"(?:0|1(?:1[0-69]|2[0-57]|5[13-58]|69|7[0167]|8[018]))0","0",,,"0|(1(?:1[0-69]|2[0-57]|5[13-58]|69|7[0167]|8[018]))",,,,[[,"(2)(\\d{3,4})(\\d{4})","$1 $2 $3",["2"]
 ,"($1)","$CC ($1)",0]
 ,[,"(\\d{2})(\\d{2,3})(\\d{4})","$1 $2 $3",["[357]|4[1-35]|6[13-57]"]
 ,"($1)","$CC ($1)",0]
@@ -10095,17 +10232,19 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,,[,,"1?1[37]","\\d{2,3}",,,"113"]
 ,[,,"NA","NA"]
 ]
-,"CN":[,[,,"[1-79]\\d{7,11}|8[0-357-9]\\d{6,9}","\\d{4,12}"]
-,[,,"21\\d{8,10}|(?:10|2[02-57-9]|3(?:11|7[179])|4(?:[15]1|3[12])|5(?:1\\d|2[37]|3[12]|7[13-79]|9[15])|7(?:31|5[457]|6[09]|91)|898)\\d{8}|(?:3(?:1[02-9]|35|49|5\\d|7[02-68]|9[1-68])|4(?:1[02-9]|2[179]|3[3-9]|5[2-9]|6[4789]|7\\d|8[23])|5(?:3[03-9]|4[36]|5\\d|6[1-6]|7[028]|80|9[2-46-9])|6(?:3[1-5]|6[0238]|9[12])|7(?:01|[17]\\d|2[248]|3[04-9]|4[3-6]|5[0-3689]|6[2368]|9[02-9])|8(?:1[236-8]|2[5-7]|[37]\\d|5[1-9]|8[3678]|9[1-7])|9(?:0[1-3689]|1[1-79]|[379]\\d|4[13]|5[1-5]))\\d{7}|80(?:29|6[03578]|7[018]|81)\\d{4}","\\d{4,12}",,,"1012345678"]
-,[,,"1(?:3\\d|4[57]|5[0-35-9]|8[0235-9])\\d{8}","\\d{11}",,,"13123456789"]
+,"CN":[,[,,"[1-7]\\d{7,11}|8[0-357-9]\\d{6,9}|9(?:5\\d{3}|\\d{9})","\\d{4,12}"]
+,[,,"21\\d{8,10}|(?:10|2[02-57-9]|3(?:11|7[179])|4(?:[15]1|3[12])|5(?:1\\d|2[37]|3[12]|51|7[13-79]|9[15])|7(?:31|5[457]|6[09]|91)|8(?:71|98))\\d{8}|(?:3(?:1[02-9]|35|49|5\\d|7[02-68]|9[1-68])|4(?:1[02-9]|2[179]|3[3-9]|5[2-9]|6[4789]|7\\d|8[23])|5(?:3[03-9]|4[36]|5[02-9]|6[1-46]|7[028]|80|9[2-46-9])|6(?:3[1-5]|6[0238]|9[12])|7(?:01|[17]\\d|2[248]|3[04-9]|4[3-6]|5[0-3689]|6[2368]|9[02-9])|8(?:1[236-8]|2[5-7]|3\\d|5[1-9]|7[02-9]|8[3678]|9[1-7])|9(?:0[1-3689]|1[1-79]|[379]\\d|4[13]|5[1-5]))\\d{7}|80(?:29|6[03578]|7[018]|81)\\d{4}","\\d{4,12}",,,"1012345678"]
+,[,,"1(?:3\\d|4[57]|[58][0-35-9])\\d{8}","\\d{11}",,,"13123456789"]
 ,[,,"(?:10)?800\\d{7}","\\d{10,12}",,,"8001234567"]
 ,[,,"16[08]\\d{5}","\\d{8}",,,"16812345"]
-,[,,"400\\d{7}","\\d{10}",,,"4001234567"]
+,[,,"400\\d{7}|95\\d{3}","\\d{5}(?:\\d{5})?",,,"4001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"CN",86,"(1[1279]\\d{3})?00","0",,,"(1[1279]\\d{3})|0",,"00",,[[,"(80\\d{2})(\\d{4})","$1 $2",["80[2678]"]
 ,"0$1","$CC $1",1]
 ,[,"([48]00)(\\d{3})(\\d{4})","$1 $2 $3",["[48]00"]
+,"","",0]
+,[,"(\\d{5})","$1",["95"]
 ,"","",0]
 ,[,"(\\d{3,4})(\\d{4})","$1 $2",["[2-9]"]
 ,"","",0]
@@ -10113,9 +10252,9 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"0$1","$CC $1",1]
 ,[,"([12]\\d)(\\d{4})(\\d{4})","$1 $2 $3",["10[1-9]|2[02-9]","10[1-9]|2[02-9]","10(?:[1-79]|8(?:[1-9]|0[1-9]))|2[02-9]"]
 ,"0$1","$CC $1",1]
-,[,"(\\d{3})(\\d{4})(\\d{4})","$1 $2 $3",["3(?:11|7[179])|4(?:[15]1|3[12])|5(?:1|2[37]|3[12]|7[13-79]|9[15])|7(?:31|5[457]|6[09]|91)|898"]
+,[,"(\\d{3})(\\d{4})(\\d{4})","$1 $2 $3",["3(?:11|7[179])|4(?:[15]1|3[12])|5(?:1|2[37]|3[12]|51|7[13-79]|9[15])|7(?:31|5[457]|6[09]|91)|8(?:71|98)"]
 ,"0$1","$CC $1",1]
-,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["3(?:1[02-9]|35|49|5|7[02-68]|9[1-68])|4(?:1[02-9]|2[179]|[35][2-9]|6[4789]|7\\d|8[23])|5(?:3[03-9]|4[36]|5|6[1-6]|7[028]|80|9[2-46-9])|6(?:3[1-5]|6[0238]|9[12])|7(?:01|[1579]|2[248]|3[04-9]|4[3-6]|6[2368])|8(?:1[236-8]|2[5-7]|[37]|5[1-9]|8[3678]|9[1-7])|9(?:0[1-3689]|1[1-79]|[379]|4[13]|5[1-5])"]
+,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["3(?:1[02-9]|35|49|5|7[02-68]|9[1-68])|4(?:1[02-9]|2[179]|[35][2-9]|6[4789]|7\\d|8[23])|5(?:3[03-9]|4[36]|5[02-9]|6[1-46]|7[028]|80|9[2-46-9])|6(?:3[1-5]|6[0238]|9[12])|7(?:01|[1579]|2[248]|3[04-9]|4[3-6]|6[2368])|8(?:1[236-8]|2[5-7]|3|5[1-9]|7[02-9]|8[3678]|9[1-7])|9(?:0[1-3689]|1[1-79]|[379]|4[13]|5[1-5])"]
 ,"0$1","$CC $1",1]
 ,[,"(1[3-58]\\d)(\\d{4})(\\d{4})","$1 $2 $3",["1[3-58]"]
 ,"","$CC $1",0]
@@ -10126,13 +10265,15 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"0$1","$CC $1",1]
 ,[,"([48]00)(\\d{3})(\\d{4})","$1 $2 $3",["[48]00","[48]00"]
 ,"","",0]
+,[,"(\\d{5})","$1",["95","95"]
+,"","",0]
 ,[,"(21)(\\d{4})(\\d{4,6})","$1 $2 $3",["21","21"]
 ,"0$1","$CC $1",1]
 ,[,"([12]\\d)(\\d{4})(\\d{4})","$1 $2 $3",["10[1-9]|2[02-9]","10[1-9]|2[02-9]","10(?:[1-79]|8(?:[1-9]|0[1-9]))|2[02-9]","10[1-9]|2[02-9]","10[1-9]|2[02-9]","10(?:[1-79]|8(?:[1-9]|0[1-9]))|2[02-9]"]
 ,"0$1","$CC $1",1]
-,[,"(\\d{3})(\\d{4})(\\d{4})","$1 $2 $3",["3(?:11|7[179])|4(?:[15]1|3[12])|5(?:1|2[37]|3[12]|7[13-79]|9[15])|7(?:31|5[457]|6[09]|91)|898","3(?:11|7[179])|4(?:[15]1|3[12])|5(?:1|2[37]|3[12]|7[13-79]|9[15])|7(?:31|5[457]|6[09]|91)|898"]
+,[,"(\\d{3})(\\d{4})(\\d{4})","$1 $2 $3",["3(?:11|7[179])|4(?:[15]1|3[12])|5(?:1|2[37]|3[12]|51|7[13-79]|9[15])|7(?:31|5[457]|6[09]|91)|8(?:71|98)","3(?:11|7[179])|4(?:[15]1|3[12])|5(?:1|2[37]|3[12]|51|7[13-79]|9[15])|7(?:31|5[457]|6[09]|91)|8(?:71|98)"]
 ,"0$1","$CC $1",1]
-,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["3(?:1[02-9]|35|49|5|7[02-68]|9[1-68])|4(?:1[02-9]|2[179]|[35][2-9]|6[4789]|7\\d|8[23])|5(?:3[03-9]|4[36]|5|6[1-6]|7[028]|80|9[2-46-9])|6(?:3[1-5]|6[0238]|9[12])|7(?:01|[1579]|2[248]|3[04-9]|4[3-6]|6[2368])|8(?:1[236-8]|2[5-7]|[37]|5[1-9]|8[3678]|9[1-7])|9(?:0[1-3689]|1[1-79]|[379]|4[13]|5[1-5])","3(?:1[02-9]|35|49|5|7[02-68]|9[1-68])|4(?:1[02-9]|2[179]|[35][2-9]|6[4789]|7\\d|8[23])|5(?:3[03-9]|4[36]|5|6[1-6]|7[028]|80|9[2-46-9])|6(?:3[1-5]|6[0238]|9[12])|7(?:01|[1579]|2[248]|3[04-9]|4[3-6]|6[2368])|8(?:1[236-8]|2[5-7]|[37]|5[1-9]|8[3678]|9[1-7])|9(?:0[1-3689]|1[1-79]|[379]|4[13]|5[1-5])"]
+,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["3(?:1[02-9]|35|49|5|7[02-68]|9[1-68])|4(?:1[02-9]|2[179]|[35][2-9]|6[4789]|7\\d|8[23])|5(?:3[03-9]|4[36]|5[02-9]|6[1-46]|7[028]|80|9[2-46-9])|6(?:3[1-5]|6[0238]|9[12])|7(?:01|[1579]|2[248]|3[04-9]|4[3-6]|6[2368])|8(?:1[236-8]|2[5-7]|3|5[1-9]|7[02-9]|8[3678]|9[1-7])|9(?:0[1-3689]|1[1-79]|[379]|4[13]|5[1-5])","3(?:1[02-9]|35|49|5|7[02-68]|9[1-68])|4(?:1[02-9]|2[179]|[35][2-9]|6[4789]|7\\d|8[23])|5(?:3[03-9]|4[36]|5[02-9]|6[1-46]|7[028]|80|9[2-46-9])|6(?:3[1-5]|6[0238]|9[12])|7(?:01|[1579]|2[248]|3[04-9]|4[3-6]|6[2368])|8(?:1[236-8]|2[5-7]|3|5[1-9]|7[02-9]|8[3678]|9[1-7])|9(?:0[1-3689]|1[1-79]|[379]|4[13]|5[1-5])"]
 ,"0$1","$CC $1",1]
 ,[,"(1[3-58]\\d)(\\d{4})(\\d{4})","$1 $2 $3",["1[3-58]","1[3-58]"]
 ,"","$CC $1",0]
@@ -10140,14 +10281,14 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"","",0]
 ]
 ,[,,"NA","NA"]
-,,,[,,"(?:4|(?:10)?8)00\\d{7}","\\d{10,12}",,,"4001234567"]
+,,,[,,"(?:4|(?:10)?8)00\\d{7}|95\\d{3}","\\d{5,12}",,,"4001234567"]
 ,[,,"NA","NA"]
 ,,[,,"1(?:1[09]|20)","\\d{3}",,,"119"]
 ,[,,"NA","NA"]
 ]
 ,"CO":[,[,,"(?:[13]\\d{0,3}|[24-8])\\d{7}","\\d{7,11}"]
 ,[,,"[124-8][2-9]\\d{6}","\\d{8}",,,"12345678"]
-,[,,"3(?:0[0-24]|1[0-8]|2[01])\\d{7}","\\d{10}",,,"3211234567"]
+,[,,"3(?:0[0-24]|1\\d|2[01])\\d{7}","\\d{10}",,,"3211234567"]
 ,[,,"1800\\d{7}","\\d{11}",,,"18001234567"]
 ,[,,"19(?:0[01]|4[78])\\d{7}","\\d{11}",,,"19001234567"]
 ,[,,"NA","NA"]
@@ -10175,12 +10316,12 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"CR":[,[,,"[24-9]\\d{7,9}","\\d{8,10}"]
 ,[,,"2[24-7]\\d{6}","\\d{8}",,,"22123456"]
-,[,,"5(?:0[0-4]|7[01])\\d{5}|[67][01]\\d{6}|8[3-9]\\d{6}","\\d{8}",,,"83123456"]
+,[,,"5(?:0[0-4]|7[01])\\d{5}|[67][0-2]\\d{6}|8[3-9]\\d{6}","\\d{8}",,,"83123456"]
 ,[,,"800\\d{7}","\\d{10}",,,"8001234567"]
 ,[,,"90[059]\\d{7}","\\d{10}",,,"9001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"210[0-6]\\d{4}|4(?:0(?:[04]0\\d{4}|10[0-3]\\d{3}|2(?:00\\d|900)\\d{2}|3[01]\\d{4}|5\\d{5}|70[01]\\d{3})|1[01]\\d{5}|400\\d{4})|5100\\d{4}","\\d{8}",,,"40001234"]
+,[,,"210[0-6]\\d{4}|4(?:0(?:[04]0\\d{4}|10[0-3]\\d{3}|2(?:00\\d|900)\\d{2}|3[01]\\d{4}|5\\d{5}|70[01]\\d{3})|1[01]\\d{5}|400\\d{4}|70[0-2]\\d{4})|5100\\d{4}","\\d{8}",,,"40001234"]
 ,"CR",506,"00",,,,"(19(?:0[0-2468]|19|66|77))",,,,[[,"(\\d{4})(\\d{4})","$1 $2",["[24-7]|8[3-9]"]
 ,"","$CC $1",0]
 ,[,"(\\d{3})(\\d{3})(\\d{4})","$1-$2-$3",["[89]0"]
@@ -10295,11 +10436,11 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"9(?:5[056]|7[234])\\d{6}","\\d{9,12}",,,"972123456"]
+,[,,"9(?:5\\d|7[234])\\d{6}","\\d{9,12}",,,"972123456"]
 ,,[,,"1(?:12|5[058])","\\d{3}",,,"112"]
 ,[,,"9(?:3\\d{9}|6\\d{7,10})","\\d{9,12}",,,"93123456789"]
 ]
-,"DE":[,[,,"[1-35-9]\\d{3,14}|4(?:[0-8]\\d{4,12}|9(?:[0-37]\\d|4[1-8]|5\\d{1,2}|6[1-8]\\d?)\\d{2,7})","\\d{2,15}"]
+,"DE":[,[,,"[1-35-9]\\d{3,14}|4(?:[0-8]\\d{4,12}|9(?:[0-37]\\d|4(?:[1-35-8]|4\\d?)|5\\d{1,2}|6[1-8]\\d?)\\d{2,7})","\\d{2,15}"]
 ,[,,"[246]\\d{5,13}|3(?:[03-9]\\d{4,13}|2\\d{9})|5(?:0[2-8]|[1256]\\d|[38][0-8]|4\\d{0,2}|[79][0-7])\\d{3,11}|7(?:0[2-8]|[1-9]\\d)\\d{3,10}|8(?:0[2-9]|[1-9]\\d)\\d{3,10}|9(?:0[6-9]|[1-9]\\d)\\d{3,10}","\\d{2,15}",,,"30123456"]
 ,[,,"1(?:5[0-2579]\\d{8}|6[023]\\d{7,8}|7(?:[0-57-9]\\d?|6\\d)\\d{7})","\\d{10,11}",,,"15123456789"]
 ,[,,"800\\d{7,10}","\\d{10,13}",,,"8001234567890"]
@@ -10307,13 +10448,13 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"180\\d{5,11}","\\d{8,14}",,,"18012345"]
 ,[,,"700\\d{8}","\\d{11}",,,"70012345678"]
 ,[,,"NA","NA"]
-,"DE",49,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{4,11})","$1/$2",["3[02]|40|[68]9"]
+,"DE",49,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{4,11})","$1 $2",["3[02]|40|[68]9"]
 ,"0$1","",0]
-,[,"(\\d{3})(\\d{3,11})","$1/$2",["2(?:\\d1|0[2389]|1[24]|28|34)|3(?:[3-9][15]|40)|[4-8][1-9]1|9(?:06|[1-9]1)"]
+,[,"(\\d{3})(\\d{3,11})","$1 $2",["2(?:\\d1|0[2389]|1[24]|28|34)|3(?:[3-9][15]|40)|[4-8][1-9]1|9(?:06|[1-9]1)"]
 ,"0$1","",0]
-,[,"(\\d{4})(\\d{2,11})","$1/$2",["[24-6]|[7-9](?:\\d[1-9]|[1-9]\\d)|3(?:[3569][02-46-9]|4[2-4679]|7[2-467]|8[2-46-8])","[24-6]|[7-9](?:\\d[1-9]|[1-9]\\d)|3(?:3(?:0[1-467]|2[127-9]|3[124578]|[46][1246]|7[1257-9]|8[1256]|9[145])|4(?:2[135]|3[1357]|4[13578]|6[1246]|7[1356]|9[1346])|5(?:0[14]|2[1-3589]|3[1357]|4[1246]|6[1-4]|7[1346]|8[13568]|9[1246])|6(?:0[356]|2[1-489]|3[124-6]|4[1347]|6[13]|7[12579]|8[1-356]|9[135])|7(?:2[1-7]|3[1357]|4[145]|6[1-5]|7[1-4])|8(?:21|3[1468]|4[1347]|6[0135-9]|7[1467]|8[136])|9(?:0[12479]|2[1358]|3[1357]|4[134679]|6[1-9]|7[136]|8[147]|9[1468]))"]
+,[,"(\\d{4})(\\d{2,11})","$1 $2",["[24-6]|[7-9](?:\\d[1-9]|[1-9]\\d)|3(?:[3569][02-46-9]|4[2-4679]|7[2-467]|8[2-46-8])","[24-6]|[7-9](?:\\d[1-9]|[1-9]\\d)|3(?:3(?:0[1-467]|2[127-9]|3[124578]|[46][1246]|7[1257-9]|8[1256]|9[145])|4(?:2[135]|3[1357]|4[13578]|6[1246]|7[1356]|9[1346])|5(?:0[14]|2[1-3589]|3[1357]|4[1246]|6[1-4]|7[1346]|8[13568]|9[1246])|6(?:0[356]|2[1-489]|3[124-6]|4[1347]|6[13]|7[12579]|8[1-356]|9[135])|7(?:2[1-7]|3[1357]|4[145]|6[1-5]|7[1-4])|8(?:21|3[1468]|4[1347]|6[0135-9]|7[1467]|8[136])|9(?:0[12479]|2[1358]|3[1357]|4[134679]|6[1-9]|7[136]|8[147]|9[1468]))"]
 ,"0$1","",0]
-,[,"(\\d{5})(\\d{1,10})","$1/$2",["3"]
+,[,"(\\d{5})(\\d{1,10})","$1 $2",["3"]
 ,"0$1","",0]
 ,[,"(1\\d{2})(\\d{7,8})","$1 $2",["1[5-7]"]
 ,"0$1","",0]
@@ -10357,8 +10498,8 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"DK":[,[,,"[2-9]\\d{7}","\\d{8}"]
-,[,,"(?:[2-7]\\d|8[126-9]|9[16-9])\\d{6}","\\d{8}",,,"32123456"]
-,[,,"(?:[2-7]\\d|8[126-9]|9[16-9])\\d{6}","\\d{8}",,,"20123456"]
+,[,,"(?:[2-7]\\d|8[126-9]|9[126-9])\\d{6}","\\d{8}",,,"32123456"]
+,[,,"(?:[2-7]\\d|8[126-9]|9[126-9])\\d{6}","\\d{8}",,,"20123456"]
 ,[,,"80\\d{6}","\\d{8}",,,"80123456"]
 ,[,,"90\\d{6}","\\d{8}",,,"90123456"]
 ,[,,"NA","NA"]
@@ -10423,7 +10564,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"EC":[,[,,"1\\d{9,10}|[2-8]\\d{7}|9\\d{8}","\\d{7,11}"]
 ,[,,"[2-7][2-7]\\d{6}","\\d{7,8}",,,"22123456"]
-,[,,"9(?:[2-7]9|[89]\\d)\\d{6}","\\d{9}",,,"991234567"]
+,[,,"9(?:39|[4-6][89]|7[7-9]|[89]\\d)\\d{6}","\\d{9}",,,"991234567"]
 ,[,,"1800\\d{6,7}","\\d{10,11}",,,"18001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -10491,6 +10632,20 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,,[,,"1(?:2[23]|80)","\\d{3}",,,"122"]
+,[,,"NA","NA"]
+]
+,"EH":[,[,,"[5689]\\d{8}","\\d{9}"]
+,[,,"528[89]\\d{5}","\\d{9}",,,"528812345"]
+,[,,"6(?:0[0-6]|[14-7]\\d|2[2-46-9]|3[03-8]|8[01]|99)\\d{6}","\\d{9}",,,"650123456"]
+,[,,"80\\d{7}","\\d{9}",,,"801234567"]
+,[,,"89\\d{7}","\\d{9}",,,"891234567"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"EH",212,"00","0",,,"0",,,,,,[,,"NA","NA"]
+,,"528[89]",[,,"NA","NA"]
+,[,,"NA","NA"]
+,,[,,"1(?:[59]|77)","\\d{2,3}",,,"15"]
 ,[,,"NA","NA"]
 ]
 ,"ER":[,[,,"[178]\\d{6}","\\d{6,7}"]
@@ -10662,14 +10817,14 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1730|18|13\\d{2}","\\d{2,4}",,,"1730"]
+,1,[,,"1730|18|13\\d{2}","\\d{2,4}",,,"1730"]
 ,[,,"NA","NA"]
 ]
 ,"GB":[,[,,"\\d{7,10}","\\d{4,10}"]
 ,[,,"2(?:0[01378]|3[0189]|4[017]|8[0-46-9]|9[012])\\d{7}|1(?:(?:1(?:3[0-48]|[46][0-4]|5[012789]|7[0-49]|8[01349])|21[0-7]|31[0-8]|[459]1\\d|61[0-46-9]))\\d{6}|1(?:2(?:0[024-9]|2[3-9]|3[3-79]|4[1-689]|[58][02-9]|6[0-4789]|7[013-9]|9\\d)|3(?:0\\d|[25][02-9]|3[02-579]|[468][0-46-9]|7[1235679]|9[24578])|4(?:0[03-9]|[28][02-5789]|[37]\\d|4[02-69]|5[0-8]|[69][0-79])|5(?:0[1235-9]|2[024-9]|3[015689]|4[02-9]|5[03-9]|6\\d|7[0-35-9]|8[0-468]|9[0-5789])|6(?:0[034689]|2[0-35689]|[38][013-9]|4[1-467]|5[0-69]|6[13-9]|7[0-8]|9[0124578])|7(?:0[0246-9]|2\\d|3[023678]|4[03-9]|5[0-46-9]|6[013-9]|7[0-35-9]|8[024-9]|9[02-9])|8(?:0[35-9]|2[1-5789]|3[02-578]|4[0-578]|5[124-9]|6[2-69]|7\\d|8[02-9]|9[02569])|9(?:0[02-589]|2[02-689]|3[1-5789]|4[2-9]|5[0-579]|6[234789]|7[0124578]|8\\d|9[2-57]))\\d{6}|1(?:2(?:0(?:46[1-4]|87[2-9])|545[1-79]|76(?:2\\d|3[1-8]|6[1-6])|9(?:7(?:2[0-4]|3[2-5])|8(?:2[2-8]|7[0-4789]|8[345])))|3(?:638[2-5]|647[23]|8(?:47[04-9]|64[015789]))|4(?:044[1-7]|20(?:2[23]|8\\d)|6(?:0(?:30|5[2-57]|6[1-8]|7[2-8])|140)|8(?:052|87[123]))|5(?:24(?:3[2-79]|6\\d)|276\\d|6(?:26[06-9]|686))|6(?:06(?:4\\d|7[4-79])|295[567]|35[34]\\d|47(?:24|61)|59(?:5[08]|6[67]|74)|955[0-4])|7(?:26(?:6[13-9]|7[0-7])|442\\d|50(?:2[0-3]|[3-68]2|76))|8(?:27[56]\\d|37(?:5[2-5]|8[239])|84(?:3[2-58]))|9(?:0(?:0(?:6[1-8]|85)|52\\d)|3583|4(?:66[1-8]|9(?:2[01]|81))|63(?:23|3[1-4])|9561))\\d{3}|176888[234678]\\d{2}|16977[23]\\d{3}","\\d{4,10}",,,"1212345678"]
 ,[,,"7(?:[1-4]\\d\\d|5(?:0[0-8]|[13-9]\\d|2[0-35-9])|7(?:0[1-9]|[1-7]\\d|8[02-9]|9[0-689])|8(?:[014-9]\\d|[23][0-8])|9(?:[04-9]\\d|1[02-9]|2[0-35-9]|3[0-689]))\\d{6}","\\d{10}",,,"7400123456"]
 ,[,,"80(?:0(?:1111|\\d{6,7})|8\\d{7})|500\\d{6}","\\d{7}(?:\\d{2,3})?",,,"8001234567"]
-,[,,"(?:87[123]|9(?:[01]\\d|8[0-3]))\\d{7}","\\d{10}",,,"9012345678"]
+,[,,"(?:87[123]|9(?:[01]\\d|8[2349]))\\d{7}","\\d{10}",,,"9012345678"]
 ,[,,"8(?:4(?:5464\\d|[2-5]\\d{7})|70\\d{7})","\\d{7}(?:\\d{3})?",,,"8431234567"]
 ,[,,"70\\d{8}","\\d{10}",,,"7012345678"]
 ,[,,"56\\d{8}","\\d{10}",,,"5612345678"]
@@ -10830,7 +10985,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"GN":[,[,,"[23567]\\d{7,8}","\\d{8,9}"]
 ,[,,"30(?:24|3[12]|4[1-35-7]|5[13]|6[189]|[78]1|9[1478])\\d{4}","\\d{8}",,,"30241234"]
-,[,,"(?:24|55)\\d{6}|6(?:0(?:2[0-35-9]|3[3467]|5[2457-9])|2\\d{2,3}|[4-9]\\d{2}|3(?:[14]0|35))\\d{4}","\\d{8,9}",,,"60201234"]
+,[,,"(?:24|55)\\d{6}|6(?:0(?:2[0-35-9]|3[3467]|5[2457-9])|1[0-5]\\d|2\\d{2}|[4-9]\\d{2}|3(?:[14]0|35))\\d{4}|6(?:[03]1|2[128]|5[57]|6[2469])\\d{6}","\\d{8,9}",,,"60201234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -10838,7 +10993,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"78\\d{6}","\\d{8}",,,"78123456"]
 ,"GN",224,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[23567]"]
 ,"","",0]
-,[,"(\\d{3})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["62"]
+,[,"(\\d{3})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["6[02356]"]
 ,"","",0]
 ]
 ,,[,,"NA","NA"]
@@ -10883,7 +11038,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"GR":[,[,,"[26-9]\\d{9}","\\d{10}"]
-,[,,"2(?:1\\d{2}|2(?:3[1-8]|4[1-7]|5[1-4]|6[1-8]|7[1-5]|[289][1-9])|3(?:1\\d|2[1-5]|3[1-4]|[45][1-3]|7[1-7]|8[1-6]|9[1-79])|4(?:1\\d|2[1-8]|3[1-4]|4[13-5]|6[1-578]|9[1-5])|5(?:1\\d|2[1-3]|4[124]|5[1-6]|[39][1-4])|6(?:1\\d|3[124]|4[1-7]|5[13-9]|[269][1-6]|7[14]|8[1-5])|7(?:1\\d|2[1-5]|3[1-6]|4[1-7]|5[1-57]|6[134]|9[15-7])|8(?:1\\d|2[1-5]|[34][1-4]|9[1-7]))\\d{6}","\\d{10}",,,"2123456789"]
+,[,,"2(?:1\\d{2}|2(?:3[1-8]|4[1-7]|5[1-4]|6[1-8]|7[1-5]|[289][1-9])|3(?:1\\d|2[1-57]|3[1-4]|[45][1-3]|7[1-7]|8[1-6]|9[1-79])|4(?:1\\d|2[1-8]|3[1-4]|4[13-5]|6[1-578]|9[1-5])|5(?:1\\d|[239][1-4]|4[124]|5[1-6])|6(?:1\\d|3[124]|4[1-7]|5[13-9]|[269][1-6]|7[14]|8[1-5])|7(?:1\\d|2[1-5]|3[1-6]|4[1-7]|5[1-57]|6[134]|9[15-7])|8(?:1\\d|2[1-5]|[34][1-4]|9[1-7]))\\d{6}","\\d{10}",,,"2123456789"]
 ,[,,"69\\d{8}","\\d{10}",,,"6912345678"]
 ,[,,"800\\d{7}","\\d{10}",,,"8001234567"]
 ,[,,"90[19]\\d{7}","\\d{10}",,,"9091234567"]
@@ -11008,16 +11163,18 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"HR":[,[,,"[1-7]\\d{5,8}|[89]\\d{6,11}","\\d{6,12}"]
-,[,,"(?:1|6[029])\\d{7}|(?:2[0-3]|3[1-5]|4[02-47-9]|5[1-3])\\d{6}","\\d{6,9}",,,"12345678"]
+,[,,"1\\d{7}|(?:2[0-3]|3[1-5]|4[02-47-9]|5[1-3])\\d{6}","\\d{6,8}",,,"12345678"]
 ,[,,"9[1257-9]\\d{6,10}","\\d{8,12}",,,"912345678"]
 ,[,,"80[01]\\d{4,7}","\\d{7,10}",,,"8001234567"]
-,[,,"6[145]\\d{4,7}","\\d{6,9}",,,"611234"]
+,[,,"6(?:[09]\\d{7}|[145]\\d{4,7})","\\d{6,9}",,,"611234"]
 ,[,,"NA","NA"]
 ,[,,"7[45]\\d{4,7}","\\d{6,9}",,,"741234567"]
 ,[,,"NA","NA"]
 ,"HR",385,"00","0",,,"0",,,,[[,"(1)(\\d{4})(\\d{3})","$1 $2 $3",["1"]
 ,"0$1","",0]
-,[,"(6[029])(\\d{4})(\\d{3})","$1 $2 $3",["6[029]"]
+,[,"(6[09])(\\d{4})(\\d{3})","$1 $2 $3",["6[09]"]
+,"0$1","",0]
+,[,"(62)(\\d{3})(\\d{3,4})","$1 $2 $3",["62"]
 ,"0$1","",0]
 ,[,"([2-5]\\d)(\\d{3})(\\d{3})","$1 $2 $3",["[2-5]"]
 ,"0$1","",0]
@@ -11038,7 +11195,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
+,[,,"62\\d{6,7}","\\d{8,9}",,,"62123456"]
 ,,[,,"1(?:12|92)|9[34]","\\d{2,3}",,,"112"]
 ,[,,"NA","NA"]
 ]
@@ -11105,16 +11262,16 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"IE":[,[,,"[124-9]\\d{6,9}","\\d{5,10}"]
-,[,,"1\\d{7,8}|2(?:1\\d{6,7}|[24-9]\\d{5}|3\\d{5,7})|4(?:0[24]\\d{5}|[1269]\\d{7}|[34]\\d{5,7}|5\\d{6}|7\\d{5}|8[0-46-9]\\d{7})|5(?:0[45]\\d{5}|1\\d{6}|2\\d{5,7}|[3679]\\d{7}|8\\d{5})|6(?:1\\d{6}|4\\d{5,7}|[237-9]\\d{5}|[56]\\d{7})|7[14]\\d{7}|9(?:1\\d{6}|[04]\\d{7}|[3-9]\\d{5})","\\d{5,10}",,,"2212345"]
-,[,,"8(?:22\\d{6}|[35-9]\\d{7,8})","\\d{9,10}",,,"850123456"]
+,[,,"1\\d{7,8}|2(?:1\\d{6,7}|3\\d{7}|[24-9]\\d{5})|4(?:0[24]\\d{5}|[1-469]\\d{7}|5\\d{6}|7\\d{5}|8[0-46-9]\\d{7})|5(?:0[45]\\d{5}|1\\d{6}|[23679]\\d{7}|8\\d{5})|6(?:1\\d{6}|[237-9]\\d{5}|[4-6]\\d{7})|7[14]\\d{7}|9(?:1\\d{6}|[04]\\d{7}|[35-9]\\d{5})","\\d{5,10}",,,"2212345"]
+,[,,"8(?:22\\d{6}|[35-9]\\d{7})","\\d{9}",,,"850123456"]
 ,[,,"1800\\d{6}","\\d{10}",,,"1800123456"]
-,[,,"15(?:1[2-9]|[2-8]0|59|9[089])\\d{6}","\\d{10}",,,"1520123456"]
+,[,,"15(?:1[2-8]|[2-8]0|9[089])\\d{6}","\\d{10}",,,"1520123456"]
 ,[,,"18[59]0\\d{6}","\\d{10}",,,"1850123456"]
 ,[,,"700\\d{6}","\\d{9}",,,"700123456"]
 ,[,,"76\\d{7}","\\d{9}",,,"761234567"]
 ,"IE",353,"00","0",,,"0",,,,[[,"(1)(\\d{3,4})(\\d{4})","$1 $2 $3",["1"]
 ,"(0$1)","",0]
-,[,"(\\d{2})(\\d{5})","$1 $2",["2[2-9]|4[347]|5[2-58]|6[2-47-9]|9[3-9]"]
+,[,"(\\d{2})(\\d{5})","$1 $2",["2[24-9]|47|58|6[237-9]|9[35-9]"]
 ,"(0$1)","",0]
 ,[,"(\\d{3})(\\d{5})","$1 $2",["40[24]|50[45]"]
 ,"(0$1)","",0]
@@ -11135,7 +11292,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,,,[,,"18[59]0\\d{6}","\\d{10}",,,"1850123456"]
 ,[,,"818\\d{6}","\\d{9}",,,"818123456"]
 ,,[,,"112|999","\\d{3}",,,"112"]
-,[,,"NA","NA"]
+,[,,"8[35-9]\\d{8}","\\d{10}",,,"8501234567"]
 ]
 ,"IL":[,[,,"[17]\\d{6,9}|[2-589]\\d{3}(?:\\d{3,6})?|6\\d{3}","\\d{4,10}"]
 ,[,,"[2-489]\\d{7}","\\d{7,8}",,,"21234567"]
@@ -11184,13 +11341,13 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"IN":[,[,,"1\\d{7,12}|[2-9]\\d{9,10}","\\d{6,13}"]
 ,[,,"(?:11|2[02]|33|4[04]|79)[2-7]\\d{7}|80[2-467]\\d{7}|(?:1(?:2[0-249]|3[0-25]|4[145]|[59][14]|6[014]|7[1257]|8[01346])|2(?:1[257]|3[013]|4[01]|5[0137]|6[0158]|78|8[1568]|9[14])|3(?:26|4[1-3]|5[34]|6[01489]|7[02-46]|8[159])|4(?:1[36]|2[1-47]|3[15]|5[12]|6[126-9]|7[0-24-9]|8[013-57]|9[014-7])|5(?:[136][25]|22|4[28]|5[12]|[78]1|9[15])|6(?:12|[2345]1|57|6[13]|7[14]|80)|7(?:12|2[14]|3[134]|4[47]|5[15]|[67]1|88)|8(?:16|2[014]|3[126]|6[136]|7[078]|8[34]|91))[2-7]\\d{6}|(?:(?:1(?:2[35-8]|3[346-9]|4[236-9]|[59][0235-9]|6[235-9]|7[34689]|8[257-9])|2(?:1[134689]|3[24-8]|4[2-8]|5[25689]|6[2-4679]|7[13-79]|8[2-479]|9[235-9])|3(?:01|1[79]|2[1-5]|4[25-8]|5[125689]|6[235-7]|7[157-9]|8[2-467])|4(?:1[14578]|2[5689]|3[2-467]|5[4-7]|6[35]|73|8[2689]|9[2389])|5(?:[16][146-9]|2[14-8]|3[1346]|4[14-69]|5[46]|7[2-4]|8[2-8]|9[246])|6(?:1[1358]|2[2457]|3[2-4]|4[235-7]|[57][2-689]|6[24-58]|8[1-6])|8(?:1[1357-9]|2[235-8]|3[03-57-9]|4[0-24-9]|5\\d|6[2457-9]|7[1-6]|8[1256]|9[2-4]))\\d|7(?:(?:1[013-9]|2[0235-9]|3[2679]|4[1-35689]|5[2-46-9]|[67][02-9]|9\\d)\\d|8(?:2[0-6]|[013-8]\\d)))[2-7]\\d{5}","\\d{6,10}",,,"1123456789"]
-,[,,"(?:7(?:2(?:0[04-9]|5[09]|7[5-8]|9[389])|3(?:0[1-9]|[58]\\d|7[3679]|9[689])|4(?:0[1-9]|1[15-9]|[29][89]|39|8[389])|5(?:0\\d|[47]9|[25]0|6[6-9]|[89][7-9])|6(?:0[027]|12|20|3[19]|5[45]|6[5-9]|7[679]|9[6-9])|7(?:0[27-9]|[39][5-9]|42|60)|8(?:[03][07-9]|14|2[7-9]|4[25]|6[09]|7\\d|9[013-9]))|8(?:0(?:[01589]\\d|66)|1(?:[024]\\d|1[56]|30|7[19]|97)|2(?:[236-9]\\d|52)|3(?:[037-9]\\d|4[1-9]|5[0-37-9])|[45]\\d{2}|6[02457-9]\\d|7[1-69]\\d|8(?:[0-26-9]\\d|44|5[2-9])|9(?:[035-9]\\d|2[2-9]|4[0-8]))|9\\d{3})\\d{6}","\\d{10}",,,"9123456789"]
+,[,,"(?:7(?:2(?:0[04-9]|5[09]|7[5-8]|9[389])|3(?:0[1-9]|[58]\\d|7[3679]|9[689])|4(?:0[1-9]|1[15-9]|[29][89]|39|8[389])|5(?:0\\d|[47]9|[25]0|6[6-9]|[89][7-9])|6(?:0[027]|12|20|3[19]|5[45]|6[5-9]|7[679]|9[6-9])|7(?:0[27-9]|3[5-9]|42|6[03-9]|[79]\\d|8[1-9])|8(?:[0-7]\\d|9[013-9]))|8(?:0(?:[01589]\\d|6[67])|1(?:[02-589]\\d|1[0135-9]|7[0-79])|2(?:[236-9]\\d|5[1-9])|3(?:[037-9]\\d|4[1-9]|5[0-37-9])|[45]\\d{2}|6[02457-9]\\d|7[1-69]\\d|8(?:[0-26-9]\\d|44|5[2-9])|9(?:[035-9]\\d|2[2-9]|4[0-8]))|9\\d{3})\\d{6}","\\d{10}",,,"9123456789"]
 ,[,,"1(?:600\\d{6}|80(?:0\\d{4,8}|3\\d{9}))","\\d{8,13}",,,"1800123456"]
 ,[,,"186[12]\\d{9}","\\d{13}",,,"1861123456789"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"IN",91,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{2})(\\d{6})","$1 $2 $3",["7(?:2[0579]|3[057-9]|4[0-389]|5[024-9]|6[0-35-9]|7[03469]|8[0-4679])|8(?:0[01589]|1[0-479]|2[236-9]|3[0-57-9]|[45]|6[0245789]|7[1-69]|8[0124-9]|9[02-9])|9","7(?:2(?:0[04-9]|5[09]|7[5-8]|9[389])|3(?:0[1-9]|[58]|7[3679]|9[689])|4(?:0[1-9]|1[15-9]|[29][89]|39|8[389])|5(?:0|[47]9|[25]0|6[6-9]|[89][7-9])|6(?:0[027]|12|20|3[19]|5[45]|6[5-9]|7[679]|9[6-9])|7(?:0[27-9]|3[5-9]|42|60|9[5-9])|8(?:[03][07-9]|14|2[7-9]|4[25]|6[09]|7|9[013-9]))|8(?:0[01589]|1(?:[024]|1[56]|30|7[19]|97)|2[236-9]|3(?:[037-9]|4[1-9]|5[0-37-9])|[45]|6[02457-9]|7[1-69]|8(?:[0-26-9]|44|5[2-9])|9(?:[035-9]|2[2-9]|4[0-8]))|9"]
+,"IN",91,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{2})(\\d{6})","$1 $2 $3",["7(?:2[0579]|3[057-9]|4[0-389]|5[024-9]|6[0-35-9]|7[0346-9]|8[0-79])|8(?:0[015689]|1[0-57-9]|2[2356-9]|3[0-57-9]|[45]|6[0245789]|7[1-69]|8[0124-9]|9[02-9])|9","7(?:2(?:0[04-9]|5[09]|7[5-8]|9[389])|3(?:0[1-9]|[58]|7[3679]|9[689])|4(?:0[1-9]|1[15-9]|[29][89]|39|8[389])|5(?:0|[47]9|[25]0|6[6-9]|[89][7-9])|6(?:0[027]|12|20|3[19]|5[45]|6[5-9]|7[679]|9[6-9])|7(?:0[27-9]|3[5-9]|42|60|7[7-9]|8[1-9]|9[05-9])|8(?:[03][07-9]|14|2[7-9]|[4-7]|9[013-9]))|8(?:0(?:[01589]|6[67])|1(?:[02-589]|1[0135-9]|7[0-79])|2(?:[236-9]|5[1-9])|3(?:[037-9]|4[1-9]|5[0-37-9])|[45]|6[02457-9]|7[1-69]|8(?:[0-26-9]|44|5[2-9])|9(?:[035-9]|2[2-9]|4[0-8]))|9"]
 ,"0$1","",1]
 ,[,"(\\d{2})(\\d{4})(\\d{4})","$1 $2 $3",["11|2[02]|33|4[04]|79|80[2-46]"]
 ,"0$1","",1]
@@ -11254,32 +11411,32 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ]
-,"IR":[,[,,"[2-6]\\d{4,9}|9(?:[1-4]\\d{8}|9\\d{2,8})|[178]\\d{9}","\\d{4,10}"]
-,[,,"2(?:1[2-9]\\d{2,7}|51\\d{3,7})|(?:241|3(?:11|51)|441|5[14]1)\\d{4,7}|(?:3(?:34|41)|6(?:11|52))\\d{6,7}|(?:1(?:[134589][12]|[27][1-4])|2(?:2[189]|[389][12]|42|5[256]|6[1-59]|7[34])|3(?:12|2[1-4]|3[125]|4[24-9]|5[23]|[6-9][12])|4(?:[135-9][12]|2[1-467]|4[2-4])|5(?:12|2[89]|3[1-5]|4[2-8]|[5-7][12]|8[1245])|6(?:12|[347-9][12]|51|6[1-6])|7(?:[13589][12]|2[1289]|4[1-4]|6[1-6]|7[1-3])|8(?:[145][12]|3[124578]|6[1256]|7[1245]))\\d{7}","\\d{5,10}",,,"2123456789"]
-,[,,"9(?:1(?:[039]\\d|[16][1-35-9]|2[1-8]|4[013-9]|[57][1-9]|8[13-9])|2[01]\\d|3(?:[035-9]\\d|13|2[1-579]|47))\\d{6}","\\d{10}",,,"9123456789"]
+,"IR":[,[,,"[14-8]\\d{6,9}|[23]\\d{5,9}|9(?:[1-4]\\d{8}|9\\d{2,8})","\\d{4,10}"]
+,[,,"(?:[145](?:1[1-9]|[2-9]\\d)\\d{0,3}|[23][1-9]\\d{0,4}|6[1-9]\\d{1,4}|[78]\\d{2,5})\\d{4}","\\d{6,10}",,,"2123456789"]
+,[,,"9[1-3]\\d{8}","\\d{10}",,,"9123456789"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"993[12]\\d{6}","\\d{10}",,,"9932123456"]
+,[,,"(?:[2-6]0\\d|993)\\d{7}","\\d{10}",,,"9932123456"]
 ,"IR",98,"00","0",,,"0",,,,[[,"(21)(\\d{3,5})","$1 $2",["21"]
 ,"0$1","",0]
 ,[,"(21)(\\d{3})(\\d{3,4})","$1 $2 $3",["21"]
 ,"0$1","",0]
-,[,"(21)(\\d{4})(\\d{4})","$1 $2 $3",["21"]
+,[,"(2[16])(\\d{4})(\\d{4})","$1 $2 $3",["2[16]"]
 ,"0$1","",0]
 ,[,"(\\d{3})(\\d{3})(\\d{3,4})","$1 $2 $3",["[13-9]|2[02-9]"]
 ,"0$1","",0]
 ]
-,,[,,"943[24678]\\d{6}","\\d{10}",,,"9432123456"]
+,,[,,"943\\d{7}","\\d{10}",,,"9432123456"]
 ,,,[,,"NA","NA"]
 ,[,,"9990\\d{0,6}","\\d{4,10}",,,"9990123456"]
 ,,[,,"1(?:1[025]|25)","\\d{3}",,,"112"]
 ,[,,"NA","NA"]
 ]
 ,"IS":[,[,,"[4-9]\\d{6}|38\\d{7}","\\d{7,9}"]
-,[,,"(?:4(?:1[0-245]|2[0-7]|[37][0-8]|4[0245]|5[0-3568]|6\\d|8[0-36-8])|5(?:05|[156]\\d|2[02578]|3[013-7]|4[03-7]|7[0-2578]|8[0-25-9]|9[013-689])|87[23])\\d{4}","\\d{7}",,,"4101234"]
-,[,,"38[59]\\d{6}|(?:6(?:1[0-8]|3[0-27-9]|4[0-27]|5[0-29]|[67][0-69]|9\\d)|7(?:5[057]|7\\d)|8(?:2[0-5]|[469]\\d|5[1-9]))\\d{4}","\\d{7,9}",,,"6101234"]
+,[,,"(?:4(?:[14][0-245]|2[0-7]|[37][0-8]|5[0-3568]|6\\d|8[0-36-8])|5(?:05|[156]\\d|2[02578]|3[013-7]|4[03-7]|7[0-2578]|8[0-35-9]|9[013-689])|87[23])\\d{4}","\\d{7}",,,"4101234"]
+,[,,"38[59]\\d{6}|(?:6(?:1[0-8]|3[0-27-9]|4[0-27]|5[0-29]|[67][0-69]|9\\d)|7(?:5[057]|7\\d|8[0-3])|8(?:2[0-5]|[469]\\d|5[1-9]))\\d{4}","\\d{7,9}",,,"6101234"]
 ,[,,"800\\d{4}","\\d{7}",,,"8001234"]
 ,[,,"90\\d{5}","\\d{7}",,,"9011234"]
 ,[,,"NA","NA"]
@@ -11361,7 +11518,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"JO":[,[,,"[235-9]\\d{7,8}","\\d{7,9}"]
 ,[,,"(?:2(?:6(?:2[0-35-9]|3[0-57-8]|4[24-7]|5[0-24-8]|[6-9][02])|7(?:0[1-79]|10|2[014-7]|3[0-689]|4[019]|5[0-3578]))|32(?:0[1-69]|1[1-35-7]|2[024-7]|3\\d|[457][02]|60)|53(?:[013][02]|2[0-59]|49|5[0-35-9]|6[15]|7[45]|8[1-6]|9[0-36-9])|6(?:2[50]0|300|4(?:0[0125]|1[2-7]|2[0569]|[38][07-9]|4[025689]|6[0-589]|7\\d|9[0-2])|5(?:[01][056]|2[034]|3[0-57-9]|4[17-8]|5[0-69]|6[0-35-9]|7[1-379]|8[0-68]|9[02-39]))|87(?:[02]0|7[08]|9[09]))\\d{4}","\\d{7,8}",,,"62001234"]
-,[,,"7(?:55|7[25-79]|8[5-8]|9[05-9])\\d{6}","\\d{9}",,,"790123456"]
+,[,,"7(?:55|7[25-9]|8[5-9]|9[05-9])\\d{6}","\\d{9}",,,"790123456"]
 ,[,,"80\\d{6}","\\d{8}",,,"80012345"]
 ,[,,"900\\d{5}","\\d{8}",,,"90012345"]
 ,[,,"85\\d{6}","\\d{8}",,,"85012345"]
@@ -11387,7 +11544,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"990\\d{6}","\\d{9}",,,"990123456"]
 ,[,,"NA","NA"]
 ,[,,"60\\d{7}","\\d{9}",,,"601234567"]
-,[,,"50\\d{8}","\\d{10}",,,"5012345678"]
+,[,,"50[1-9]\\d{7}","\\d{10}",,,"5012345678"]
 ,"JP",81,"010","0",,,"0",,,,[[,"(\\d{3})(\\d{3})(\\d{3})","$1-$2-$3",["(?:12|57|99)0"]
 ,"0$1","",0]
 ,[,"(\\d{3})(\\d{3})(\\d{4})","$1-$2-$3",["800"]
@@ -11429,7 +11586,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"KE":[,[,,"20\\d{6,7}|[4-9]\\d{6,9}","\\d{5,10}"]
 ,[,,"20\\d{6,7}|4(?:[013]\\d{7}|[24-6]\\d{5,7})|5(?:[0-36-8]\\d{5,7}|[459]\\d{5})|6(?:[08]\\d{5}|[14-79]\\d{5,7}|2\\d{7})","\\d{5,9}",,,"202012345"]
-,[,,"7(?:0[0-8]|[123]\\d|5[0-5]|7[0-5]|8[5-9])\\d{6}","\\d{9}",,,"712123456"]
+,[,,"7(?:0[0-8]|[123]\\d|5[0-6]|7[0-5]|8[5-9])\\d{6}","\\d{9}",,,"712123456"]
 ,[,,"800[24-8]\\d{5,6}","\\d{9,10}",,,"800223456"]
 ,[,,"900[02-578]\\d{5}","\\d{9}",,,"900223456"]
 ,[,,"NA","NA"]
@@ -11470,8 +11627,8 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"KH":[,[,,"[1-9]\\d{7,9}","\\d{6,10}"]
-,[,,"(?:2[3-6]|3[2-6]|4[2-4]|[567][2-5])(?:[2-46-9]|5\\d)\\d{5}","\\d{6,9}",,,"23456789"]
-,[,,"(?:(?:1\\d|[67][06-9])[1-9]|8(?:0[89]|[134679]\\d|5[2-689]|8\\d{2})|9(?:[0-589][1-9]|[67][1-9]\\d?))\\d{5}","\\d{8,9}",,,"91234567"]
+,[,,"(?:2[3-6]|3[2-6]|4[2-4]|[567][2-5])(?:[2-47-9]|5\\d|6\\d?)\\d{5}","\\d{6,9}",,,"23456789"]
+,[,,"(?:(?:1\\d|6[06-9]|7(?:[07-9]|6\\d))[1-9]|8(?:0[89]|[134679]\\d|5[2-689]|8\\d{2})|9(?:[0-589][1-9]|[67][1-9]\\d?))\\d{5}","\\d{8,9}",,,"91234567"]
 ,[,,"1800(?:1\\d|2[019])\\d{4}","\\d{10}",,,"1800123456"]
 ,[,,"1900(?:1\\d|2[09])\\d{4}","\\d{10}",,,"1900123456"]
 ,[,,"NA","NA"]
@@ -11554,8 +11711,8 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"KR":[,[,,"[1-7]\\d{3,9}|8\\d{8}","\\d{4,10}"]
-,[,,"(?:2|[34][1-3]|5[1-5]|6[1-4])(?:1\\d{2,3}|[2-9]\\d{6,7})","\\d{4,10}",,,"22123456"]
-,[,,"1[0-25-9]\\d{7,8}","\\d{9,10}",,,"1023456789"]
+,[,,"(?:2|3[1-3]|[46][1-4]|5[1-5])(?:1\\d{2,3}|[1-9]\\d{6,7})","\\d{4,10}",,,"22123456"]
+,[,,"1[0-26-9]\\d{7,8}","\\d{9,10}",,,"1023456789"]
 ,[,,"80\\d{7}","\\d{9}",,,"801234567"]
 ,[,,"60[2-9]\\d{6}","\\d{9}",,,"602345678"]
 ,[,,"NA","NA"]
@@ -11563,7 +11720,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"70\\d{8}","\\d{10}",,,"7012345678"]
 ,"KR",82,"00(?:[124-68]|[37]\\d{2})","0",,,"0(8[1-46-8]|85\\d{2})?",,,,[[,"(\\d{2})(\\d{4})(\\d{4})","$1-$2-$3",["1(?:0|1[19]|[69]9|5[458])|[57]0","1(?:0|1[19]|[69]9|5(?:44|59|8))|[57]0"]
 ,"0$1","0$CC-$1",0]
-,[,"(\\d{2})(\\d{3,4})(\\d{4})","$1-$2-$3",["1(?:[169][2-8]|[78]|5[1-4])|[68]0|[3-6][1-9][2-9]","1(?:[169][2-8]|[78]|5(?:[1-3]|4[56]))|[68]0|[3-6][1-9][2-9]"]
+,[,"(\\d{2})(\\d{3,4})(\\d{4})","$1-$2-$3",["1(?:[169][2-8]|[78]|5[1-4])|[68]0|[3-6][1-9][1-9]","1(?:[169][2-8]|[78]|5(?:[1-3]|4[56]))|[68]0|[3-6][1-9][1-9]"]
 ,"0$1","0$CC-$1",0]
 ,[,"(\\d{3})(\\d)(\\d{4})","$1-$2-$3",["131","1312"]
 ,"0$1","0$CC-$1",0]
@@ -11573,7 +11730,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"0$1","0$CC-$1",0]
 ,[,"(\\d{2})(\\d{2})(\\d{3})(\\d{4})","$1-$2-$3-$4",["30"]
 ,"0$1","0$CC-$1",0]
-,[,"(\\d)(\\d{3,4})(\\d{4})","$1-$2-$3",["2[2-9]"]
+,[,"(\\d)(\\d{3,4})(\\d{4})","$1-$2-$3",["2[1-9]"]
 ,"0$1","0$CC-$1",0]
 ,[,"(\\d)(\\d{3,4})","$1-$2",["21[0-46-9]"]
 ,"0$1","0$CC-$1",0]
@@ -11582,7 +11739,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,"(\\d{4})(\\d{4})","$1-$2",["1(?:5[46-9]|6[04678])","1(?:5(?:44|66|77|88|99)|6(?:00|44|6[16]|70|88))"]
 ,"$1","0$CC-$1",0]
 ]
-,,[,,"NA","NA"]
+,,[,,"15\\d{7,8}","\\d{9,10}",,,"1523456789"]
 ,,,[,,"NA","NA"]
 ,[,,"1(?:5(?:44|66|77|88|99)|6(?:00|44|6[16]|70|88))\\d{4}","\\d{8}",,,"15441234"]
 ,,[,,"11[29]","\\d{3}",,,"112"]
@@ -11590,7 +11747,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"KW":[,[,,"[12569]\\d{6,7}","\\d{7,8}"]
 ,[,,"(?:18\\d|2(?:[23]\\d{2}|4(?:[1-35-9]\\d|44)|5(?:0[034]|[2-46]\\d|5[1-3]|7[1-7])))\\d{4}","\\d{7,8}",,,"22345678"]
-,[,,"(?:5(?:0[0-25-9]|11|5\\d)|6(?:0[034679]|5[015-9]|6\\d|7[067]|9[069])|9(?:0[09]|4[049]|6[69]|[79]\\d))\\d{5}","\\d{8}",,,"50012345"]
+,[,,"(?:5(?:1[0-2]|[05]\\d)|6(?:0[034679]|5[015-9]|6\\d|7[067]|9[0369])|9(?:0[09]|4[049]|6[069]|[79]\\d))\\d{5}","\\d{8}",,,"50012345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -11688,11 +11845,11 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"LI":[,[,,"6\\d{8}|[23789]\\d{6}","\\d{7,9}"]
-,[,,"(?:2(?:01|1[27]|3\\d|6[02-578]|96)|3(?:7[0135-7]|8[048]|9[0269])|870)\\d{4}","\\d{7}",,,"2345678"]
-,[,,"6(?:51[01]|6(?:[01][0-4]|2[016-9]|88|92)|710)\\d{5}|7(?:36|4[25]|56|[7-9]\\d)\\d{4}","\\d{7,9}",,,"661234567"]
+,[,,"(?:2(?:01|1[27]|3\\d|6[02-578]|96)|3(?:7[0135-7]|8[048]|9[0269]))\\d{4}","\\d{7}",,,"2345678"]
+,[,,"6(?:51[01]|6(?:[01][0-4]|2[016-9]|88)|710)\\d{5}|7(?:36|4[25]|56|[7-9]\\d)\\d{4}","\\d{7,9}",,,"661234567"]
 ,[,,"80(?:0(?:2[238]|79)|9\\d{2})\\d{2}","\\d{7}",,,"8002222"]
-,[,,"NA","NA"]
 ,[,,"90(?:0(?:2[278]|79)|1(?:23|3[012])|6(?:4\\d|6[0126]))\\d{2}","\\d{7}",,,"9002222"]
+,[,,"NA","NA"]
 ,[,,"701\\d{4}","\\d{7}",,,"7011234"]
 ,[,,"NA","NA"]
 ,"LI",423,"00","0",,,"0",,,,[[,"(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3",["[23]|7[3-57-9]|87"]
@@ -11710,7 +11867,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"87(?:0[1289]|70)\\d{3}","\\d{7}",,,"8770123"]
+,[,,"87(?:0[128]|7[0-4])\\d{3}","\\d{7}",,,"8770123"]
 ,,[,,"1(?:1[278]|44)","\\d{3}",,,"112"]
 ,[,,"697(?:[35]6|4[25]|[7-9]\\d)\\d{4}","\\d{9}",,,"697361234"]
 ]
@@ -11735,7 +11892,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"LR":[,[,,"(?:[29]\\d|[4-6]|7\\d{1,2}|[38]\\d{2})\\d{6}","\\d{7,9}"]
 ,[,,"2\\d{7}","\\d{8}",,,"21234567"]
-,[,,"(?:4[67]|5\\d|6[4-8]|7(?:7[67]\\d|\\d{2})|88\\d{2})\\d{5}","\\d{7,9}",,,"4612345"]
+,[,,"(?:4[67]|5\\d|6[4-8]|77?\\d{2}|88\\d{2})\\d{5}","\\d{7,9}",,,"4612345"]
 ,[,,"NA","NA"]
 ,[,,"90\\d{6}","\\d{8}",,,"90123456"]
 ,[,,"NA","NA"]
@@ -11776,11 +11933,11 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"(?:3[1478]|4[124-6]|52)\\d{6}","\\d{8}",,,"31234567"]
 ,[,,"6\\d{7}","\\d{8}",,,"61234567"]
 ,[,,"800\\d{5}","\\d{8}",,,"80012345"]
-,[,,"90[0239]\\d{5}","\\d{8}",,,"90012345"]
-,[,,"NA","NA"]
+,[,,"9(?:0[0239]|10)\\d{5}","\\d{8}",,,"90012345"]
+,[,,"808\\d{5}","\\d{8}",,,"80812345"]
 ,[,,"700\\d{5}","\\d{8}",,,"70012345"]
 ,[,,"NA","NA"]
-,"LT",370,"00","8",,,"8",,,,[[,"([34]\\d)(\\d{6})","$1 $2",["37|4(?:1|5[45]|6[2-4])"]
+,"LT",370,"00","8",,,"[08]",,,,[[,"([34]\\d)(\\d{6})","$1 $2",["37|4(?:1|5[45]|6[2-4])"]
 ,"(8-$1)","",0]
 ,[,"([3-6]\\d{2})(\\d{5})","$1 $2",["3[148]|4(?:[24]|6[09])|528|6"]
 ,"(8-$1)","",0]
@@ -11791,7 +11948,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
+,[,,"70[67]\\d{5}","\\d{8}",,,"70712345"]
 ,,[,,"0(?:11?|22?|33?)|1(?:0[123]|12)","\\d{2,3}",,,"112"]
 ,[,,"NA","NA"]
 ]
@@ -11861,8 +12018,8 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"MA":[,[,,"[5689]\\d{8}","\\d{9}"]
-,[,,"5(?:2(?:(?:[015-7]\\d|2[2-9]|3[2-57]|4[2-8]|8[235-9])\\d|9(?:0\\d|[89]0))|3(?:(?:[0-4]\\d|[57][2-9]|6[235-8]|9[3-9])\\d|8(?:0\\d|[89]0)))\\d{4}","\\d{9}",,,"520123456"]
-,[,,"6(?:0[0-6]|[14-7]\\d|2[236-9]|3[03458]|8[01]|99)\\d{6}","\\d{9}",,,"650123456"]
+,[,,"5(?:2(?:(?:[015-7]\\d|2[2-9]|3[2-57]|4[2-8]|8[235-7])\\d|9(?:0\\d|[89]0))|3(?:(?:[0-4]\\d|[57][2-9]|6[235-8]|9[3-9])\\d|8(?:0\\d|[89]0)))\\d{4}","\\d{9}",,,"520123456"]
+,[,,"6(?:0[0-6]|[14-7]\\d|2[2-46-9]|3[03-8]|8[01]|99)\\d{6}","\\d{9}",,,"650123456"]
 ,[,,"80\\d{7}","\\d{9}",,,"801234567"]
 ,[,,"89\\d{7}","\\d{9}",,,"891234567"]
 ,[,,"NA","NA"]
@@ -11878,7 +12035,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
-,,,[,,"NA","NA"]
+,1,,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,,[,,"1(?:[59]|77)","\\d{2,3}",,,"15"]
 ,[,,"NA","NA"]
@@ -11946,7 +12103,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"MG":[,[,,"[23]\\d{8}","\\d{7,9}"]
 ,[,,"2(?:0(?:(?:2\\d|4[47]|5[3467]|6[279]|8[268]|9[245])\\d|7(?:2[29]|[35]\\d))|210\\d)\\d{4}","\\d{7,9}",,,"202123456"]
-,[,,"3[02-4]\\d{7}","\\d{9}",,,"301234567"]
+,[,,"3(?:[02-4]\\d|90)\\d{6}","\\d{9}",,,"301234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -12012,8 +12169,8 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"ML":[,[,,"[246-8]\\d{7}","\\d{8}"]
-,[,,"(?:2(?:0(?:2[0-589]|7[027-9])|1(?:2[5-7]|[3-689]\\d))|442\\d)\\d{4}","\\d{8}",,,"20212345"]
-,[,,"(?:6(?:[3569]\\d)|7(?:[08][1-9]|[3579][0-4]|4[014-7]|[16]\\d))\\d{5}","\\d{8}",,,"65012345"]
+,[,,"(?:2(?:0(?:2[0-589]|7[027-9])|1(?:2[5-7]|[3-689]\\d))|44[239]\\d)\\d{4}","\\d{8}",,,"20212345"]
+,[,,"(?:6[3569]|7\\d)\\d{6}","\\d{8}",,,"65012345"]
 ,[,,"800\\d{5}","\\d{8}",,,"80012345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -12027,27 +12184,27 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,,[,,"1[578]","\\d{2}",,,"17"]
 ,[,,"NA","NA"]
 ]
-,"MM":[,[,,"[124-8]\\d{5,7}|9(?:[25689]|4\\d{1,2}|7\\d)\\d{6}","\\d{5,10}"]
-,[,,"(?:1\\d|2|4[2-6]|5[2-9]|6(?:[0-689]|7\\d?)|7[0-5]|8(?:[2-6]|1\\d?))\\d{5}|1333\\d{4}","\\d{5,8}",,,"1234567"]
-,[,,"9(?:[25689]|4(?:[0256]\\d|[1349])|7\\d)\\d{6}","\\d{8,10}",,,"92123456"]
+,"MM":[,[,,"[14578]\\d{5,7}|[26]\\d{5,8}|9(?:[258]|4\\d{1,2}|[679]\\d?)\\d{6}","\\d{5,10}"]
+,[,,"1(?:2\\d{1,2}|[3-5]\\d|6\\d?|[89][0-6]\\d)\\d{4}|2(?:[236-9]\\d{4}|4(?:0\\d{5}|\\d{4})|5(?:1\\d{3,6}|[02-9]\\d{3,5}))|4(?:2[245-8]|[346][2-6]|5[3-5])\\d{4}|5(?:2(?:20?|[3-8])|3[2-68]|4(?:21?|[4-8])|5[23]|6[2-4]|7[2-8]|8[24-7]|9[2-7])\\d{4}|6(?:0[23]|1[2356]|[24][2-6]|3[24-6]|5[2-4]|6[2-8]|7(?:[2367]|4\\d|5\\d?|8[145]\\d)|8[245]|9[24])\\d{4}|7(?:[04][24-8]|[15][2-7]|22|3[2-4])\\d{4}|8(?:1(?:2\\d?|[3-689])|2[2-8]|3[24]|4[24-7]|5[245]|6[23])\\d{4}","\\d{5,9}",,,"1234567"]
+,[,,"17[01]\\d{4}|9(?:2[0-4]|4(?:0[0-4]\\d|[1379]\\d|[24][0-589]\\d|5\\d{2}|88)|5[0-6]|61?\\d|73\\d|8\\d|9(?:1\\d|[089]))\\d{5}","\\d{7,10}",,,"92123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"MM",95,"00","0",,,"0",,,,[[,"(1)(\\d{3})(\\d{3})","$1 $2 $3",["1"]
+,[,,"1333\\d{4}","\\d{8}",,,"13331234"]
+,"MM",95,"00","0",,,"0",,,,[[,"(\\d)(\\d{3})(\\d{3,4})","$1 $2 $3",["1|2[45]"]
 ,"0$1","",0]
-,[,"(1)(3)(33\\d)(\\d{3})","$1 $2 $3 $4",["133","1333"]
+,[,"(2)(\\d{4})(\\d{4})","$1 $2 $3",["251"]
 ,"0$1","",0]
-,[,"(2)(\\d{2})(\\d{3})","$1 $2 $3",["2"]
+,[,"(\\d)(\\d{2})(\\d{3})","$1 $2 $3",["16|2"]
 ,"0$1","",0]
-,[,"(\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["67|81"]
+,[,"(\\d{2})(\\d{3})(\\d{3,4})","$1 $2 $3",["67|81"]
 ,"0$1","",0]
-,[,"(\\d{2})(\\d{2})(\\d{3})","$1 $2 $3",["[4-8]"]
+,[,"(\\d{2})(\\d{2})(\\d{3,4})","$1 $2 $3",["[4-8]"]
 ,"0$1","",0]
-,[,"(9)(\\d{3})(\\d{4,5})","$1 $2 $3",["9(?:[25-9]|4[1349])"]
+,[,"(9)(\\d{3})(\\d{4,5})","$1 $2 $3",["9(?:[25-9]|4[13789])"]
 ,"0$1","",0]
-,[,"(9)(4\\d{4})(\\d{4})","$1 $2 $3",["94[0256]"]
+,[,"(9)(4\\d{4})(\\d{4})","$1 $2 $3",["94[0245]"]
 ,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
@@ -12174,8 +12331,8 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"MU":[,[,,"[2-9]\\d{6}","\\d{7}"]
-,[,,"(?:2(?:[034789]\\d|1[0-7])|4(?:[013-8]\\d|2[4-7])|[56]\\d{2}|8(?:14|3[129]))\\d{4}","\\d{7}",,,"2012345"]
-,[,,"(?:25\\d|4(?:2[12389]|9\\d)|7\\d{2}|87[15-8]|9[1-8]\\d)\\d{4}","\\d{7}",,,"2512345"]
+,[,,"(?:2(?:[034789]\\d|1[0-7]|6[1-69])|4(?:[013-8]\\d|2[4-7])|[56]\\d{2}|8(?:14|3[129]))\\d{4}","\\d{7}",,,"2012345"]
+,[,,"(?:25\\d|4(?:2[12389]|9\\d)|7\\d{2}|8(?:20|7[15-8])|9[1-8]\\d)\\d{4}","\\d{7}",,,"2512345"]
 ,[,,"80[012]\\d{4}","\\d{7}",,,"8001234"]
 ,[,,"30\\d{5}","\\d{7}",,,"3012345"]
 ,[,,"NA","NA"]
@@ -12191,7 +12348,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"MV":[,[,,"[3467]\\d{6}|9(?:00\\d{7}|\\d{6})","\\d{7,10}"]
 ,[,,"(?:3(?:0[01]|3[0-59])|6(?:[567][02468]|8[024689]|90))\\d{4}","\\d{7}",,,"6701234"]
-,[,,"(?:46[46]|7[3-9]\\d|9[6-9]\\d)\\d{4}","\\d{7}",,,"7712345"]
+,[,,"(?:46[46]|7[3-9]\\d|9[16-9]\\d)\\d{4}","\\d{7}",,,"7712345"]
 ,[,,"NA","NA"]
 ,[,,"900\\d{7}","\\d{10}",,,"9001234567"]
 ,[,,"NA","NA"]
@@ -12262,8 +12419,8 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"MY":[,[,,"[13-9]\\d{7,9}","\\d{6,10}"]
-,[,,"(?:3\\d{2}|[4-79]\\d|8[2-9])\\d{6}","\\d{6,9}",,,"312345678"]
-,[,,"1(?:[02-46-9][2-9]|1[12]\\d)\\d{6}","\\d{9,10}",,,"123456789"]
+,[,,"(?:3[2-9]\\d|[4-9][2-9])\\d{6}","\\d{6,9}",,,"323456789"]
+,[,,"1(?:1[1-3]\\d{2}|[02-4679][2-9]\\d|8(?:1[23]|[2-9]\\d))\\d{5}","\\d{9,10}",,,"123456789"]
 ,[,,"1[38]00\\d{6}","\\d{10}",,,"1300123456"]
 ,[,,"1600\\d{6}","\\d{10}",,,"1600123456"]
 ,[,,"NA","NA"]
@@ -12386,7 +12543,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"NG":[,[,,"[1-69]\\d{5,8}|[78]\\d{5,13}","\\d{5,14}"]
 ,[,,"[12]\\d{6,7}|9\\d{7}|(?:3\\d|4[023568]|5[02368]|6[02-469]|7[4-69]|8[2-9])\\d{6}|(?:4[47]|5[14579]|6[1578]|7[0-357])\\d{5,6}|(?:78|41)\\d{5}","\\d{5,9}",,,"12345678"]
-,[,,"(?:1(?:7[34]\\d|8(?:04|[124579]\\d|8[0-3])|95\\d)|287[0-7]|3(?:18[1-8]|88[0-7]|9(?:8[5-9]|6[1-5]))|4(?:28[0-2]|6(?:7[1-9]|8[02-47])|88[0-2])|5(?:2(?:7[7-9]|8\\d)|38[1-79]|48[0-7]|68[4-7])|6(?:2(?:7[7-9]|8\\d)|4(?:3[7-9]|[68][129]|7[04-69]|9[1-8])|58[0-2]|98[7-9])|7(?:38[0-7]|69[1-8]|78[2-4])|8(?:28[3-9]|38[0-2]|4(?:2[12]|3[147-9]|5[346]|7[4-9]|8[014-689])|58[1-8]|78[2-9]|88[5-7])|98[07]\\d)\\d{4}|(?:70(?:[3-9]\\d|2[1-9])|8(?:0[2-9]|1[0235-9])\\d)\\d{6}","\\d{8,10}",,,"8021234567"]
+,[,,"(?:1(?:7[34]\\d|8(?:04|[124579]\\d|8[0-3])|95\\d)|287[0-7]|3(?:18[1-8]|88[0-7]|9(?:8[5-9]|6[1-5]))|4(?:28[0-2]|6(?:7[1-9]|8[02-47])|88[0-2])|5(?:2(?:7[7-9]|8\\d)|38[1-79]|48[0-7]|68[4-7])|6(?:2(?:7[7-9]|8\\d)|4(?:3[7-9]|[68][129]|7[04-69]|9[1-8])|58[0-2]|98[7-9])|7(?:38[0-7]|69[1-8]|78[2-4])|8(?:28[3-9]|38[0-2]|4(?:2[12]|3[147-9]|5[346]|7[4-9]|8[014-689]|90)|58[1-8]|78[2-9]|88[5-7])|98[07]\\d)\\d{4}|(?:70(?:[3-9]\\d|2[1-9])|8(?:0[2-9]|1\\d)\\d)\\d{6}","\\d{8,10}",,,"8021234567"]
 ,[,,"800\\d{7,11}","\\d{10,14}",,,"80017591759"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -12525,7 +12682,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"NZ":[,[,,"6[235-9]\\d{6}|[2-57-9]\\d{7,10}","\\d{7,11}"]
-,[,,"(?:3[2-79]|[49][2-689]|6[235-9]|7[2-589])\\d{6}|24099\\d{3}","\\d{7,8}",,,"32345678"]
+,[,,"(?:3[2-79]|[49][2-689]|6[235-9]|7[2-5789])\\d{6}|24099\\d{3}","\\d{7,8}",,,"32345678"]
 ,[,,"2(?:[028]\\d{7,8}|1(?:0\\d{5,7}|[12]\\d{5,6}|[3-9]\\d{5})|[79]\\d{7})","\\d{8,10}",,,"211234567"]
 ,[,,"508\\d{6,7}|80\\d{6,8}","\\d{8,10}",,,"800123456"]
 ,[,,"90\\d{7,9}","\\d{9,11}",,,"900123456"]
@@ -12551,9 +12708,9 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,,[,,"111","\\d{3}",,,"111"]
 ,[,,"NA","NA"]
 ]
-,"OM":[,[,,"(?:2[3-6]|5|9[2-9])\\d{6}|800\\d{5,6}","\\d{7,9}"]
-,[,,"2[3-6]\\d{6}","\\d{8}",,,"23123456"]
-,[,,"9[2-9]\\d{6}","\\d{8}",,,"92123456"]
+,"OM":[,[,,"(?:2[2-6]|5|9[1-9])\\d{6}|800\\d{5,6}","\\d{7,9}"]
+,[,,"2[2-6]\\d{6}","\\d{8}",,,"23123456"]
+,[,,"9[1-9]\\d{6}","\\d{8}",,,"92123456"]
 ,[,,"8007\\d{4,5}|500\\d{4}","\\d{7,9}",,,"80071234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -12574,7 +12731,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"PA":[,[,,"[1-9]\\d{6,7}","\\d{7,8}"]
 ,[,,"(?:1(?:0[02-579]|19|2[37]|3[03]|4[479]|57|65|7[016-8]|8[58]|9[134])|2(?:[0235679]\\d|1[0-7]|4[04-9]|8[028])|3(?:0[0-7]|1[14-7]|2[0-3]|3[03]|4[0457]|5[56]|6[068]|7[078]|80|9\\d)|4(?:3[013-59]|4\\d|7[0-689])|5(?:[01]\\d|2[0-7]|[56]0|79)|7(?:0[09]|2[0-267]|[349]0|5[6-9]|7[0-24-7]|8[89])|8(?:[34]\\d|5[0-4]|8[02])|9(?:0[78]|1[0178]|2[0378]|3[379]|40|5[0489]|6[06-9]|7[046-9]|8[36-8]|9[1-9]))\\d{4}","\\d{7}",,,"2001234"]
-,[,,"(?:1[16]1|21[89]|8(?:1[01]|7[23]))\\d{4}|6(?:[04-9]\\d|1[0-5]|2[0-6]|3[6-9])\\d{5}","\\d{7,8}",,,"60012345"]
+,[,,"(?:1[16]1|21[89]|8(?:1[01]|7[23]))\\d{4}|6(?:[04-9]\\d|1[0-5]|2[0-7]|3[5-9])\\d{5}","\\d{7,8}",,,"60012345"]
 ,[,,"80[09]\\d{4}","\\d{7}",,,"8001234"]
 ,[,,"(?:779|8(?:2[235]|55|60|7[578]|86|95)|9(?:0[0-2]|81))\\d{4}","\\d{7}",,,"8601234"]
 ,[,,"NA","NA"]
@@ -12614,15 +12771,17 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,,[,,"1(?:05|1[67])","\\d{3}",,,"105"]
 ,[,,"NA","NA"]
 ]
-,"PF":[,[,,"[2-9]\\d{5}","\\d{6}"]
+,"PF":[,[,,"[2-79]\\d{5}|8\\d{5,7}","\\d{6}(?:\\d{2})?"]
 ,[,,"(?:4(?:[02-9]\\d|1[02-9])|[5689]\\d{2})\\d{3}","\\d{6}",,,"401234"]
-,[,,"(?:[27]\\d{2}|3[0-79]\\d|411)\\d{3}","\\d{6}",,,"212345"]
+,[,,"(?:[27]\\d{2}|3[0-79]\\d|411|89\\d{3})\\d{3}","\\d{6}(?:\\d{2})?",,,"212345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"PF",689,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3",,"","",0]
+,"PF",689,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["89"]
+,"","",0]
+,[,"(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"44\\d{4}","\\d{6}",,,"441234"]
@@ -12632,7 +12791,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"PG":[,[,,"[1-9]\\d{6,7}","\\d{7,8}"]
 ,[,,"(?:3\\d{2}|4[257]\\d|5[34]\\d|6(?:29|4[1-9])|85[02-46-9]|9[78]\\d)\\d{4}","\\d{7}",,,"3123456"]
-,[,,"(?:68|7[1236]\\d)\\d{5}","\\d{7,8}",,,"6812345"]
+,[,,"(?:68|7[0-36]\\d)\\d{5}","\\d{7,8}",,,"6812345"]
 ,[,,"180\\d{4}","\\d{7}",,,"1801234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -12640,7 +12799,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"275\\d{4}","\\d{7}",,,"2751234"]
 ,"PG",675,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",["[1-689]"]
 ,"","",0]
-,[,"(7[1-36]\\d)(\\d{2})(\\d{3})","$1 $2 $3",["7[1-36]"]
+,[,"(7\\d{2})(\\d{2})(\\d{3})","$1 $2 $3",["7"]
 ,"","",0]
 ]
 ,,[,,"NA","NA"]
@@ -12651,7 +12810,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"PH":[,[,,"[2-9]\\d{7,9}|1800\\d{7,9}","\\d{7,13}"]
 ,[,,"(?:2|3[2-68]|4[2-9]|5[2-6]|6[2-58]|7[24578]|8[2-8])\\d{7}","\\d{7,9}",,,"21234567"]
-,[,,"9(?:0[5-9]|1[025-9]|2[0-36-9]|3[02-9]|4[236-9]|7[349]|89|9[49])\\d{7}","\\d{10}",,,"9051234567"]
+,[,,"(?:81[37]|9(?:0[5-9]|1[025-9]|2[0-35-9]|3[02-9]|4[236-9]|7[3479]|89|9[46-9]))\\d{7}","\\d{10}",,,"9051234567"]
 ,[,,"1800\\d{7,9}","\\d{11,13}",,,"180012345678"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -12665,7 +12824,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"(0$1)","",0]
 ,[,"([3-8]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["[3-8]"]
 ,"(0$1)","",0]
-,[,"(9\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["9"]
+,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["81|9"]
 ,"0$1","",0]
 ,[,"(1800)(\\d{3})(\\d{4})","$1 $2 $3",["1"]
 ,"","",0]
@@ -12680,7 +12839,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"PK":[,[,,"1\\d{8}|[2-8]\\d{5,11}|9(?:[013-9]\\d{4,9}|2\\d(?:111\\d{6}|\\d{3,7}))","\\d{6,12}"]
 ,[,,"(?:21|42)[2-9]\\d{7}|(?:2[25]|4[0146-9]|5[1-35-7]|6[1-8]|7[14]|8[16]|91)[2-9]\\d{6}|(?:2(?:3[2358]|4[2-4]|9[2-8])|45[3479]|54[2-467]|60[468]|72[236]|8(?:2[2-689]|3[23578]|4[3478]|5[2356])|9(?:1|2[2-8]|3[27-9]|4[2-6]|6[3569]|9[25-8]))[2-9]\\d{5,6}|58[126]\\d{7}","\\d{6,10}",,,"2123456789"]
-,[,,"3(?:0\\d|[12][1-5]|3[1-6]|4[1-7]|55|64)\\d{7}","\\d{10}",,,"3012345678"]
+,[,,"3(?:0\\d|1[1-5]|2[0-5]|3[1-6]|4[1-7]|55|64)\\d{7}","\\d{10}",,,"3012345678"]
 ,[,,"800\\d{5}","\\d{8}",,,"80012345"]
 ,[,,"900\\d{5}","\\d{8}",,,"90012345"]
 ,[,,"NA","NA"]
@@ -12711,7 +12870,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"PL":[,[,,"[1-58]\\d{6,8}|9\\d{8}|[67]\\d{5,8}","\\d{6,9}"]
 ,[,,"(?:1[2-8]|2[2-59]|3[2-4]|4[1-468]|5[24-689]|6[1-3578]|7[14-6]|8[1-7])\\d{5,7}|77\\d{4,7}|(?:89|9[145])\\d{7}","\\d{6,9}",,,"123456789"]
-,[,,"(?:5[013]|6[069]|7[289]|88)\\d{7}","\\d{9}",,,"512345678"]
+,[,,"(?:5[013]|6[069]|7[2389]|88)\\d{7}","\\d{9}",,,"512345678"]
 ,[,,"800\\d{6}","\\d{9}",,,"800123456"]
 ,[,,"70\\d{7}","\\d{9}",,,"701234567"]
 ,[,,"801\\d{6}","\\d{9}",,,"801234567"]
@@ -12721,7 +12880,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"","",0]
 ,[,"(\\d{2})(\\d{4,6})","$1 $2",["[124]|3[2-4]|5[24-689]|6[1-3578]|7[14-7]|8[1-7]"]
 ,"","",0]
-,[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["39|5[013]|6[0469]|7[0289]|8[08]"]
+,[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["39|5[013]|6[0469]|7[02389]|8[08]"]
 ,"","",0]
 ,[,"(\\d{3})(\\d{2})(\\d{2,3})","$1 $2 $3",["64"]
 ,"","",0]
@@ -12787,17 +12946,17 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"PT":[,[,,"[2-46-9]\\d{8}","\\d{9}"]
 ,[,,"2(?:[12]\\d|[35][1-689]|4[1-59]|6[1-35689]|7[1-9]|8[1-69]|9[1256])\\d{6}","\\d{9}",,,"212345678"]
-,[,,"9(?:[136]\\d{2}|2[124-79]\\d|4(?:80|9\\d))\\d{5}","\\d{9}",,,"912345678"]
-,[,,"4\\d{8}|80[02]\\d{6}","\\d{9}",,,"800123456"]
-,[,,"71\\d{7}","\\d{9}",,,"712345678"]
-,[,,"808\\d{6}","\\d{9}",,,"808123456"]
-,[,,"NA","NA"]
+,[,,"9(?:[136]\\d{2}|2[0-79]\\d|480)\\d{5}","\\d{9}",,,"912345678"]
+,[,,"80[02]\\d{6}","\\d{9}",,,"800123456"]
+,[,,"76(?:0[1-57]|1[2-47]|2[237])\\d{5}","\\d{9}",,,"760123456"]
+,[,,"80(?:8\\d|9[1579])\\d{5}","\\d{9}",,,"808123456"]
+,[,,"884[128]\\d{5}","\\d{9}",,,"884123456"]
 ,[,,"30\\d{7}","\\d{9}",,,"301234567"]
 ,"PT",351,"00",,,,,,,,[[,"([2-46-9]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"70(?:7\\d|8[147])\\d{5}","\\d{9}",,,"707123456"]
+,[,,"70(?:7\\d|8[17])\\d{5}","\\d{9}",,,"707123456"]
 ,,[,,"112","\\d{3}",,,"112"]
 ,[,,"NA","NA"]
 ]
@@ -12885,11 +13044,11 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"801\\d{6}","\\d{9}",,,"801123456"]
 ,[,,"802\\d{6}","\\d{9}",,,"802123456"]
 ,[,,"NA","NA"]
-,"RO",40,"00","0"," int ",,"0",,,,[[,"([237]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["[23]1|7"]
+,"RO",40,"00","0"," int ",,"0",,,,[[,"([237]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["[23]1"]
 ,"0$1","",0]
 ,[,"(21)(\\d{4})","$1 $2",["21"]
 ,"0$1","",0]
-,[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["[23][3-7]|[89]"]
+,[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["[23][3-7]|[7-9]"]
 ,"0$1","",0]
 ,[,"(2\\d{2})(\\d{3})","$1 $2",["2[3-6]"]
 ,"0$1","",0]
@@ -12955,7 +13114,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"RW":[,[,,"[027-9]\\d{7,8}","\\d{8,9}"]
 ,[,,"2[258]\\d{7}|06\\d{6}","\\d{8,9}",,,"250123456"]
-,[,,"7[258]\\d{7}","\\d{9}",,,"720123456"]
+,[,,"7[238]\\d{7}","\\d{9}",,,"720123456"]
 ,[,,"800\\d{6}","\\d{9}",,,"800123456"]
 ,[,,"900\\d{6}","\\d{9}",,,"900123456"]
 ,[,,"NA","NA"]
@@ -12999,15 +13158,15 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,,[,,"99[7-9]","\\d{3}",,,"999"]
 ,[,,"NA","NA"]
 ]
-,"SB":[,[,,"[1-8]\\d{4,6}","\\d{5,7}"]
+,"SB":[,[,,"[1-9]\\d{4,6}","\\d{5,7}"]
 ,[,,"(?:1[4-79]|[23]\\d|4[01]|5[03]|6[0-37])\\d{3}","\\d{5}",,,"40123"]
-,[,,"48\\d{3}|7(?:4\\d|5[025-8]|6[0-6])\\d{4}|8[4-8]\\d{5}","\\d{5,7}",,,"7421234"]
+,[,,"48\\d{3}|7(?:[46-8]\\d|5[025-9]|90)\\d{4}|8[4-8]\\d{5}|9(?:[46]\\d|5[0-46-9]|7[0-689]|8[0-79]|9[0-8])\\d{4}","\\d{5,7}",,,"7421234"]
 ,[,,"1[38]\\d{3}","\\d{5}",,,"18123"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"5[12]\\d{3}","\\d{5}",,,"51123"]
-,"SB",677,"0[01]",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",["[78]"]
+,"SB",677,"0[01]",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",["[7-9]"]
 ,"","",0]
 ]
 ,,[,,"NA","NA"]
@@ -13052,8 +13211,8 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"SE":[,[,,"[1-9]\\d{6,9}","\\d{5,10}"]
-,[,,"1(?:0[1-8]\\d{6}|[136]\\d{5,7}|(?:2[0-35]|4[0-4]|5[0-25-9]|7[13-6]|[89]\\d)\\d{5,6})|2(?:[136]\\d{5,7}|(?:2[0-7]|4[0136-8]|5[0-38]|7[018]|8[01]|9[0-57])\\d{5,6})|3(?:[356]\\d{5,7}|(?:0[0-4]|1\\d|2[0-25]|4[056]|7[0-2]|8[0-3]|9[023])\\d{5,6})|4(?:[0246]\\d{5,7}|(?:1[0-8]|3[0135]|5[14-79]|7[0-246-9]|8[0156]|9[0-689])\\d{5,6})|5(?:0[0-6]|1[0-5]|2[0-68]|3[0-4]|4\\d|5[0-5]|6[03-5]|7[013]|8[0-79]|9[01])\\d{5,6}|6(?:[03]\\d{5,7}|(?:1[1-3]|2[0-4]|4[02-57]|5[0-37]|6[0-3]|7[0-2]|8[0247]|9[0-356])\\d{5,6})|8\\d{6,8}|9(?:0\\d{5,7}|(?:1[0-68]|2\\d|3[02-59]|4[0-4]|5[0-4]|6[01]|7[0135-8]|8[01])\\d{5,6})","\\d{5,9}",,,"8123456"]
-,[,,"7[02-46]\\d{7}","\\d{9}",,,"701234567"]
+,[,,"1(?:0[1-8]\\d{6}|[136]\\d{5,7}|(?:2[0-35]|4[0-4]|5[0-25-9]|7[13-6]|[89]\\d)\\d{5,6})|2(?:[136]\\d{5,7}|(?:2[0-7]|4[0136-8]|5[0138]|7[018]|8[01]|9[0-57])\\d{5,6})|3(?:[356]\\d{5,7}|(?:0[0-4]|1\\d|2[0-25]|4[056]|7[0-2]|8[0-3]|9[023])\\d{5,6})|4(?:[0246]\\d{5,7}|(?:1[0-8]|3[0135]|5[14-79]|7[0-246-9]|8[0156]|9[0-689])\\d{5,6})|5(?:0[0-6]|[15][0-5]|2[0-68]|3[0-4]|4\\d|6[03-5]|7[013]|8[0-79]|9[01])\\d{5,6}|6(?:[03]\\d{5,7}|(?:1[1-3]|2[0-4]|4[02-57]|5[0-37]|6[0-3]|7[0-2]|8[0247]|9[0-356])\\d{5,6})|8\\d{6,8}|9(?:0\\d{5,7}|(?:1[0-68]|2\\d|3[02-59]|[45][0-4]|[68][01]|7[0135-8])\\d{5,6})","\\d{5,9}",,,"8123456"]
+,[,,"7[0236]\\d{7}","\\d{9}",,,"701234567"]
 ,[,,"20\\d{4,7}","\\d{6,9}",,,"201234567"]
 ,[,,"9(?:00|39|44)\\d{7}","\\d{10}",,,"9001234567"]
 ,[,,"77\\d{7}","\\d{9}",,,"771234567"]
@@ -13093,7 +13252,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,"(9[034]\\d)(\\d{2})(\\d{2})(\\d{3})","$1 $2 $3 $4",["9[034]"]
 ]
 ]
-,[,,"NA","NA"]
+,[,,"74\\d{7}","\\d{9}",,,"741234567"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,,[,,"112|90000","\\d{3,5}",,,"112"]
@@ -13106,8 +13265,8 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"1900\\d{7}","\\d{11}",,,"19001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"3[0-2]\\d{6}","\\d{8}",,,"31234567"]
-,"SG",65,"0[0-3][0-9]",,,,,,,,[[,"([3689]\\d{3})(\\d{4})","$1 $2",["[369]|8[1-9]"]
+,[,,"3[12]\\d{6}","\\d{8}",,,"31234567"]
+,"SG",65,"0[0-3]\\d",,,,,,,,[[,"([3689]\\d{3})(\\d{4})","$1 $2",["[369]|8[1-9]"]
 ,"","",0]
 ,[,"(1[89]00)(\\d{3})(\\d{4})","$1 $2 $3",["1[89]"]
 ,"","",0]
@@ -13119,7 +13278,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"7000\\d{7}","\\d{11}",,,"70001234567"]
-,,[,,"99[59]","\\d{3}",,,"999"]
+,,[,,"99[359]","\\d{3}",,,"999"]
 ,[,,"NA","NA"]
 ]
 ,"SH":[,[,,"[2-9]\\d{3}","\\d{4}"]
@@ -13256,7 +13415,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"SO":[,[,,"[1-79]\\d{6,8}","\\d{7,9}"]
 ,[,,"(?:[134]\\d|2[0-79]|5[57-9])\\d{5}","\\d{7}",,,"5522010"]
-,[,,"(?:15\\d|2(?:4\\d|8)|6[17-9]?\\d{2}|7\\d{2}|9[01]\\d)\\d{5}","\\d{7,9}",,,"90792024"]
+,[,,"(?:15\\d|2(?:4\\d|8)|6[17-9]?\\d{2}|7\\d{2}|9(?:07|1)\\d)\\d{5}","\\d{7,9}",,,"907792024"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -13279,7 +13438,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"SR":[,[,,"[2-8]\\d{5,6}","\\d{6,7}"]
 ,[,,"(?:2[1-3]|3[0-7]|4\\d|5[2-58]|68\\d)\\d{4}","\\d{6,7}",,,"211234"]
-,[,,"(?:7[1-5]|8[1-9])\\d{5}","\\d{7}",,,"7412345"]
+,[,,"(?:7[1-57]|8[1-9])\\d{5}","\\d{7}",,,"7412345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -13367,7 +13526,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"SY":[,[,,"[1-59]\\d{7,8}","\\d{6,9}"]
 ,[,,"(?:1(?:1\\d?|4\\d|[2356])|2[1-35]|3(?:[13]\\d|4)|4[13]|5[1-3])\\d{6}","\\d{6,9}",,,"112345678"]
-,[,,"9(?:22|3[1-356]|4\\d|5[024-7]|6[26-9]|88|9[0-489])\\d{6}","\\d{9}",,,"944567890"]
+,[,,"9(?:22|[35][0-8]|4\\d|6[024-9]|88|9[0-489])\\d{6}","\\d{9}",,,"944567890"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -13417,7 +13576,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"TD":[,[,,"[2679]\\d{7}","\\d{8}"]
 ,[,,"22(?:[3789]0|5[0-5]|6[89])\\d{4}","\\d{8}",,,"22501234"]
-,[,,"(?:6[36]\\d|77\\d|9(?:5[0-4]|9\\d))\\d{5}","\\d{8}",,,"63012345"]
+,[,,"(?:6[02368]\\d|77\\d|9(?:5[0-4]|9\\d))\\d{5}","\\d{8}",,,"63012345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -13507,7 +13666,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"TL":[,[,,"[2-489]\\d{6}|7\\d{6,7}","\\d{7,8}"]
 ,[,,"(?:2[1-5]|3[1-9]|4[1-4])\\d{5}","\\d{7}",,,"2112345"]
-,[,,"7[78][1-9]\\d{5}","\\d{8}",,,"77212345"]
+,[,,"7[78]\\d{6}","\\d{8}",,,"77212345"]
 ,[,,"80\\d{5}","\\d{7}",,,"8012345"]
 ,[,,"90\\d{5}","\\d{7}",,,"9012345"]
 ,[,,"NA","NA"]
@@ -13546,10 +13705,10 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"TN":[,[,,"[2-57-9]\\d{7}","\\d{8}"]
-,[,,"(?:3[012]|7\\d)\\d{6}","\\d{8}",,,"71234567"]
+,[,,"(?:3[012]|7\\d|81)\\d{6}","\\d{8}",,,"71234567"]
 ,[,,"(?:[259]\\d|4[0-2])\\d{6}","\\d{8}",,,"20123456"]
 ,[,,"NA","NA"]
-,[,,"8[0128]\\d{6}","\\d{8}",,,"80123456"]
+,[,,"8[028]\\d{6}","\\d{8}",,,"80123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -13584,7 +13743,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"TR":[,[,,"[2-589]\\d{9}|444\\d{4}","\\d{7,10}"]
 ,[,,"(?:2(?:[13][26]|[28][2468]|[45][268]|[67][246])|3(?:[13][28]|[24-6][2468]|[78][02468]|92)|4(?:[16][246]|[23578][2468]|4[26]))\\d{7}","\\d{10}",,,"2123456789"]
-,[,,"5(?:0[1-35-7]|22|3\\d|4[1-79]|5[1-5]|9[246])\\d{7}","\\d{10}",,,"5012345678"]
+,[,,"5(?:0[1-7]|22|[34]\\d|5[1-59]|9[246])\\d{7}","\\d{10}",,,"5012345678"]
 ,[,,"800\\d{7}","\\d{10}",,,"8001234567"]
 ,[,,"900\\d{7}","\\d{10}",,,"9001234567"]
 ,[,,"NA","NA"]
@@ -13605,7 +13764,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,"TT":[,[,,"[589]\\d{9}","\\d{7}(?:\\d{3})?"]
 ,[,,"868(?:2(?:01|2[1-5])|6(?:07|1[4-6]|2[1-9]|[3-6]\\d|7[0-79]|9[0-8])|82[12])\\d{4}","\\d{7}(?:\\d{3})?",,,"8682211234"]
-,[,,"868(?:29\\d|3(?:0[1-9]|1[02-9]|[2-9]\\d)|4(?:[679]\\d|8[0-4])|6(?:20|78|8\\d)|7(?:03|1[02-9]|[2-9]\\d))\\d{4}","\\d{10}",,,"8682911234"]
+,[,,"868(?:2(?:8[59]|9\\d)|3(?:0[1-9]|1[02-9]|[2-9]\\d)|4(?:[679]\\d|8[0-4])|6(?:20|78|8\\d)|7(?:03|1[02-9]|[2-9]\\d))\\d{4}","\\d{10}",,,"8682911234"]
 ,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002345678"]
 ,[,,"NA","NA"]
@@ -13678,10 +13837,10 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"900\\d{6}","\\d{9}",,,"900123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"UA",380,"00","0",,,"0",,"0~0",,[[,"([3-69]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["39|4(?:[45][0-5]|87)|5(?:0|6[37]|7[37])|6[36-8]|9[1-9]","39|4(?:[45][0-5]|87)|5(?:0|6(?:3[14-7]|7)|7[37])|6[36-8]|9[1-9]"]
+,[,,"89\\d{7}","\\d{9}",,,"891234567"]
+,"UA",380,"00","0",,,"0",,"0~0",,[[,"([3-689]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["[38]9|4(?:[45][0-5]|87)|5(?:0|6[37]|7[37])|6[36-8]|9[1-9]","[38]9|4(?:[45][0-5]|87)|5(?:0|6(?:3[14-7]|7)|7[37])|6[36-8]|9[1-9]"]
 ,"0$1","",0]
-,[,"([3-689]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["3[1-8]2|4[1378]2|5(?:[12457]2|6[24])|6(?:[49]2|[12][29]|5[24])|8|90","3(?:[1-46-8]2[013-9]|52)|4[1378]2|5(?:[12457]2|6[24])|6(?:[49]2|[12][29]|5[24])|8|90"]
+,[,"([3-689]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["3[1-8]2|4[1378]2|5(?:[12457]2|6[24])|6(?:[49]2|[12][29]|5[24])|8[0-8]|90","3(?:[1-46-8]2[013-9]|52)|4[1378]2|5(?:[12457]2|6[24])|6(?:[49]2|[12][29]|5[24])|8[0-8]|90"]
 ,"0$1","",0]
 ,[,"([3-6]\\d{3})(\\d{5})","$1 $2",["3(?:5[013-9]|[1-46-8])|4(?:[137][013-9]|6|[45][6-9]|8[4-6])|5(?:[1245][013-9]|6[0135-9]|3|7[4-6])|6(?:[49][013-9]|5[0135-9]|[12][13-8])","3(?:5[013-9]|[1-46-8](?:22|[013-9]))|4(?:[137][013-9]|6|[45][6-9]|8[4-6])|5(?:[1245][013-9]|6(?:3[02389]|[015689])|3|7[4-6])|6(?:[49][013-9]|5[0135-9]|[12][13-8])"]
 ,"0$1","",0]
@@ -13693,14 +13852,14 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"UG":[,[,,"\\d{9}","\\d{5,9}"]
-,[,,"20(?:[014]\\d{2}|2(?:40|[5-9]\\d)|3[23]\\d|5[0-4]\\d)\\d{4}|[34]\\d{8}","\\d{5,9}",,,"312345678"]
-,[,,"7(?:0[0-7]|[15789]\\d|20|[46][0-4])\\d{6}","\\d{9}",,,"712345678"]
+,[,,"20(?:[0147]\\d{2}|2(?:40|[5-9]\\d)|3[23]\\d|5[0-4]\\d|60\\d|8[0-2]\\d)\\d{4}|[34]\\d{8}","\\d{5,9}",,,"312345678"]
+,[,,"7(?:0[0-7]|[15789]\\d|[23]0|[46][0-4])\\d{6}","\\d{9}",,,"712345678"]
 ,[,,"800[123]\\d{5}","\\d{9}",,,"800123456"]
 ,[,,"90[123]\\d{6}","\\d{9}",,,"901123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"UG",256,"00[057]","0",,,"0",,,,[[,"(\\d{3})(\\d{6})","$1 $2",["[7-9]|20(?:[013-5]|2[5-9])|4(?:6[45]|[7-9])"]
+,"UG",256,"00[057]","0",,,"0",,,,[[,"(\\d{3})(\\d{6})","$1 $2",["[7-9]|20(?:[013-8]|2[5-9])|4(?:6[45]|[7-9])"]
 ,"0$1","",0]
 ,[,"(\\d{2})(\\d{7})","$1 $2",["3|4(?:[1-5]|6[0-36-9])"]
 ,"0$1","",0]
@@ -13714,8 +13873,8 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"US":[,[,,"[2-9]\\d{9}","\\d{7}(?:\\d{3})?"]
-,[,,"(?:2(?:0[1-35-9]|1[02-9]|2[4589]|3[149]|4[08]|5[1-46]|6[0279]|7[06]|8[13])|3(?:0[1-57-9]|1[02-9]|2[0135]|3[014679]|47|5[12]|6[01]|8[056])|4(?:0[124-9]|1[02-579]|2[3-5]|3[0245]|4[0235]|58|69|7[0589]|8[04])|5(?:0[1-57-9]|1[0235-8]|20|3[0149]|4[01]|5[19]|6[1-37]|7[013-5]|8[056])|6(?:0[1-35-9]|1[024-9]|2[036]|3[016]|4[16]|5[017]|6[0-279]|78|8[12])|7(?:0[1-46-8]|1[02-9]|2[047]|3[124]|4[07]|5[47]|6[02359]|7[02-59]|8[156])|8(?:0[1-68]|1[02-8]|28|3[0-25]|4[3578]|5[06-9]|6[02-5]|7[028])|9(?:0[1346-9]|1[02-9]|2[0589]|3[1678]|4[0179]|5[1246]|7[0-3589]|8[0459]))[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"2015550123"]
-,[,,"(?:2(?:0[1-35-9]|1[02-9]|2[4589]|3[149]|4[08]|5[1-46]|6[0279]|7[06]|8[13])|3(?:0[1-57-9]|1[02-9]|2[0135]|3[014679]|47|5[12]|6[01]|8[056])|4(?:0[124-9]|1[02-579]|2[3-5]|3[0245]|4[0235]|58|69|7[0589]|8[04])|5(?:0[1-57-9]|1[0235-8]|20|3[0149]|4[01]|5[19]|6[1-37]|7[013-5]|8[056])|6(?:0[1-35-9]|1[024-9]|2[036]|3[016]|4[16]|5[017]|6[0-279]|78|8[12])|7(?:0[1-46-8]|1[02-9]|2[047]|3[124]|4[07]|5[47]|6[02359]|7[02-59]|8[156])|8(?:0[1-68]|1[02-8]|28|3[0-25]|4[3578]|5[06-9]|6[02-5]|7[028])|9(?:0[1346-9]|1[02-9]|2[0589]|3[1678]|4[0179]|5[1246]|7[0-3589]|8[0459]))[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"2015550123"]
+,[,,"(?:2(?:0[1-35-9]|1[02-9]|2[4589]|3[149]|4[08]|5[1-46]|6[0279]|7[06]|8[13])|3(?:0[1-57-9]|1[02-9]|2[0135]|3[014679]|47|5[12]|6[01]|8[056])|4(?:0[124-9]|1[02-579]|2[3-5]|3[0245]|4[0235]|58|69|7[0589]|8[04])|5(?:0[1-57-9]|1[0235-8]|20|3[0149]|4[01]|5[19]|6[1-37]|7[013-5]|8[056])|6(?:0[1-35-9]|1[024-9]|2[036]|3[016]|4[16]|5[017]|6[0-279]|78|8[12])|7(?:0[1-46-8]|1[02-9]|2[047]|3[124]|4[07]|5[47]|6[02359]|7[02-59]|8[156])|8(?:0[1-68]|1[02-8]|28|3[0-25]|4[3578]|5[06-9]|6[02-5]|7[028])|9(?:0[1346-9]|1[02-9]|2[0589]|3[1678]|4[0179]|5[1246]|7[0-3589]|8[0459]))[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"2015555555"]
+,[,,"(?:2(?:0[1-35-9]|1[02-9]|2[4589]|3[149]|4[08]|5[1-46]|6[0279]|7[06]|8[13])|3(?:0[1-57-9]|1[02-9]|2[0135]|3[014679]|47|5[12]|6[01]|8[056])|4(?:0[124-9]|1[02-579]|2[3-5]|3[0245]|4[0235]|58|69|7[0589]|8[04])|5(?:0[1-57-9]|1[0235-8]|20|3[0149]|4[01]|5[19]|6[1-37]|7[013-5]|8[056])|6(?:0[1-35-9]|1[024-9]|2[036]|3[016]|4[16]|5[017]|6[0-279]|78|8[12])|7(?:0[1-46-8]|1[02-9]|2[047]|3[124]|4[07]|5[47]|6[02359]|7[02-59]|8[156])|8(?:0[1-68]|1[02-8]|28|3[0-25]|4[3578]|5[06-9]|6[02-5]|7[028])|9(?:0[1346-9]|1[02-9]|2[0589]|3[1678]|4[0179]|5[1246]|7[0-3589]|8[0459]))[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"2015555555"]
 ,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002345678"]
 ,[,,"NA","NA"]
@@ -13877,7 +14036,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ]
 ,"VU":[,[,,"[2-57-9]\\d{4,6}","\\d{5,7}"]
-,[,,"(?:2[2-9]\\d|3(?:[67]\\d|8[0-8])|48[4-9]|88\\d)\\d{2}","\\d{5}",,,"22123"]
+,[,,"(?:2[2-9]\\d|3(?:[5-7]\\d|8[0-8])|48[4-9]|88\\d)\\d{2}","\\d{5}",,,"22123"]
 ,[,,"(?:5(?:7[2-5]|[3-69]\\d)|7[013-7]\\d)\\d{4}","\\d{7}",,,"5912345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -13889,7 +14048,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"30\\d{3}|900\\d{4}","\\d{5,7}",,,"30123"]
+,[,,"3[03]\\d{3}|900\\d{4}","\\d{5,7}",,,"30123"]
 ,,[,,"112","\\d{3}",,,"112"]
 ,[,,"NA","NA"]
 ]
@@ -13961,32 +14120,32 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,,[,,"1(?:12|5)","\\d{2,3}",,,"15"]
 ,[,,"NA","NA"]
 ]
-,"ZA":[,[,,"[1-5]\\d{8}|(?:7\\d{4,8}|8[1-5789]\\d{3,7})|8[06]\\d{7}","\\d{5,9}"]
-,[,,"(?:1[0-8]|2[1-478]|3[1-69]|4\\d|5[1346-8])\\d{7}","\\d{8,9}",,,"101234567"]
-,[,,"(?:7[1-4689]|8[1-5789])\\d{3,7}","\\d{5,9}",,,"711234567"]
+,"ZA":[,[,,"[1-79]\\d{8}|8(?:[067]\\d{7}|[1-4]\\d{3,7})","\\d{5,9}"]
+,[,,"(?:1[0-8]|2[0-378]|3[1-69]|4\\d|5[1346-8])\\d{7}","\\d{9}",,,"101234567"]
+,[,,"(?:6[0-5]|7[0-46-9])\\d{7}|8[1-4]\\d{3,7}","\\d{5,9}",,,"711234567"]
 ,[,,"80\\d{7}","\\d{9}",,,"801234567"]
-,[,,"86[1-9]\\d{6}","\\d{9}",,,"861234567"]
+,[,,"86[2-9]\\d{6}|90\\d{7}","\\d{9}",,,"862345678"]
 ,[,,"860\\d{6}","\\d{9}",,,"860123456"]
 ,[,,"NA","NA"]
 ,[,,"87\\d{7}","\\d{9}",,,"871234567"]
 ,"ZA",27,"00","0",,,"0",,,,[[,"(860)(\\d{3})(\\d{3})","$1 $2 $3",["860"]
 ,"0$1","",0]
-,[,"([1-578]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["[1-57]|8(?:[0-57-9]|6[1-9])"]
+,[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["[1-79]|8(?:[0-47]|6[1-9])"]
 ,"0$1","",0]
-,[,"(\\d{2})(\\d{3,4})","$1 $2",["7|8[1-5789]"]
+,[,"(\\d{2})(\\d{3,4})","$1 $2",["8[1-4]"]
 ,"0$1","",0]
-,[,"(\\d{2})(\\d{3})(\\d{2,3})","$1 $2 $3",["7|8[1-5789]"]
+,[,"(\\d{2})(\\d{3})(\\d{2,3})","$1 $2 $3",["8[1-4]"]
 ,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
+,[,,"861\\d{6}","\\d{9}",,,"861123456"]
 ,,[,,"1(?:01(?:11|77)|12)","\\d{3,5}",,,"10111"]
 ,[,,"NA","NA"]
 ]
 ,"ZM":[,[,,"[289]\\d{8}","\\d{9}"]
 ,[,,"21[1-8]\\d{6}","\\d{9}",,,"211234567"]
-,[,,"9(?:5[05]|6[1-9]|7[13-9])\\d{6}","\\d{9}",,,"955123456"]
+,[,,"9(?:5[05]|6\\d|7[13-9])\\d{6}","\\d{9}",,,"955123456"]
 ,[,,"800\\d{6}","\\d{9}",,,"800123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -14003,33 +14162,33 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,,[,,"(?:112|99[139])","\\d{3}",,,"999"]
 ,[,,"NA","NA"]
 ]
-,"ZW":[,[,,"2(?:[012457-9]\\d{3,8}|6\\d{3,6})|[13-79]\\d{4,8}|86\\d{8}","\\d{3,10}"]
-,[,,"(?:1[3-9]|2(?:0[45]|[16]|2[28]|[49]8?|58[23]|7[246]|8[1346-9])|3(?:08?|17?|3[78]|[2456]|7[1569]|8[379])|5(?:[07-9]|1[78]|483|5(?:7?|8))|6(?:0|28|37?|[45][68][78]|98?)|848)\\d{3,6}|(?:2(?:27|5|7[135789]|8[25])|3[39]|5[1-46]|6[126-8])\\d{4,6}|2(?:0|70)\\d{5,6}|(?:4\\d|9[2-8])\\d{4,7}","\\d{3,10}",,,"1312345"]
-,[,,"7[137]\\d{7}|86(?:22|44)\\d{6}","\\d{9,10}",,,"711234567"]
+,"ZW":[,[,,"2(?:[012457-9]\\d{3,8}|6\\d{3,6})|[13-79]\\d{4,8}|8[06]\\d{8}","\\d{3,10}"]
+,[,,"(?:1[3-9]|2(?:0[45]|[16]|2[28]|[49]8?|58[23]|7[246]|8[1346-9])|3(?:08?|17?|3[78]|[2456]|7[1569]|8[379])|5(?:[07-9]|1[78]|483|5(?:7?|8))|6(?:0|28|37?|[45][68][78]|98?)|848)\\d{3,6}|(?:2(?:27|5|7[135789]|8[25])|3[39]|5[1-46]|6[126-8])\\d{4,6}|2(?:(?:0|70)\\d{5,6}|2[05]\\d{7})|(?:4\\d|9[2-8])\\d{4,7}","\\d{3,10}",,,"1312345"]
+,[,,"7[1378]\\d{7}|86(?:22|44)\\d{6}","\\d{9,10}",,,"711234567"]
+,[,,"800\\d{7}","\\d{10}",,,"8001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"86(?:1[12]|30|8[367]|99)\\d{6}","\\d{10}",,,"8686123456"]
+,[,,"86(?:1[12]|30|55|77|8[367]|99)\\d{6}","\\d{10}",,,"8686123456"]
 ,"ZW",263,"00","0",,,"0",,,,[[,"([49])(\\d{3})(\\d{2,5})","$1 $2 $3",["4|9[2-9]"]
 ,"0$1","",0]
 ,[,"([179]\\d)(\\d{3})(\\d{3,4})","$1 $2 $3",["[19]1|7"]
 ,"0$1","",0]
 ,[,"(86\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["86[24]"]
 ,"0$1","",0]
+,[,"([2356]\\d{2})(\\d{3,5})","$1 $2",["2(?:[278]|0[45]|[49]8)|3(?:08|17|3[78]|[78])|5[15][78]|6(?:[29]8|37|[68][78])"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{3})(\\d{3,4})","$1 $2 $3",["2(?:[278]|0[45]|48)|3(?:08|17|3[78]|[78])|5[15][78]|6(?:[29]8|37|[68][78])|80"]
+,"0$1","",0]
 ,[,"([1-356]\\d)(\\d{3,5})","$1 $2",["1[3-9]|2(?:[1-469]|0[0-35-9]|[45][0-79])|3(?:0[0-79]|1[0-689]|[24-69]|3[0-69])|5(?:[02-46-9]|[15][0-69])|6(?:[0145]|[29][0-79]|3[0-689]|[68][0-69])"]
 ,"0$1","",0]
 ,[,"([1-356]\\d)(\\d{3})(\\d{3})","$1 $2 $3",["1[3-9]|2(?:[1-469]|0[0-35-9]|[45][0-79])|3(?:0[0-79]|1[0-689]|[24-69]|3[0-69])|5(?:[02-46-9]|[15][0-69])|6(?:[0145]|[29][0-79]|3[0-689]|[68][0-69])"]
-,"0$1","",0]
-,[,"([2356]\\d{2})(\\d{3,5})","$1 $2",["2(?:[278]|0[45]|48)|3(?:08|17|3[78]|[78])|5[15][78]|6(?:[29]8|37|[68][78])"]
-,"0$1","",0]
-,[,"([2356]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["2(?:[278]|0[45]|48)|3(?:08|17|3[78]|[78])|5[15][78]|6(?:[29]8|37|[68][78])"]
 ,"0$1","",0]
 ,[,"([25]\\d{3})(\\d{3,5})","$1 $2",["(?:25|54)8","258[23]|5483"]
 ,"0$1","",0]
 ,[,"([25]\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["(?:25|54)8","258[23]|5483"]
 ,"0$1","",0]
-,[,"(8\\d{3})(\\d{6})","$1 $2",["86[1389]"]
+,[,"(8\\d{3})(\\d{6})","$1 $2",["86"]
 ,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
@@ -15076,7 +15235,7 @@ goog.proto2.PbLiteSerializer.prototype.deserialize =
 };
 /**
  * @license
- * Copyright (C) 2010 The Libphonenumber Authors
+ * Copyright (C) 2010 The Libphonenumber Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15341,7 +15500,7 @@ i18n.phonenumbers.PhoneNumberUtil.DIGIT_MAPPINGS = {
 /**
  * A map that contains characters that are essential when dialling. That means
  * any of the characters in this map must not be removed from a number when
- * dialing, otherwise the call will not reach the intended destination.
+ * dialling, otherwise the call will not reach the intended destination.
  *
  * @const
  * @type {!Object.<string, string>}
@@ -16202,30 +16361,19 @@ i18n.phonenumbers.PhoneNumberUtil.convertAlphaCharactersInNumber =
  */
 i18n.phonenumbers.PhoneNumberUtil.prototype.getLengthOfGeographicalAreaCode =
     function(number) {
-
-  if (number == null) {
-    return 0;
-  }
-  /** @type {?string} */
-  var regionCode = this.getRegionCodeForNumber(number);
-  if (!this.isValidRegionCode_(regionCode)) {
-    return 0;
-  }
   /** @type {i18n.phonenumbers.PhoneMetadata} */
-  var metadata = this.getMetadataForRegion(regionCode);
-  // If a country doesn't use a national prefix, and this number doesn't have an
-  // Italian leading zero, we assume it is a closed dialling plan with no area
-  // codes.
+  var metadata = this.getMetadataForRegion(this.getRegionCodeForNumber(number));
+  if (metadata == null) {
+    return 0;
+  }
+  // If a country doesn't use a national prefix, and this number doesn't have
+  // an Italian leading zero, we assume it is a closed dialling plan with no
+  // area codes.
   if (!metadata.hasNationalPrefix() && !number.hasItalianLeadingZero()) {
     return 0;
   }
 
-  /** @type {i18n.phonenumbers.PhoneNumberType} */
-  var type = this.getNumberTypeHelper_(
-      this.getNationalSignificantNumber(number), metadata);
-  // Most numbers other than the two types below have to be dialled in full.
-  if (type != i18n.phonenumbers.PhoneNumberType.FIXED_LINE &&
-      type != i18n.phonenumbers.PhoneNumberType.FIXED_LINE_OR_MOBILE) {
+  if (!this.isNumberGeographical(number)) {
     return 0;
   }
 
@@ -16377,6 +16525,25 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formattingRuleHasFirstGroupOnly =
 
 
 /**
+ * Tests whether a phone number has a geographical association. It checks if
+ * the number is associated to a certain region in the country where it belongs
+ * to. Note that this doesn't verify if the number is actually in use.
+ *
+ * @param {i18n.phonenumbers.PhoneNumber} phoneNumber The phone number to test.
+ * @return {boolean} true if the phone number has a geographical association.
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.isNumberGeographical =
+    function(phoneNumber) {
+  /** @type {i18n.phonenumbers.PhoneNumberType} */
+  var numberType = this.getNumberType(phoneNumber);
+  // TODO: Include mobile phone numbers from countries like Indonesia, which
+  // has some mobile numbers that are geographical.
+  return numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE ||
+      numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE_OR_MOBILE;
+};
+
+
+/**
  * Helper function to check region code is not unknown or null.
  *
  * @param {?string} regionCode the ISO 3166-1 two-letter region code.
@@ -16436,6 +16603,11 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.format =
     function(number, numberFormat) {
 
   if (number.getNationalNumber() == 0 && number.hasRawInput()) {
+    // Unparseable numbers that kept their raw input just use that.
+    // This is the only case where a number can be formatted as E164 without a
+    // leading '+' symbol (but the original number wasn't parseable anyway).
+    // TODO: Consider removing the 'if' above so that unparseable strings
+    // without raw input format to the empty string instead of "+00"
     /** @type {string} */
     var rawInput = number.getRawInputOrDefault();
     if (rawInput.length > 0) {
@@ -16447,11 +16619,15 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.format =
   /** @type {string} */
   var nationalSignificantNumber = this.getNationalSignificantNumber(number);
   if (numberFormat == i18n.phonenumbers.PhoneNumberFormat.E164) {
-    // Early exit for E164 case since no formatting of the national number needs
-    // to be applied. Extensions are not formatted.
+    // Early exit for E164 case (even if the country calling code is invalid)
+    // since no formatting of the national number needs to be applied.
+    // Extensions are not formatted.
     return this.prefixNumberWithCountryCallingCode_(
         countryCallingCode, i18n.phonenumbers.PhoneNumberFormat.E164,
         nationalSignificantNumber, '');
+  }
+  if (!this.hasValidCountryCallingCode_(countryCallingCode)) {
+    return nationalSignificantNumber;
   }
   // Note getRegionCodeForCountryCode() is used because formatting information
   // for regions which share a country calling code is contained by only one
@@ -16459,10 +16635,10 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.format =
   // contained in the metadata for US.
   /** @type {string} */
   var regionCode = this.getRegionCodeForCountryCode(countryCallingCode);
-  if (!this.hasValidCountryCallingCode_(countryCallingCode)) {
-    return nationalSignificantNumber;
-  }
 
+  // Metadata cannot be null because the country calling code is valid (which
+  // means that the region code cannot be ZZ and must be one of our supported
+  // region codes).
   /** @type {i18n.phonenumbers.PhoneMetadata} */
   var metadata =
       this.getMetadataForRegionOrCallingCode_(countryCallingCode, regionCode);
@@ -16502,15 +16678,16 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatByPattern =
   var countryCallingCode = number.getCountryCodeOrDefault();
   /** @type {string} */
   var nationalSignificantNumber = this.getNationalSignificantNumber(number);
+  if (!this.hasValidCountryCallingCode_(countryCallingCode)) {
+    return nationalSignificantNumber;
+  }
   // Note getRegionCodeForCountryCode() is used because formatting information
   // for regions which share a country calling code is contained by only one
   // region for performance reasons. For example, for NANPA regions it will be
   // contained in the metadata for US.
   /** @type {string} */
   var regionCode = this.getRegionCodeForCountryCode(countryCallingCode);
-  if (!this.hasValidCountryCallingCode_(countryCallingCode)) {
-    return nationalSignificantNumber;
-  }
+  // Metadata cannot be null because the country calling code is valid
   /** @type {i18n.phonenumbers.PhoneMetadata} */
   var metadata =
       this.getMetadataForRegionOrCallingCode_(countryCallingCode, regionCode);
@@ -16584,16 +16761,17 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.
   var countryCallingCode = number.getCountryCodeOrDefault();
   /** @type {string} */
   var nationalSignificantNumber = this.getNationalSignificantNumber(number);
+  if (!this.hasValidCountryCallingCode_(countryCallingCode)) {
+    return nationalSignificantNumber;
+  }
+
   // Note getRegionCodeForCountryCode() is used because formatting information
   // for regions which share a country calling code is contained by only one
   // region for performance reasons. For example, for NANPA regions it will be
   // contained in the metadata for US.
   /** @type {string} */
   var regionCode = this.getRegionCodeForCountryCode(countryCallingCode);
-  if (!this.hasValidCountryCallingCode_(countryCallingCode)) {
-    return nationalSignificantNumber;
-  }
-
+  // Metadata cannot be null because the country calling code is valid.
   /** @type {i18n.phonenumbers.PhoneMetadata} */
   var metadata =
       this.getMetadataForRegionOrCallingCode_(countryCallingCode, regionCode);
@@ -16679,52 +16857,65 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatNumberForMobileDialing =
   }
 
   /** @type {string} */
-  var formattedNumber;
+  var formattedNumber = '';
   // Clear the extension, as that part cannot normally be dialed together with
   // the main number.
   /** @type {i18n.phonenumbers.PhoneNumber} */
   var numberNoExt = number.clone();
   numberNoExt.clearExtension();
-  /** @type {i18n.phonenumbers.PhoneNumberType} */
-  var numberType = this.getNumberType(numberNoExt);
   /** @type {string} */
   var regionCode = this.getRegionCodeForCountryCode(countryCallingCode);
-  if (regionCode == 'CO' && regionCallingFrom == 'CO') {
-    if (numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE) {
+  if (regionCallingFrom == regionCode) {
+    /** @type {i18n.phonenumbers.PhoneNumberType} */
+    var numberType = this.getNumberType(numberNoExt);
+    var isFixedLineOrMobile =
+        (numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE) ||
+        (numberType == i18n.phonenumbers.PhoneNumberType.MOBILE) ||
+        (numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE_OR_MOBILE);
+    // Carrier codes may be needed in some countries. We handle this here.
+    if (regionCode == 'CO' &&
+        numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE) {
       formattedNumber = this.formatNationalNumberWithCarrierCode(
           numberNoExt,
           i18n.phonenumbers.PhoneNumberUtil
               .COLOMBIA_MOBILE_TO_FIXED_LINE_PREFIX_);
+    } else if (regionCode == 'BR' && isFixedLineOrMobile) {
+      formattedNumber = numberNoExt.hasPreferredDomesticCarrierCode() ?
+          this.formatNationalNumberWithPreferredCarrierCode(numberNoExt, '') :
+          // Brazilian fixed line and mobile numbers need to be dialed with a
+          // carrier code when called within Brazil. Without that, most of the
+          // carriers won't connect the call. Because of that, we return an
+          // empty string here.
+          '';
     } else {
-      // E164 doesn't work at all when dialing within Colombia.
-      formattedNumber = this.format(
+      // For NANPA countries, non-geographical countries, and Mexican fixed
+      // line and mobile numbers, we output international format for numbersi
+      // that can be dialed internationally as that always works.
+      if ((countryCallingCode ==
+          i18n.phonenumbers.PhoneNumberUtil.NANPA_COUNTRY_CODE_ ||
+          regionCode ==
+          i18n.phonenumbers.PhoneNumberUtil.REGION_CODE_FOR_NON_GEO_ENTITY ||
+          // MX fixed line and mobile numbers should always be formatted in
+          // international format, even when dialed within MX. For national
+          // format to work, a carrier code needs to be used, and the correct
+          // carrier code depends on if the caller and callee are from the
+          // same local area. It is trickier to get that to work correctly than
+          // using international format, which is tested to work fine on all
+          // carriers.
+          (regionCode == 'MX' && isFixedLineOrMobile)) &&
+          this.canBeInternationallyDialled(numberNoExt)) {
+        formattedNumber = this.format(
+          numberNoExt, i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL);
+      } else {
+        formattedNumber = this.format(
           numberNoExt, i18n.phonenumbers.PhoneNumberFormat.NATIONAL);
+      }
     }
-  } else if (regionCode == 'PE' && regionCallingFrom == 'PE') {
-    // In Peru, numbers cannot be dialled using E164 format from a mobile phone
-    // for Movistar. Instead they must be dialled in national format.
-    formattedNumber = this.format(
-        numberNoExt, i18n.phonenumbers.PhoneNumberFormat.NATIONAL);
-  } else if (regionCode == 'BR' && regionCallingFrom == 'BR' &&
-      ((numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE) ||
-      (numberType == i18n.phonenumbers.PhoneNumberType.MOBILE) ||
-      (numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE_OR_MOBILE))) {
-    formattedNumber = numberNoExt.hasPreferredDomesticCarrierCode() ?
-        this.formatNationalNumberWithPreferredCarrierCode(numberNoExt, '') :
-        // Brazilian fixed line and mobile numbers need to be dialed with a
-        // carrier code when called within Brazil. Without that, most of the
-        // carriers won't connect the call. Because of that, we return an empty
-        // string here.
-        '';
   } else if (this.canBeInternationallyDialled(numberNoExt)) {
     return withFormatting ?
         this.format(numberNoExt,
                     i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL) :
         this.format(numberNoExt, i18n.phonenumbers.PhoneNumberFormat.E164);
-  } else {
-    formattedNumber = (regionCallingFrom == regionCode) ?
-        this.format(numberNoExt, i18n.phonenumbers.PhoneNumberFormat.NATIONAL) :
-        '';
   }
   return withFormatting ?
       formattedNumber :
@@ -16778,9 +16969,9 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatOutOfCountryCallingNumber =
     }
   } else if (countryCallingCode ==
                  this.getCountryCodeForValidRegion_(regionCallingFrom)) {
-    // For regions that share a country calling code, the country calling code
-    // need not be dialled. This also applies when dialling within a region, so
-    // this if clause covers both these cases. Technically this is the case for
+    // If regions share a country calling code, the country calling code need
+    // not be dialled. This also applies when dialling within a region, so this
+    // if clause covers both these cases. Technically this is the case for
     // dialling from La Reunion to other overseas departments of France (French
     // Guiana, Martinique, Guadeloupe), but not vice versa - so we don't cover
     // this edge case for now and for those cases return the version including
@@ -16789,6 +16980,7 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatOutOfCountryCallingNumber =
     return this.format(number,
                        i18n.phonenumbers.PhoneNumberFormat.NATIONAL);
   }
+  // Metadata cannot be null because we checked 'isValidRegionCode()' above.
   /** @type {i18n.phonenumbers.PhoneMetadata} */
   var metadataForRegionCallingFrom =
       this.getMetadataForRegion(regionCallingFrom);
@@ -16812,6 +17004,7 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatOutOfCountryCallingNumber =
 
   /** @type {string} */
   var regionCode = this.getRegionCodeForCountryCode(countryCallingCode);
+  // Metadata cannot be null because the country calling code is valid.
   /** @type {i18n.phonenumbers.PhoneMetadata} */
   var metadataForRegion =
       this.getMetadataForRegionOrCallingCode_(countryCallingCode, regionCode);
@@ -16907,6 +17100,8 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatInOriginalFormat =
         formattedNumber = nationalFormat;
         break;
       }
+      // Metadata cannot be null here because getNddPrefixForRegion() (above)
+      // returns null if there is no metadata for the region.
       /** @type {i18n.phonenumbers.PhoneMetadata} */
       var metadata = this.getMetadataForRegion(regionCode);
       /** @type {string} */
@@ -16914,6 +17109,14 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatInOriginalFormat =
       /** @type {i18n.phonenumbers.NumberFormat} */
       var formatRule = this.chooseFormattingPatternForNumber_(
           metadata.numberFormatArray(), nationalNumber);
+      // The format rule could still be null here if the national number was 0
+      // and there was no raw input (this should not be possible for numbers
+      // generated by the phonenumber library as they would also not have a
+      // country calling code and we would have exited earlier).
+      if (formatRule == null) {
+        formattedNumber = nationalFormat;
+        break;
+      }
       // When the format we apply to this number doesn't contain national
       // prefix, we can just return the national format.
       // TODO: Refactor the code below with the code in
@@ -16951,15 +17154,22 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatInOriginalFormat =
   // If no digit is inserted/removed/modified as a result of our formatting, we
   // return the formatted phone number; otherwise we return the raw input the
   // user entered.
-  return (formattedNumber != null &&
-          i18n.phonenumbers.PhoneNumberUtil.normalizeHelper_(formattedNumber,
-              i18n.phonenumbers.PhoneNumberUtil.DIALLABLE_CHAR_MAPPINGS_,
-              true /* remove non matches */) ==
-          i18n.phonenumbers.PhoneNumberUtil.normalizeHelper_(rawInput,
-              i18n.phonenumbers.PhoneNumberUtil.DIALLABLE_CHAR_MAPPINGS_,
-              true /* remove non matches */)) ?
-      formattedNumber :
-      rawInput;
+  if (formattedNumber != null && rawInput.length > 0) {
+    /** @type {string} */
+    var normalizedFormattedNumber =
+        i18n.phonenumbers.PhoneNumberUtil.normalizeHelper_(formattedNumber,
+            i18n.phonenumbers.PhoneNumberUtil.DIALLABLE_CHAR_MAPPINGS_,
+            true /* remove non matches */);
+    /** @type {string} */
+    var normalizedRawInput =
+        i18n.phonenumbers.PhoneNumberUtil.normalizeHelper_(rawInput,
+            i18n.phonenumbers.PhoneNumberUtil.DIALLABLE_CHAR_MAPPINGS_,
+            true /* remove non matches */);
+    if (normalizedFormattedNumber != normalizedRawInput) {
+      formattedNumber = rawInput;
+    }
+  }
+  return formattedNumber;
 };
 
 
@@ -17108,7 +17318,7 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.
     if (this.isNANPACountry(regionCallingFrom)) {
       return countryCode + ' ' + rawInput;
     }
-  } else if (this.isValidRegionCode_(regionCallingFrom) &&
+  } else if (metadataForRegionCallingFrom != null &&
       countryCode == this.getCountryCodeForValidRegion_(regionCallingFrom)) {
     /** @type {i18n.phonenumbers.NumberFormat} */
     var formattingPattern = this.chooseFormattingPatternForNumber_(
@@ -17152,6 +17362,7 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.
   }
   /** @type {string} */
   var regionCode = this.getRegionCodeForCountryCode(countryCode);
+  // Metadata cannot be null because the country calling code is valid.
   /** @type {i18n.phonenumbers.PhoneMetadata} */
   var metadataForRegion =
       this.getMetadataForRegionOrCallingCode_(countryCode, regionCode);
@@ -17306,7 +17517,7 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.chooseFormattingPatternForNumber_ =
 
 
 /**
- * Note that carrierCode is optional - if NULL or an empty string, no carrier
+ * Note that carrierCode is optional - if null or an empty string, no carrier
  * code replacement will take place.
  *
  * @param {string} nationalNumber a string of characters representing a phone
@@ -17542,16 +17753,14 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getNumberType =
 
   /** @type {?string} */
   var regionCode = this.getRegionCodeForNumber(number);
-  if (!this.isValidRegionCode_(regionCode) &&
-      i18n.phonenumbers.PhoneNumberUtil.REGION_CODE_FOR_NON_GEO_ENTITY !=
-      regionCode) {
+  /** @type {i18n.phonenumbers.PhoneMetadata} */
+  var metadata = this.getMetadataForRegionOrCallingCode_(
+      number.getCountryCodeOrDefault(), regionCode);
+  if (metadata == null) {
     return i18n.phonenumbers.PhoneNumberType.UNKNOWN;
   }
   /** @type {string} */
   var nationalSignificantNumber = this.getNationalSignificantNumber(number);
-  /** @type {i18n.phonenumbers.PhoneMetadata} */
-  var metadata = this.getMetadataForRegionOrCallingCode_(
-      number.getCountryCodeOrDefault(), regionCode);
   return this.getNumberTypeHelper_(nationalSignificantNumber, metadata);
 };
 
@@ -17621,6 +17830,9 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getNumberTypeHelper_ =
 
 
 /**
+ * Returns the metadata for the given region code or {@code null} if the region
+ * code is invalid or unknown.
+ *
  * @param {?string} regionCode
  * @return {i18n.phonenumbers.PhoneMetadata}
  */
@@ -17703,6 +17915,10 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.isValidNumber = function(number) {
  * After this, the specific number pattern rules for the region are examined.
  * This is useful for determining for example whether a particular number is
  * valid for Canada, rather than just a valid NANPA number.
+ * Warning: In most cases, you want to use {@link #isValidNumber} instead. For
+ * example, this method will mark numbers from British Crown dependencies such
+ * as the Isle of Man as invalid for the region "GB" (United Kingdom), since it
+ * has its own region code, "IM", which may be undesirable.
  *
  * @param {i18n.phonenumbers.PhoneNumber} number the phone number that we want
  *     to validate.
@@ -17797,6 +18013,8 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.
   for (var i = 0; i < regionCodesLength; i++) {
     regionCode = regionCodes[i];
     // If leadingDigits is present, use this. Otherwise, do full validation.
+    // Metadata cannot be null because the region codes come from the country
+    // calling code map.
     /** @type {i18n.phonenumbers.PhoneMetadata} */
     var metadata = this.getMetadataForRegion(regionCode);
     if (metadata.hasLeadingDigits()) {
@@ -17833,6 +18051,25 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getRegionCodeForCountryCode =
 
 
 /**
+ * Returns a list with the region codes that match the specific country calling
+ * code. For non-geographical country calling codes, the region code 001 is
+ * returned. Also, in the case of no region code being found, an empty list is
+ * returned.
+ *
+ * @param {number} countryCallingCode the country calling code.
+ * @return {Array.<string>}
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.getRegionCodesForCountryCode =
+    function(countryCallingCode) {
+
+  /** @type {Array.<string>} */
+  var regionCodes =
+      i18n.phonenumbers.metadata.countryCodeToRegionCodeMap[countryCallingCode];
+  return regionCodes == null ? [] : regionCodes;
+};
+
+
+/**
  * Returns the country calling code for a specific region. For example, this
  * would be 1 for the United States, and 64 for New Zealand.
  *
@@ -17860,6 +18097,7 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getCountryCodeForRegion =
  *     calling code for.
  * @return {number} the country calling code for the region denoted by
  *     regionCode.
+ * @throws {string} if the region is invalid
  * @private
  */
 i18n.phonenumbers.PhoneNumberUtil.prototype.getCountryCodeForValidRegion_ =
@@ -17867,6 +18105,9 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getCountryCodeForValidRegion_ =
 
   /** @type {i18n.phonenumbers.PhoneMetadata} */
   var metadata = this.getMetadataForRegion(regionCode);
+  if (metadata == null) {
+    throw 'Invalid region code: ' + regionCode;
+  }
   return metadata.getCountryCodeOrDefault();
 };
 
@@ -17892,11 +18133,11 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getCountryCodeForValidRegion_ =
  */
 i18n.phonenumbers.PhoneNumberUtil.prototype.getNddPrefixForRegion = function(
     regionCode, stripNonDigits) {
-  if (!this.isValidRegionCode_(regionCode)) {
-    return null;
-  }
   /** @type {i18n.phonenumbers.PhoneMetadata} */
   var metadata = this.getMetadataForRegion(regionCode);
+  if (metadata == null) {
+    return null;
+  }
   /** @type {string} */
   var nationalPrefix = metadata.getNationalPrefixOrDefault();
   // If no national prefix was found, we return null.
@@ -17941,7 +18182,8 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.isNANPACountry =
 i18n.phonenumbers.PhoneNumberUtil.prototype.isLeadingZeroPossible =
     function(countryCallingCode) {
   /** @type {i18n.phonenumbers.PhoneMetadata} */
-  var mainMetadataForCallingCode = this.getMetadataForRegion(
+  var mainMetadataForCallingCode = this.getMetadataForRegionOrCallingCode_(
+      countryCallingCode,
       this.getRegionCodeForCountryCode(countryCallingCode));
   return mainMetadataForCallingCode != null &&
       mainMetadataForCallingCode.getLeadingZeroPossibleOrDefault();
@@ -18058,6 +18300,7 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.isPossibleNumberWithReason =
   }
   /** @type {string} */
   var regionCode = this.getRegionCodeForCountryCode(countryCode);
+  // Metadata cannot be null because the country calling code is valid.
   /** @type {i18n.phonenumbers.PhoneMetadata} */
   var metadata =
       this.getMetadataForRegionOrCallingCode_(countryCode, regionCode);
@@ -18632,7 +18875,7 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.parseHelper_ =
     throw i18n.phonenumbers.Error.NOT_A_NUMBER;
   } else if (numberToParse.length >
       i18n.phonenumbers.PhoneNumberUtil.MAX_INPUT_STRING_LENGTH_) {
-    throw 'The string supplied was too long to parse';
+    throw i18n.phonenumbers.Error.TOO_LONG;
   }
 
   /** @type {!goog.string.StringBuffer} */
@@ -18697,6 +18940,7 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.parseHelper_ =
     /** @type {string} */
     var phoneNumberRegion = this.getRegionCodeForCountryCode(countryCode);
     if (phoneNumberRegion != defaultRegion) {
+      // Metadata cannot be null because the country calling code is valid.
       regionMetadata = this.getMetadataForRegionOrCallingCode_(
           countryCode, phoneNumberRegion);
     }
@@ -19006,15 +19250,13 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.isNationalNumberSuffixOfTheOther_ =
  */
 i18n.phonenumbers.PhoneNumberUtil.prototype.canBeInternationallyDialled =
     function(number) {
-  /** @type {?string} */
-  var regionCode = this.getRegionCodeForNumber(number);
-  if (!this.isValidRegionCode_(regionCode)) {
+  /** @type {i18n.phonenumbers.PhoneMetadata} */
+  var metadata = this.getMetadataForRegion(this.getRegionCodeForNumber(number));
+  if (metadata == null) {
     // Note numbers belonging to non-geographical entities (e.g. +800 numbers)
     // are always internationally diallable, and will be caught here.
     return true;
   }
-  /** @type {i18n.phonenumbers.PhoneMetadata} */
-  var metadata = this.getMetadataForRegion(regionCode);
   /** @type {string} */
   var nationalSignificantNumber = this.getNationalSignificantNumber(number);
   return !this.isNumberMatchingDesc_(nationalSignificantNumber,
