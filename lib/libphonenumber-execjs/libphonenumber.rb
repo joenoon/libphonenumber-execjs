@@ -15,7 +15,7 @@ class Libphonenumber
   end
   
   def parse(str="", default_region="ZZ")
-    context.call "i18n.phonenumbers.PhoneNumberUtil.getInstance().parse", str, default_region
+    context.call "(function (a,b) { return i18n.phonenumbers.PhoneNumberUtil.getInstance().parse(a,b); })", str, default_region
   end
   
   def simple
