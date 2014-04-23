@@ -48,13 +48,13 @@ class Libphonenumber
     @parse
   end
 
-  def region(a=nil, b=nil)
+  def read_data(t='geocoding',a=nil, b=nil)
     self.parse(a,b) if @parse.nil?
     region_of_number = 'UNKNOWN'
     if @parse[:e164_number].nil?
     else
       cc = @parse["util"]["values_"][1]
-      region_file = File.join(File.dirname(__FILE__), "..", "..", "support", "geocoding", "en", "#{cc}.txt")
+      region_file = File.join(File.dirname(__FILE__), "..", "..", "support", t, "en", "#{cc}.txt")
       if File.exists? region_file
         content = File.read(region_file)
         content = content.split("\n\n")
@@ -75,6 +75,14 @@ class Libphonenumber
       end
     end
     region_of_number
+  end
+
+  def region(a=nil,b=nil)
+    read_data('geocoding',a,b)
+  end
+
+  def carrier(a=nil,b=nil)
+    read_data('carrier',a,b)
   end
   
   def simple
