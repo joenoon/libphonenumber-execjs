@@ -51,23 +51,22 @@ class Libphonenumber
   def read_data(t='geocoding',a=nil, b=nil)
     self.parse(a,b) if @parse.nil?
     region_of_number = 'UNKNOWN'
-    if @parse[:e164_number].nil?
+    puts @parse
+    if @parse['e164_number'].nil?
     else
-      cc = @parse["util"]["values_"][1]
+      cc = @parse['util']['values_'][1]
+      code = @parse['e164_number']
+      puts code
       region_file = File.join(File.dirname(__FILE__), "..", "..", "support", t, "en", "#{cc}.txt")
       if File.exists? region_file
         content = File.read(region_file)
         content = content.split("\n\n")
-        content = content.last.split("\n")
-        region_map = {}
-        content.each { |e|  
+        content = content.last.split("\n").reverse
+        content.each { |e|
           _e = e.split('|')
-          region_map[_e[0]] = _e[1]
-        }
-        region_map = region_map.reverse
-        region_map.each { |num, reg|  
-          if cc[1,num.length]==num
-            region_of_number = reg
+          # puts "#{_e[0]}=#{_e[1]}"
+          if code[1, _e[0].to_s.length] == _e[0]
+            region_of_number = _e[1]
             break
           end
         }
