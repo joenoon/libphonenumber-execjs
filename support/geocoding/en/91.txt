@@ -23,14 +23,174 @@
 # to both places (they are neighbors or the larger one contains the smaller).
 
 9111|New Delhi
+9120|Pune, Maharashtra
+9122|Mumbai
+9133|Kolkata, West Bengal
+9140|Hyderabad Local, Andhra Pradesh
+9144|Chennai, Tamil Nadu
+9179|Ahemdabad Local, Gujarat
+9180|Bangalore, Karnataka
 91120|Ghaziabad/Dadri, Uttar Pradesh
 91121|Meerut, Uttar Pradesh
 91122|Hapur, Uttar Pradesh
+91124|Gurgaon, Haryana
+91129|Faridabad, Haryana
+91130|Sonipat, Haryana
+91131|Muzaffarnagar, Uttar Pradesh
+91132|Saharanpur, Uttar Pradesh
+91135|Dehradun, Uttarakhand
+91141|Jaipur, Rajasthan
+91144|Alwar, Rajasthan
+91145|Ajmer, Rajasthan
+91151|Bikaner, Rajasthan
+91154|Sriganganagar, Rajasthan
+91160|Kharar, Punjab
+91161|Ludhiana, Punjab
+91164|Bhatinda, Punjab
+91171|Ambala, Haryana
+91172|Chandigarh, Punjab
+91175|Patiala, Punjab
+91177|Shimla, Himachal Pradesh
+91180|Panipat, Haryana
+91181|Jallandhar, Punjab
+91183|Amritsar, Punjab
+91184|Karnal, Haryana
+91186|Pathankot, Punjab
+91191|Jammu, Jammu And Kashmir
+91194|Srinagar, Jammu And Kashmir
+91212|Chinchwad, Maharashtra
+91215|Navi Mumbai/Turbhe, Maharashtra
+91217|Sholapur, Maharashtra
+91230|Khadakwasala, Maharashtra
+91231|Kolhapur, Maharashtra
+91233|Sangli, Maharashtra
+91241|Ahmednagar, Maharashtra
+91250|Bassein, Maharashtra
+91251|Kalyan, Maharashtra
+91253|Nasikcity, Maharashtra
+91257|Jalgaon, Maharashtra
+91260|Vapi, Gujarat
+91261|Surat, Gujarat
+91265|Vadodara, Gujarat
+91268|Nadiad, Gujarat
+91278|Bhavnagar, Gujarat
+91281|Rajkot, Gujarat
+91285|Junagarh, Gujarat
+91286|Porbander, Gujarat
+91288|Jamnagar, Gujarat
+91291|Jodhpur Jodhpur, Rajasthan
+91294|Udaipur Girwa/Udaipur, Rajasthan
+91326|Dhanbad, Bihar
+91341|Asansol, West Bengal
+91342|Burdwan, West Bengal
+91343|Durgapur, West Bengal
+91353|Siliguri, West Bengal
+91354|Darjeeling, West Bengal
+91360|Itanagar/Ziro, Arunachal Pradesh
+91361|Guwahati, Assam
+91364|Shillong, Meghalaya
+91368|Passighat, Arunachal Pradesh
+91369|Mokokchung, Nagaland
+91370|Kohima, Nagaland
+91372|Lungleh, Mizoram
+91373|Dibrugarh, Assam
+91374|Tinsukhia, Assam
+91376|Jorhat, Assam
+91381|Agartala, Tripura
+91385|Imphal, Manipur
+91389|Aizawal, Mizoram
+91413|Pondicherry, Tamil Nadu
+91416|Vellore, Tamil Nadu
+91421|Tirupur, Tamil Nadu
+91422|Coimbatore, Tamil Nadu
+91423|Udhagamandalam, Tamil Nadu
+91424|Erode, Tamil Nadu
+91427|Salem, Tamil Nadu
+91431|Tiruchchirappalli, Tamil Nadu
+91435|Kumbakonam, Tamil Nadu
+91451|Dindigul, Tamil Nadu
+91452|Madurai, Tamil Nadu
+91461|Thoothukudi, Tamil Nadu
+91462|Tirunelvelli, Tamil Nadu
+91469|Tiruvalla, Kerala
+91470|Attingal, Kerala
+91471|Thiruvananthapuram, Kerala
+91474|Kollam, Kerala
+91475|Punalur, Kerala
+91476|Karunagapally, Kerala
+91477|Alappuzha, Kerala
+91478|Cherthala, Kerala
+91479|Mavelikkara, Kerala
+91480|Irinjalakuda, Kerala
+91481|Kottayam, Kerala
+91483|Manjeri, Kerala
+91484|Ernakulam, Kerala
+91485|Muvattupuzha, Kerala
+91487|Thrissur, Kerala
+91490|Tellicherry, Kerala
+91491|Palakkad, Kerala
+91494|Tirur, Kerala
+91495|Kozhikode, Kerala
+91496|Vatakara, Kerala
+91497|Kannur, Kerala
+91512|Kanpur, Uttar Pradesh
+91515|Unnao, Uttar Pradesh
+91522|Lucknow, Uttar Pradesh
+91532|Allahabad, Uttar Pradesh
+91535|Raibareli, Uttar Pradesh
+91542|Varansi, Uttar Pradesh
+91548|Ghazipur, Uttar Pradesh
+91551|Gorakhpur, Uttar Pradesh
+91562|Agra, Uttar Pradesh
+91565|Mathura, Uttar Pradesh
+91571|Aligarh, Uttar Pradesh
+91581|Bareilly, Uttar Pradesh
+91591|Moradabad, Uttar Pradesh
+91595|Rampur, Uttar Pradesh
+91612|Patna, Bihar
+91621|Muzaffarpur, Bihar
+91631|Gaya, Bihar
+91641|Bhagalpur, Bihar
+91651|Ranchi, Bihar
+91657|Jamshedpur, Bihar
+91661|Rourkela, Odisha
+91663|Sambalpur, Odisha
+91671|Cuttack, Odisha
+91674|Bhubaneshwar, Odisha
+91680|Berhampur, Odisha
+91712|Nagpur, Maharashtra
+91721|Amravati, Maharashtra
+91724|Akola, Maharashtra
+91731|Indore, Madhya Pradesh
+91733|Khandwa, Madhya Pradesh
+91734|Ujjain, Madhya Pradesh
+91744|Ladpura/Kota, Rajasthan
+91747|Bundi, Rajasthan
+91751|Gwalior, Madhya Pradesh
+91755|Bhopal, Madhya Pradesh
+91761|Jabalpur, Madhya Pradesh
+91771|Raipur, Madhya Pradesh
+91788|Durg, Madhya Pradesh
+91816|Tumkur, Karnataka
+91820|Udupi, Karnataka
+91821|Mysore, Karnataka
+91824|Mangalore, Karnataka
+91831|Belgaum, Karnataka
+91832|Panji, Maharashtra
+91836|Hubli, Karnataka
+91861|Nellore, Andhra Pradesh
+91863|Guntur, Andhra Pradesh
+91866|Vijayawada, Andhra Pradesh
+91870|Warangal, Andhra Pradesh
+91877|Tirupathi, Andhra Pradesh
+91878|Karimnagar, Andhra Pradesh
+91883|Rajahmundri, Andhra Pradesh
+91884|Kakinada, Andhra Pradesh
+91891|Visakhapatnam, Andhra Pradesh
 911232|Modinagar, Uttar Pradesh
 911233|Mawana, Uttar Pradesh
 911234|Baghpat/Baraut, Uttar Pradesh
 911237|Sardhana, Uttar Pradesh
-91124|Gurgaon, Haryana
 911250|Charkhidadri, Haryana
 911251|Jhajjar, Haryana
 911252|Loharu, Haryana
@@ -51,10 +211,6 @@
 911282|Narnaul, Haryana
 911284|Bawal, Haryana
 911285|Mohindergarh, Haryana
-91129|Faridabad, Haryana
-91130|Sonipat, Haryana
-91131|Muzaffarnagar, Uttar Pradesh
-91132|Saharanpur, Uttar Pradesh
 911331|Nakur/Gangoh, Uttar Pradesh
 911332|Roorkee, Uttarakhand
 911334|Roorkee/Haridwar, Uttarakhand
@@ -66,7 +222,6 @@
 911345|Bijnor/Chandpur, Uttar Pradesh
 911346|Pauri/Bubakhal, Uttarakhand
 911348|Lansdowne/Syunsi, Uttarakhand
-91135|Dehradun, Uttarakhand
 911360|Dehradun Chakrata/Dakpattar, Uttarakhand
 911363|Karnaprayag, Uttarakhand
 911364|Ukhimath/Guptkashi, Uttarakhand
@@ -88,7 +243,6 @@
 911392|Budhana, Uttar Pradesh
 911396|Jansath/Khatauli, Uttar Pradesh
 911398|Kairana/Shamli, Uttar Pradesh
-91141|Jaipur, Rajasthan
 911420|Baswa/Bandikui, Rajasthan
 911421|Kotputli, Rajasthan
 911422|Viratnagar/Shahpura, Rajasthan
@@ -108,8 +262,6 @@
 911436|Uniayara, Rajasthan
 911437|Malpura, Rajasthan
 911438|Newai, Rajasthan
-91144|Alwar, Rajasthan
-91145|Ajmer, Rajasthan
 911460|Kishangarhbas/Khairthal, Rajasthan
 911461|Bansur, Rajasthan
 911462|Beawar, Rajasthan
@@ -158,7 +310,6 @@
 911507|Raisinghnagar, Rajasthan
 911508|Suratgarh/Goluwala, Rajasthan
 911509|Suratgarh, Rajasthan
-91151|Bikaner, Rajasthan
 911520|Bikaner/Chhatargarh, Rajasthan
 911521|Bikaner/Jaimalsar, Rajasthan
 911522|Bikaner/Jamsar, Rajasthan
@@ -175,7 +326,6 @@
 911536|Kolayat/Daitra, Rajasthan
 911537|Nohar/Rawatsar, Rajasthan
 911539|Tibbi, Rajasthan
-91154|Sriganganagar, Rajasthan
 911552|Hanumangarh, Rajasthan
 911555|Nohar, Rajasthan
 911559|Rajgarh, Rajasthan
@@ -214,8 +364,6 @@
 911594|Udaipurwati, Rajasthan
 911595|Jhunjhunu/Bissau, Rajasthan
 911596|Chirawa, Rajasthan
-91160|Kharar, Punjab
-91161|Ludhiana, Punjab
 911624|Jagraon, Punjab
 911628|Samrala, Punjab
 911632|Ferozepur, Punjab
@@ -226,7 +374,6 @@
 911637|Malaut, Punjab
 911638|Fazilka, Punjab
 911639|Faridakot, Punjab
-91164|Bhatinda, Punjab
 911651|Phulmandi, Punjab
 911652|Mansa, Punjab
 911655|Raman, Punjab
@@ -255,8 +402,6 @@
 911698|Ellenabad, Haryana
 911702|Nahan, Himachal Pradesh
 911704|Paonta, Himachal Pradesh
-91171|Ambala, Haryana
-91172|Chandigarh, Punjab
 911731|Barara, Haryana
 911732|Jagadhari, Haryana
 911733|Kalka, Haryana
@@ -269,12 +414,10 @@
 911746|Kaithal, Haryana
 911748|Gharaunda, Haryana
 911749|Assandh, Haryana
-91175|Patiala, Punjab
 911762|Rajpura, Punjab
 911763|Sarhind, Punjab
 911764|Samana, Punjab
 911765|Nabha, Punjab
-91177|Shimla, Himachal Pradesh
 911781|Rohru, Himachal Pradesh
 911782|Rampur Bushahar, Himachal Pradesh
 911783|Theog, Himachal Pradesh
@@ -284,22 +427,17 @@
 911795|Nalagarh, Himachal Pradesh
 911796|Arki, Himachal Pradesh
 911799|Rajgarh, Himachal Pradesh
-91180|Panipat, Haryana
-91181|Jallandhar, Punjab
 911821|Nakodar, Punjab
 911822|Kapurthala, Punjab
 911823|Nawanshahar, Punjab
 911824|Phagwara, Punjab
 911826|Phillaur, Punjab
 911828|Sultanpur Lodhi, Punjab
-91183|Amritsar, Punjab
-91184|Karnal, Haryana
 911851|Patti, Punjab
 911852|Taran, Punjab
 911853|Rayya, Punjab
 911858|Ajnala, Punjab
 911859|Goindwal, Punjab
-91186|Pathankot, Punjab
 911870|Jugial, Punjab
 911871|Batala, Punjab
 911872|Quadian, Punjab
@@ -328,7 +466,6 @@
 911907|Sundernagar, Himachal Pradesh
 911908|Jogindernagar, Himachal Pradesh
 911909|Udaipur, Himachal Pradesh
-91191|Jammu, Jammu And Kashmir
 911921|Basholi, Jammu And Kashmir
 911922|Kathua, Jammu And Kashmir
 911923|Samba, Jammu And Kashmir
@@ -337,7 +474,6 @@
 911932|Anantnag, Jammu And Kashmir
 911933|Pulwama, Jammu And Kashmir
 911936|Pahalgam, Jammu And Kashmir
-91194|Srinagar, Jammu And Kashmir
 911951|Badgam, Jammu And Kashmir
 911952|Baramulla, Jammu And Kashmir
 911954|Sopore, Jammu And Kashmir
@@ -367,7 +503,6 @@
 911997|Bedarwah, Jammu And Kashmir
 911998|Ramban, Jammu And Kashmir
 911999|Mahore, Jammu And Kashmir
-9120|Pune, Maharashtra
 912111|Indapur, Maharashtra
 912112|Baramati, Maharashtra
 912113|Bhor, Maharashtra
@@ -376,7 +511,6 @@
 912117|Daund, Maharashtra
 912118|Walchandnagar, Maharashtra
 912119|Kedgaon, Maharashtra
-91212|Chinchwad, Maharashtra
 912130|Velhe, Maharashtra
 912132|Junnar, Maharashtra
 912133|Manchar, Maharashtra
@@ -394,7 +528,6 @@
 912147|Shrivardhan, Maharashtra
 912148|Karjat, Maharashtra
 912149|Mahasala, Maharashtra
-91215|Navi Mumbai/Turbhe, Maharashtra
 912160|Sakarwadi, Maharashtra
 912161|Vaduj, Maharashtra
 912162|Satara, Maharashtra
@@ -405,7 +538,6 @@
 912167|Wai, Maharashtra
 912168|Mahabaleswar, Maharashtra
 912169|Shirwal, Maharashtra
-91217|Sholapur, Maharashtra
 912181|Akkalkot, Maharashtra
 912182|Karmala, Maharashtra
 912183|Madha, Maharashtra
@@ -418,9 +550,6 @@
 912191|Poladpur, Maharashtra
 912192|Khopoli, Maharashtra
 912194|Roha, Maharashtra
-9122|Mumbai
-91230|Khadakwasala, Maharashtra
-91231|Kolhapur, Maharashtra
 912320|Chandgad, Maharashtra
 912321|Radhanagar, Maharashtra
 912322|Shirol/Jalsingpur, Maharashtra
@@ -431,7 +560,6 @@
 912327|Gadhinglaj, Maharashtra
 912328|Panhala, Maharashtra
 912329|Shahuwadi/Malakapur, Maharashtra
-91233|Sangli, Maharashtra
 912341|Kavathemankal, Maharashtra
 912342|Islampur, Maharashtra
 912343|Atpadi, Maharashtra
@@ -465,7 +593,6 @@
 912383|Ausa, Maharashtra
 912384|Nilanga, Maharashtra
 912385|Udgir, Maharashtra
-91241|Ahmednagar, Maharashtra
 912421|Jamkhed, Maharashtra
 912422|Shri Rampur, Maharashtra
 912423|Koparagon, Maharashtra
@@ -521,8 +648,6 @@
 912487|Shrigonda, Maharashtra
 912488|Parner, Maharashtra
 912489|Karjat, Maharashtra
-91250|Bassein, Maharashtra
-91251|Kalyan, Maharashtra
 912520|Jawahar, Maharashtra
 912521|Talasari, Maharashtra
 912522|Bhiwandi, Maharashtra
@@ -532,7 +657,6 @@
 912527|Shahapur, Maharashtra
 912528|Dahanu, Maharashtra
 912529|Mokhada, Maharashtra
-91253|Nasikcity, Maharashtra
 912550|Niphad, Maharashtra
 912551|Sinnar, Maharashtra
 912552|Nandgaon, Maharashtra
@@ -553,7 +677,6 @@
 912567|Taloda, Maharashtra
 912568|Sakri, Maharashtra
 912569|Navapur, Maharashtra
-91257|Jalgaon, Maharashtra
 912580|Jamner, Maharashtra
 912582|Bhusawal, Maharashtra
 912583|Edalabad, Maharashtra
@@ -572,8 +695,6 @@
 912597|Parola, Maharashtra
 912598|Umrane, Maharashtra
 912599|Bhudargad/Gargoti, Maharashtra
-91260|Vapi, Gujarat
-91261|Surat, Gujarat
 912621|Sayan, Gujarat
 912622|Bardoli, Gujarat
 912623|Mandvi, Gujarat
@@ -596,7 +717,6 @@
 912645|Jhagadia, Gujarat
 912646|Ankleshwar, Gujarat
 912649|Dediapada, Gujarat
-91265|Vadodara, Gujarat
 912661|Naswadi, Gujarat
 912662|Padra, Gujarat
 912663|Dabhoi, Gujarat
@@ -615,7 +735,6 @@
 912677|Limkheda, Gujarat
 912678|Devgadhbaria, Gujarat
 912679|Jhalod, Gujarat
-91268|Nadiad, Gujarat
 912690|Balasinor, Gujarat
 912691|Kapad Wanj, Gujarat
 912692|Anand, Gujarat
@@ -669,7 +788,6 @@
 912775|Khedbrahma, Gujarat
 912778|Idar, Gujarat
 912779|Bayad, Gujarat
-91278|Bhavnagar, Gujarat
 912791|Babra, Gujarat
 912792|Amreli, Gujarat
 912793|Damnagar, Gujarat
@@ -682,7 +800,6 @@
 912804|Kutiyana, Gujarat
 912806|Gogodar, Gujarat
 912808|Sumrasar, Gujarat
-91281|Rajkot, Gujarat
 912820|Paddhari, Gujarat
 912821|Jasdan, Gujarat
 912822|Morvi, Gujarat
@@ -712,8 +829,6 @@
 912847|Gadhada, Gujarat
 912848|Palitana, Gujarat
 912849|Botad, Gujarat
-91285|Junagarh, Gujarat
-91286|Porbander, Gujarat
 912870|Malia Hatina, Gujarat
 912871|Keshod, Gujarat
 912872|Vanthali, Gujarat
@@ -723,7 +838,6 @@
 912876|Veraval, Gujarat
 912877|Talala, Gujarat
 912878|Mangrol, Gujarat
-91288|Jamnagar, Gujarat
 912891|Jamkalyanpur, Gujarat
 912892|Okha, Gujarat
 912893|Jodia, Gujarat
@@ -742,7 +856,6 @@
 912907|Kherwara, Rajasthan
 912908|Amet, Rajasthan
 912909|Bhim/Dawer, Rajasthan
-91291|Jodhpur Jodhpur, Rajasthan
 912920|Bilara/Bhopalgarh, Rajasthan
 912921|Phalodi/Bap, Rajasthan
 912922|Osian, Rajasthan
@@ -763,7 +876,6 @@
 912937|Raipur, Rajasthan
 912938|Bali, Rajasthan
 912939|Jaitaran, Rajasthan
-91294|Udaipur Girwa/Udaipur, Rajasthan
 912950|Dhariawad, Rajasthan
 912951|Bhim, Rajasthan
 912952|Rajsamand/Kankorli, Rajasthan
@@ -853,11 +965,6 @@
 913252|Purulia, West Bengal
 913253|Manbazar, West Bengal
 913254|Jhalda, West Bengal
-91326|Dhanbad, Bihar
-9133|Kolkata, West Bengal
-91341|Asansol, West Bengal
-91342|Burdwan, West Bengal
-91343|Durgapur, West Bengal
 913451|Seharabazar, West Bengal
 913452|Guskara, West Bengal
 913453|Katwa, West Bengal
@@ -884,8 +991,6 @@
 913524|Harirampur, West Bengal
 913525|Dalkhola, West Bengal
 913526|Islampur, West Bengal
-91353|Siliguri, West Bengal
-91354|Darjeeling, West Bengal
 913552|Kalimpong, West Bengal
 913561|Jalpaiguri, West Bengal
 913562|Mal Bazar, West Bengal
@@ -899,15 +1004,12 @@
 913584|Mekhliganj, West Bengal
 913592|Gangtok, West Bengal
 913595|Gauzing/Nayabazar, West Bengal
-91360|Itanagar/Ziro, Arunachal Pradesh
-91361|Guwahati, Assam
 913621|Boko, Assam
 913623|Barama, Assam
 913624|Nalbari, Assam
 913637|Cherrapunjee, Meghalaya
 913638|Nongpoh, Meghalaya
 913639|Baghmara, Meghalaya
-91364|Shillong, Meghalaya
 913650|Dadengiri/Phulbari, Meghalaya
 913651|Tura, Meghalaya
 913652|Jowai, Meghalaya
@@ -936,17 +1038,11 @@
 913676|Howraghat, Assam
 913677|Baithalangshu, Assam
 913678|Morigaon, Assam
-91368|Passighat, Arunachal Pradesh
-91369|Mokokchung, Nagaland
-91370|Kohima, Nagaland
 913711|Udalguri, Assam
 913712|Tezpur, Assam
 913713|Mangaldoi, Assam
 913714|Rangapara, Assam
 913715|Gohpur, Assam
-91372|Lungleh, Mizoram
-91373|Dibrugarh, Assam
-91374|Tinsukhia, Assam
 913751|Digboi, Assam
 913752|Lakhimpur, Assam
 913753|Dhemaji, Assam
@@ -954,7 +1050,6 @@
 913756|Sadiya, Assam
 913758|Dhakuakhana, Assam
 913759|Bihupuria, Assam
-91376|Jorhat, Assam
 913771|Mariani, Assam
 913772|Sibsagar, Assam
 913774|Golaghat, Assam
@@ -991,7 +1086,6 @@
 913807|Miao, Arunachal Pradesh
 913808|Changlang, Arunachal Pradesh
 913809|Sagalee, Arunachal Pradesh
-91381|Agartala, Tripura
 913821|R.K.Pur, Tripura
 913822|Dharam Nagar, Tripura
 913823|Belonia, Tripura
@@ -1012,7 +1106,6 @@
 913844|Hailakandi, Assam
 913845|Ukhrul Central, Manipur
 913848|Thonbal, Manipur
-91385|Imphal, Manipur
 913860|Wokha, Nagaland
 913861|Tuengsang, Nagaland
 913862|Dimapur, Nagaland
@@ -1030,8 +1123,6 @@
 913878|Chakpikarong, Manipur
 913879|Bishenpur, Manipur
 913880|Sadarhills/Kangpokai, Manipur
-91389|Aizawal, Mizoram
-9140|Hyderabad Local, Andhra Pradesh
 914111|Sriperumbudur, Tamil Nadu
 914112|Kancheepuram, Tamil Nadu
 914114|Chengalpattu, Tamil Nadu
@@ -1039,7 +1130,6 @@
 914116|Tiruvallur, Tamil Nadu
 914118|Tiruttani, Tamil Nadu
 914119|Ponneri, Tamil Nadu
-91413|Pondicherry, Tamil Nadu
 914142|Cuddalore, Tamil Nadu
 914143|Virudhachalam, Tamil Nadu
 914144|Chidambaram, Tamil Nadu
@@ -1049,7 +1139,6 @@
 914149|Ulundurpet, Tamil Nadu
 914151|Kallakurichi, Tamil Nadu
 914153|Arakandanallur, Tamil Nadu
-91416|Vellore, Tamil Nadu
 914171|Gudiyatham, Tamil Nadu
 914172|Ranipet, Tamil Nadu
 914173|Arni, Tamil Nadu
@@ -1063,10 +1152,6 @@
 914188|Chengam, Tamil Nadu
 914202|Mulanur, Tamil Nadu
 914204|Kodumudi, Tamil Nadu
-91421|Tirupur, Tamil Nadu
-91422|Coimbatore, Tamil Nadu
-91423|Udhagamandalam, Tamil Nadu
-91424|Erode, Tamil Nadu
 914252|Udumalpet, Tamil Nadu
 914253|Anamalai, Tamil Nadu
 914254|Mettupalayam, Tamil Nadu
@@ -1078,7 +1163,6 @@
 914262|Gudalur, Tamil Nadu
 914266|Kotagiri, Tamil Nadu
 914268|Velur, Tamil Nadu
-91427|Salem, Tamil Nadu
 914281|Yercaud, Tamil Nadu
 914282|Attur, Tamil Nadu
 914283|Sankagiri, Tamil Nadu
@@ -1092,7 +1176,6 @@
 914295|Sathiyamangalam, Tamil Nadu
 914296|Avanashi, Tamil Nadu
 914298|Metturdam, Tamil Nadu
-91431|Tiruchchirappalli, Tamil Nadu
 914320|Aravakurichi, Tamil Nadu
 914322|Pudukkottai, Tamil Nadu
 914323|Kulithalai, Tamil Nadu
@@ -1112,7 +1195,6 @@
 914346|Harur, Tamil Nadu
 914347|Denkanikota, Tamil Nadu
 914348|Palakkodu, Tamil Nadu
-91435|Kumbakonam, Tamil Nadu
 914362|Thanjavur, Tamil Nadu
 914364|Mayiladuthurai, Tamil Nadu
 914365|Nagapattinam, Tamil Nadu
@@ -1124,9 +1206,6 @@
 914372|Orathanad, Tamil Nadu
 914373|Pattukottai, Tamil Nadu
 914374|Papanasam, Tamil Nadu
-9144|Chennai, Tamil Nadu
-91451|Dindigul, Tamil Nadu
-91452|Madurai, Tamil Nadu
 914542|Kodaikanal, Tamil Nadu
 914543|Batlagundu, Tamil Nadu
 914544|Natham, Tamil Nadu
@@ -1149,8 +1228,6 @@
 914575|Sivaganga, Tamil Nadu
 914576|Mudukulathur, Tamil Nadu
 914577|Tirupathur, Tamil Nadu
-91461|Thoothukudi, Tamil Nadu
-91462|Tirunelvelli, Tamil Nadu
 914630|Srivaikundam, Tamil Nadu
 914632|Kovilpatti, Tamil Nadu
 914633|Tenkasi, Tamil Nadu
@@ -1162,33 +1239,18 @@
 914639|Tiruchendur, Tamil Nadu
 914651|Kuzhithurai, Tamil Nadu
 914652|Nagercoil, Tamil Nadu
-91469|Tiruvalla, Kerala
-91470|Attingal, Kerala
-91471|Thiruvananthapuram, Kerala
 914728|Nedumangad, Kerala
 914733|Pathanamthitta, Kerala
 914734|Adoor, Kerala
 914735|Ranni, Kerala
-91474|Kollam, Kerala
-91475|Punalur, Kerala
-91476|Karunagapally, Kerala
-91477|Alappuzha, Kerala
-91478|Cherthala, Kerala
-91479|Mavelikkara, Kerala
-91480|Irinjalakuda, Kerala
-91481|Kottayam, Kerala
 914822|Palai, Kerala
 914828|Kanjirapally, Kerala
 914829|Vaikom, Kerala
-91483|Manjeri, Kerala
-91484|Ernakulam, Kerala
-91485|Muvattupuzha, Kerala
 914862|Thodupuzha, Kerala
 914864|Adimaly, Kerala
 914865|Munnar, Kerala
 914868|Nedumkandam, Kerala
 914869|Peermedu, Kerala
-91487|Thrissur, Kerala
 914884|Vadakkanchery, Kerala
 914885|Kunnamkulam, Kerala
 914890|Bitra, Lakshadweep
@@ -1201,8 +1263,6 @@
 914897|Kadamath, Lakshadweep
 914898|Kiltan, Lakshadweep
 914899|Chetlat, Lakshadweep
-91490|Tellicherry, Kerala
-91491|Palakkad, Kerala
 914922|Alathur, Kerala
 914923|Koduvayur, Kerala
 914924|Mannarkad, Kerala
@@ -1211,10 +1271,6 @@
 914933|Perinthalmanna, Kerala
 914935|Mananthavady, Kerala
 914936|Kalpetta, Kerala
-91494|Tirur, Kerala
-91495|Kozhikode, Kerala
-91496|Vatakara, Kerala
-91497|Kannur, Kerala
 914982|Taliparamba, Kerala
 914985|Payyanur, Kerala
 914994|Kasaragod, Kerala
@@ -1225,11 +1281,9 @@
 915113|Bhognipur/Pakhrayan, Uttar Pradesh
 915114|Derapur/Jhinjak, Uttar Pradesh
 915115|Ghatampur, Uttar Pradesh
-91512|Kanpur, Uttar Pradesh
 915142|Purwa/Bighapur, Uttar Pradesh
 915143|Hasanganj, Uttar Pradesh
 915144|Safipur, Uttar Pradesh
-91515|Unnao, Uttar Pradesh
 915162|Orai, Uttar Pradesh
 915164|Kalpi, Uttar Pradesh
 915165|Konch, Uttar Pradesh
@@ -1252,7 +1306,6 @@
 915195|Mau/Rajapur, Uttar Pradesh
 915198|Karvi, Uttar Pradesh
 915212|Malihabad, Uttar Pradesh
-91522|Lucknow, Uttar Pradesh
 915240|Fatehpur, Uttar Pradesh
 915241|Ramsanehi Ghat, Uttar Pradesh
 915244|Haidergarh, Uttar Pradesh
@@ -1284,7 +1337,6 @@
 915313|Salon/Jais, Uttar Pradesh
 915315|Dalmau/Lalganj, Uttar Pradesh
 915317|Dalmau, Uttar Pradesh
-91532|Allahabad, Uttar Pradesh
 915331|Bharwari, Uttar Pradesh
 915332|Phoolpur, Uttar Pradesh
 915333|Karchhana/Shankergarh, Uttar Pradesh
@@ -1293,7 +1345,6 @@
 915341|Kunda, Uttar Pradesh
 915342|Pratapgarh, Uttar Pradesh
 915343|Patti, Uttar Pradesh
-91535|Raibareli, Uttar Pradesh
 915361|Musafirkhana, Uttar Pradesh
 915362|Sultanpur, Uttar Pradesh
 915364|Kadipur, Uttar Pradesh
@@ -1301,7 +1352,6 @@
 915412|Chandauli/Mugalsarai, Uttar Pradesh
 915413|Chakia, Uttar Pradesh
 915414|Bhadohi, Uttar Pradesh
-91542|Varansi, Uttar Pradesh
 915440|Mirzapur/Hallia, Uttar Pradesh
 915442|Mirzapur, Uttar Pradesh
 915443|Chunur, Uttar Pradesh
@@ -1321,7 +1371,6 @@
 915464|Maunathbhanjan, Uttar Pradesh
 915465|Phulpur/Atrawlia, Uttar Pradesh
 915466|Sagri, Uttar Pradesh
-91548|Ghazipur, Uttar Pradesh
 915491|Rasara, Uttar Pradesh
 915493|Mohamdabad, Uttar Pradesh
 915494|Bansdeeh, Uttar Pradesh
@@ -1329,7 +1378,6 @@
 915496|Ballia/Raniganj, Uttar Pradesh
 915497|Zamania, Uttar Pradesh
 915498|Ballia, Uttar Pradesh
-91551|Gorakhpur, Uttar Pradesh
 915521|Bansgaon/Barhal Ganj, Uttar Pradesh
 915522|Pharenda/Compierganj, Uttar Pradesh
 915523|Maharajganj, Uttar Pradesh
@@ -1352,7 +1400,6 @@
 915612|Ferozabad, Uttar Pradesh
 915613|Achhnera, Uttar Pradesh
 915614|Jarar, Uttar Pradesh
-91562|Agra, Uttar Pradesh
 915640|Kaman, Rajasthan
 915641|Deeg, Rajasthan
 915642|Dholpur, Rajasthan
@@ -1362,7 +1409,6 @@
 915646|Baseri, Rajasthan
 915647|Bari, Rajasthan
 915648|Bayana, Rajasthan
-91565|Mathura, Uttar Pradesh
 915661|Sadabad, Uttar Pradesh
 915662|Chhata/Kosikalan, Uttar Pradesh
 915664|Mant/Vrindavan, Uttar Pradesh
@@ -1379,7 +1425,6 @@
 915691|Chhibramau, Uttar Pradesh
 915692|Farrukhabad/Fategarh, Uttar Pradesh
 915694|Kannauj, Uttar Pradesh
-91571|Aligarh, Uttar Pradesh
 915721|Sikandra Rao, Uttar Pradesh
 915722|Hathras, Uttar Pradesh
 915723|Atrauli, Uttar Pradesh
@@ -1395,7 +1440,6 @@
 915742|Etah, Uttar Pradesh
 915744|Kasganj, Uttar Pradesh
 915745|Jalesar, Uttar Pradesh
-91581|Bareilly, Uttar Pradesh
 915821|Pitamberpur, Uttar Pradesh
 915822|Baheri, Uttar Pradesh
 915823|Aonla, Uttar Pradesh
@@ -1431,7 +1475,6 @@
 915880|Puranpur, Uttar Pradesh
 915881|Bisalpur, Uttar Pradesh
 915882|Pilibhit, Uttar Pradesh
-91591|Moradabad, Uttar Pradesh
 915921|Bilari, Uttar Pradesh
 915922|Amroha, Uttar Pradesh
 915923|Sambhal, Uttar Pradesh
@@ -1444,7 +1487,6 @@
 915947|Kashipur, Uttar Pradesh
 915948|Khatima/Sitarganj, Uttar Pradesh
 915949|Kichha/Bazpur, Uttar Pradesh
-91595|Rampur, Uttar Pradesh
 915960|Shahabad, Uttar Pradesh
 915961|Munsiari, Uttar Pradesh
 915962|Almora, Uttar Pradesh
@@ -1457,7 +1499,6 @@
 916112|Biharsharif, Bihar
 916114|Jahanabad, Bihar
 916115|Danapur, Bihar
-91612|Patna, Bihar
 916132|Barh, Bihar
 916135|Bikram, Bihar
 916150|Hathua, Bihar
@@ -1480,7 +1521,6 @@
 916187|Mohania, Bihar
 916188|Rohtas, Bihar
 916189|Bhabhua, Bihar
-91621|Muzaffarpur, Bihar
 916222|Sheohar, Bihar
 916223|Motipur, Bihar
 916224|Hajipur, Bihar
@@ -1513,7 +1553,6 @@
 916277|Phulparas, Bihar
 916278|Dalsinghsarai, Bihar
 916279|Barauni, Bihar
-91631|Gaya, Bihar
 916322|Wazirganj, Bihar
 916323|Dumraon, Bihar
 916324|Nawada, Bihar
@@ -1533,7 +1572,6 @@
 916347|Chakai, Bihar
 916348|Mallehpur, Bihar
 916349|Jhajha, Bihar
-91641|Bhagalpur, Bihar
 916420|Amarpur, Bihar
 916421|Naugachia, Bihar
 916422|Godda, Bihar
@@ -1570,7 +1608,6 @@
 916477|Triveniganj, Bihar
 916478|Saharsa, Bihar
 916479|Udakishanganj, Bihar
-91651|Ranchi, Bihar
 916522|Muri, Bihar
 916523|Ghaghra, Bihar
 916524|Gumla, Bihar
@@ -1616,7 +1653,6 @@
 916567|Barwadih, Bihar
 916568|Balumath, Bihar
 916569|Garu, Bihar
-91657|Jamshedpur, Bihar
 916581|Bhandaria, Bihar
 916582|Chaibasa, Bihar
 916583|Kharsawa, Bihar
@@ -1631,13 +1667,11 @@
 916594|Baharagora, Bihar
 916596|Noamundi, Bihar
 916597|Saraikela/Adstyapur, Bihar
-91661|Rourkela, Odisha
 916621|Hemgiri, Odisha
 916622|Sundargarh, Odisha
 916624|Rajgangpur, Odisha
 916625|Lahunipara, Odisha
 916626|Banaigarh, Odisha
-91663|Sambalpur, Odisha
 916640|Bagdihi, Odisha
 916641|Deodgarh, Odisha
 916642|Kuchinda, Odisha
@@ -1668,7 +1702,6 @@
 916683|Padmapur, Odisha
 916684|Paikamal, Odisha
 916685|Sohela, Odisha
-91671|Cuttack, Odisha
 916721|Narsinghpur, Odisha
 916722|Pardip, Odisha
 916723|Athgarh, Odisha
@@ -1682,7 +1715,6 @@
 916732|Hindol, Odisha
 916733|Ghatgaon, Odisha
 916735|Telkoi, Odisha
-91674|Bhubaneshwar, Odisha
 916752|Puri, Odisha
 916753|Nayagarh, Odisha
 916755|Khurda, Odisha
@@ -1711,7 +1743,6 @@
 916795|Udala, Odisha
 916796|Karanjia, Odisha
 916797|Jashipur, Odisha
-91680|Berhampur, Odisha
 916810|Khalikote, Odisha
 916811|Chhatrapur, Odisha
 916814|Digapahandi, Odisha
@@ -1751,6 +1782,7 @@
 916867|Jharigan, Odisha
 916868|Nandapur, Odisha
 916869|Papadhandi, Odisha
+917000|Uttar Pradesh(west) & Uttarakhand
 917100|Kuhi, Maharashtra
 917102|Parseoni, Maharashtra
 917103|Butibori, Maharashtra
@@ -1764,7 +1796,6 @@
 917115|Mouda, Maharashtra
 917116|Umrer, Maharashtra
 917118|Kalmeshwar, Maharashtra
-91712|Nagpur, Maharashtra
 917131|Sironcha, Maharashtra
 917132|Gadchiroli, Maharashtra
 917133|Aheri, Maharashtra
@@ -1822,10 +1853,12 @@
 917197|Mohadi, Maharashtra
 917198|Tirora, Maharashtra
 917199|Deori, Maharashtra
+917200|Chennai
 917201|Kalamb, Maharashtra
 917202|Ralegaon, Maharashtra
 917203|Babhulgaon, Maharashtra
-91721|Amravati, Maharashtra
+917205|Orissa
+917209|Bihar & Jhanrkhand
 917220|Chhikaldara, Maharashtra
 917221|Nandgaon, Maharashtra
 917222|Chandurrly, Maharashtra
@@ -1846,7 +1879,7 @@
 917237|Marigaon, Maharashtra
 917238|Darwaha, Maharashtra
 917239|Wani, Maharashtra
-91724|Akola, Maharashtra
+917250|Bihar & Jharkhand
 917251|Risod, Maharashtra
 917252|Washim, Maharashtra
 917253|Mangrulpur, Maharashtra
@@ -1855,6 +1888,7 @@
 917256|Murtizapur, Maharashtra
 917257|Balapur, Maharashtra
 917258|Akot, Maharashtra
+917259|Karnataka
 917260|Lonar, Maharashtra
 917261|Deolgaonraja, Maharashtra
 917262|Buldhana, Maharashtra
@@ -1869,6 +1903,9 @@
 917272|Dewas, Madhya Pradesh
 917273|Kannod, Madhya Pradesh
 917274|Khategaon, Madhya Pradesh
+917275|Uttar Pradesh(East)
+917276|Maharashtra
+917278|Kolkata
 917279|Nandnva, Maharashtra
 917280|Barwaha, Madhya Pradesh
 917281|Sendhwa, Madhya Pradesh
@@ -1883,11 +1920,12 @@
 917290|Badwani, Madhya Pradesh
 917291|Manawar, Madhya Pradesh
 917292|Dhar, Madhya Pradesh
+917293|Kerala
 917294|Dharampuri, Madhya Pradesh
 917295|Badnawar, Madhya Pradesh
 917296|Sardarpur, Madhya Pradesh
 917297|Kukshi, Madhya Pradesh
-91731|Indore, Madhya Pradesh
+917299|Chennai
 917320|Pandhana, Madhya Pradesh
 917321|Sanwer, Madhya Pradesh
 917322|Depalpur, Madhya Pradesh
@@ -1898,8 +1936,6 @@
 917327|Harsud, Madhya Pradesh
 917328|Khalwa, Madhya Pradesh
 917329|Khakner, Madhya Pradesh
-91733|Khandwa, Madhya Pradesh
-91734|Ujjain, Madhya Pradesh
 917360|Shujalpur, Madhya Pradesh
 917361|Susner, Madhya Pradesh
 917362|Agar, Madhya Pradesh
@@ -1913,18 +1949,32 @@
 917370|Khilchipur, Madhya Pradesh
 917371|Sarangpur, Madhya Pradesh
 917372|Rajgarh, Madhya Pradesh
+917373|Tamilnadu
 917374|Biaora, Madhya Pradesh
 917375|Narsingharh, Madhya Pradesh
+917376|Uttar Pradesh(East)
+917377|Orissa
+917379|Uttar Pradesh(East)
 917390|Thandla, Madhya Pradesh
 917391|Petlawad, Madhya Pradesh
 917392|Jhabua, Madhya Pradesh
 917393|Jobat, Madhya Pradesh
 917394|Alirajpur, Madhya Pradesh
 917395|Sondhwa, Madhya Pradesh
+917396|Andhra Pradesh
+917398|Madhya Pradesh & Chhattisgarh
+917399|Assam
+917405|Orissa
 917410|Alot, Madhya Pradesh
+917411|Karnataka
 917412|Ratlam, Madhya Pradesh
 917413|Sailana, Madhya Pradesh
 917414|Jaora, Madhya Pradesh
+917415|Madhya Pradesh & Chhattisgarh
+917416|Madhya Pradesh & Chhattisgarh
+917417|Uttar Pradesh(west) & Uttarakhand
+917418|Chennai
+917419|Maharashtra
 917420|Jawad, Madhya Pradesh
 917421|Manasa, Madhya Pradesh
 917422|Mandsaur, Madhya Pradesh
@@ -1933,6 +1983,8 @@
 917425|Garoth, Madhya Pradesh
 917426|Sitamau, Madhya Pradesh
 917427|Bhanpura, Madhya Pradesh
+917428|Delhi
+917429|kerala
 917430|Khanpur, Rajasthan
 917431|Aklera, Rajasthan
 917432|Jhalawar, Rajasthan
@@ -1942,7 +1994,7 @@
 917436|Hindoli, Rajasthan
 917437|Nainwa, Rajasthan
 917438|Keshoraipatan/Patan, Rajasthan
-91744|Ladpura/Kota, Rajasthan
+917439|kolkata
 917450|Sangod, Rajasthan
 917451|Atru, Rajasthan
 917452|Chhabra, Rajasthan
@@ -1963,14 +2015,16 @@
 917467|Bamanwas, Rajasthan
 917468|Khandar, Rajasthan
 917469|Hindaun, Rajasthan
-91747|Bundi, Rajasthan
 917480|Goharganj, Madhya Pradesh
 917481|Gairatganj, Madhya Pradesh
 917482|Raisen, Madhya Pradesh
+917483|karnataka
 917484|Silwani, Madhya Pradesh
 917485|Udaipura, Madhya Pradesh
 917486|Bareli, Madhya Pradesh
 917487|Begamganj, Madhya Pradesh
+917488|Bihar & Jharkhand
+917489|Madhya Pradesh & Chhattisgarh
 917490|Pohari, Madhya Pradesh
 917491|Narwar, Madhya Pradesh
 917492|Shivpuri, Madhya Pradesh
@@ -1979,7 +2033,13 @@
 917495|Badarwas, Madhya Pradesh
 917496|Pichhore, Madhya Pradesh
 917497|Khaniadhana, Madhya Pradesh
-91751|Gwalior, Madhya Pradesh
+917498|Mumbai
+917499|Uttar Pradesh(East)
+917500|Uttar Pradesh(west) & Uttarakhand
+917501|West Bengal & Andaman Nicobar
+917502|Tamilnadu
+917503|Delhi
+917504|Orissa
 917521|Seondha, Madhya Pradesh
 917522|Datia, Madhya Pradesh
 917523|Bhander, Madhya Pradesh
@@ -2008,13 +2068,18 @@
 917546|Chachaura, Madhya Pradesh
 917547|Chanderi, Madhya Pradesh
 917548|Mungaoli, Madhya Pradesh
-91755|Bhopal, Madhya Pradesh
+917549|Bihar & Jhanrkhand
+917550|Bihar & Jhanrkhand
 917560|Ashta, Madhya Pradesh
 917561|Ichhawar, Madhya Pradesh
 917562|Sehore, Madhya Pradesh
 917563|Nasrullaganj, Madhya Pradesh
 917564|Budhni, Madhya Pradesh
 917565|Berasia, Madhya Pradesh
+917566|Madhya Pradesh & Chhattisgarh
+917567|Gujarat
+917568|Rajasthan
+917569|Andhra Pradesh
 917570|Seonimalwa, Madhya Pradesh
 917571|Khirkiya, Madhya Pradesh
 917572|Itarsi, Madhya Pradesh
@@ -2024,6 +2089,7 @@
 917576|Piparia, Madhya Pradesh
 917577|Harda, Madhya Pradesh
 917578|Pachmarhi, Madhya Pradesh
+917579|Uttar Pradesh(west) & Uttarakhand
 917580|Bina, Madhya Pradesh
 917581|Khurai, Madhya Pradesh
 917582|Sagar, Madhya Pradesh
@@ -2031,6 +2097,9 @@
 917584|Rahatgarh, Madhya Pradesh
 917585|Rehli, Madhya Pradesh
 917586|Deori, Madhya Pradesh
+917587|Madhya Pradesh & Chattisgarh
+917588|Madhya Pradesh
+917589|Punjab
 917590|Lateri, Madhya Pradesh
 917591|Sironj, Madhya Pradesh
 917592|Vidisha, Madhya Pradesh
@@ -2038,14 +2107,20 @@
 917594|Ganjbasoda, Madhya Pradesh
 917595|Nateran, Madhya Pradesh
 917596|Gyraspur, Madhya Pradesh
+917597|Rajasthan
+917598|Tamilnadu
+917599|Uttar Pradesh(west) & Uttarkhand
+917600|Gujarat
 917601|Patharia, Madhya Pradesh
+917602|West Bengal & Andaman Nicobar
 917603|Tendukheda, Madhya Pradesh
 917604|Hatta, Madhya Pradesh
 917605|Patera, Madhya Pradesh
 917606|Jabera, Madhya Pradesh
+917607|Uttar Pradesh(East)
 917608|Bijawar, Madhya Pradesh
 917609|Buxwaha, Madhya Pradesh
-91761|Jabalpur, Madhya Pradesh
+917620|Maharashtra
 917621|Patan, Madhya Pradesh
 917622|Katni, Madhya Pradesh
 917623|Kundam, Madhya Pradesh
@@ -2056,6 +2131,7 @@
 917628|Karpa, Madhya Pradesh
 917629|Pushprajgarh, Madhya Pradesh
 917630|Katangi, Madhya Pradesh
+917631|Bihar & Jharkhand
 917632|Balaghat, Madhya Pradesh
 917633|Waraseoni, Madhya Pradesh
 917634|Lamta, Madhya Pradesh
@@ -2063,6 +2139,7 @@
 917636|Baihar, Madhya Pradesh
 917637|Birsa, Madhya Pradesh
 917638|Damoh, Madhya Pradesh
+917639|Tamilnadu
 917640|Shahpur, Madhya Pradesh
 917641|Niwas, Madhya Pradesh
 917642|Mandla, Madhya Pradesh
@@ -2077,6 +2154,8 @@
 917651|Jaisinghnagar, Madhya Pradesh
 917652|Shahdol, Madhya Pradesh
 917653|Bandhavgarh, Madhya Pradesh
+917654|Bihar & Jharkhand
+917655|Bihar & Jharkhand
 917655|Birsinghpur, Madhya Pradesh
 917656|Kannodi, Madhya Pradesh
 917657|Jaitpur, Madhya Pradesh
@@ -2087,12 +2166,19 @@
 917662|Rewa, Madhya Pradesh
 917663|Mauganj, Madhya Pradesh
 917664|Hanumana, Madhya Pradesh
+917665|Rajasthan
+917666|Mumbai
+917667|Chennai
+917668|Madhya Pradesh & Chhattisgarh
 917670|Majhagwan, Madhya Pradesh
 917671|Jaitwara, Madhya Pradesh
 917672|Satna, Madhya Pradesh
 917673|Nagod, Madhya Pradesh
 917674|Maihar, Madhya Pradesh
 917675|Amarpatan, Madhya Pradesh
+917676|karnataka
+917677|Bihar & Jharnkhand
+917679|West Bengal & Andaman Nicobar
 917680|Niwari, Madhya Pradesh
 917681|Jatara, Madhya Pradesh
 917682|Chhatarpur, Madhya Pradesh
@@ -2109,14 +2195,20 @@
 917693|Ghansour, Madhya Pradesh
 917694|Keolari, Madhya Pradesh
 917695|Gopalganj, Madhya Pradesh
+917696|Punjab
+917697|Madhya Pradesh & Chhattisgarh
+917698|Punjab
+917699|West Bengal & Andaman Nicobar
 917700|Nagri, Madhya Pradesh
 917701|Pingeshwar, Madhya Pradesh
+917702|Andhra Pradesh
 917703|Manpur, Madhya Pradesh
 917704|Deobhog, Madhya Pradesh
 917705|Kurud, Madhya Pradesh
 917706|Gariaband, Madhya Pradesh
 917707|Bagbahera, Madhya Pradesh
-91771|Raipur, Madhya Pradesh
+917708|Tamilnadu
+917709|Madhya Pradesh & Chhattisgarh
 917720|Arang, Madhya Pradesh
 917721|Neora, Madhya Pradesh
 917722|Dhamtari, Madhya Pradesh
@@ -2132,8 +2224,13 @@
 917732|Panna, Madhya Pradesh
 917733|Pawai, Madhya Pradesh
 917734|Shahnagar, Madhya Pradesh
+917735|Orissa
+917737|Rajasthan
+917738|Mumbai
+917739|Bihar & Jharkhand
 917740|Bodla, Madhya Pradesh
 917741|Kawardha, Madhya Pradesh
+917742|Rajasthan
 917743|Chuikhadan, Madhya Pradesh
 917744|Rajandgaon, Madhya Pradesh
 917745|Chhuriakala, Madhya Pradesh
@@ -2157,6 +2254,7 @@
 917764|Kunkuri, Madhya Pradesh
 917765|Pathalgaon, Madhya Pradesh
 917766|Dharamjaigarh, Madhya Pradesh
+917767|Karnataka
 917767|Gharghoda, Madhya Pradesh
 917768|Saranggarh, Madhya Pradesh
 917769|Bagicha, Madhya Pradesh
@@ -2167,6 +2265,7 @@
 917774|Ambikapur, Madhya Pradesh
 917775|Surajpur, Madhya Pradesh
 917776|Premnagar, Madhya Pradesh
+917777|Delhi
 917777|Pratappur, Madhya Pradesh
 917778|Semaria, Madhya Pradesh
 917779|Ramchandrapur, Madhya Pradesh
@@ -2184,16 +2283,25 @@
 917792|Narsinghpur, Madhya Pradesh
 917793|Kareli, Madhya Pradesh
 917794|Gotegaon, Madhya Pradesh
+917795|Karnataka
+917797|West Bengal & Andaman Nicobar
+917798|Maharashtra
+917799|Andhra Pradesh
+917800|Delhi
 917801|Deosar, Madhya Pradesh
 917802|Churhat, Madhya Pradesh
 917803|Majholi, Madhya Pradesh
 917804|Kusmi, Madhya Pradesh
 917805|Singrauli, Madhya Pradesh
 917806|Chitrangi, Madhya Pradesh
+917807|Himachal Pradesh
+917808|Bihar & Jhanrkhand
+917809|Orissa
 917810|Uproda, Madhya Pradesh
 917811|Pasan, Madhya Pradesh
 917812|Damoh, Madhya Pradesh
 917813|Barpalli, Madhya Pradesh
+917814|Punjab
 917815|Kathghora, Madhya Pradesh
 917816|Pali, Madhya Pradesh
 917817|Janjgir, Madhya Pradesh
@@ -2206,16 +2314,25 @@
 917824|Bemetara, Madhya Pradesh
 917825|Berla, Madhya Pradesh
 917826|Patan, Madhya Pradesh
+917827|Delhi
+917828|Madhya Pradesh & Chhattisgarh
+917829|Karnataka
+917830|Uttar Pradesh(west) & Uttarakhand
 917831|Balrampur, Madhya Pradesh
 917832|Rajpur, Madhya Pradesh
 917833|Udaipur, Madhya Pradesh
 917834|Sitapur, Madhya Pradesh
 917835|Bharathpur, Madhya Pradesh
 917836|Baikunthpur, Madhya Pradesh
+917837|Punjab
+917838|Delhi
+917839|Uttar Pradesh(East)
 917840|Koyelibeda, Madhya Pradesh
 917841|Sarona, Madhya Pradesh
+917842|Andhra Pradesh
 917843|Durgakondal, Madhya Pradesh
 917844|Pakhanjur, Madhya Pradesh
+917845|Tamilnadu
 917846|Garpa, Madhya Pradesh
 917847|Antagarh, Madhya Pradesh
 917848|Keskal, Madhya Pradesh
@@ -2230,6 +2347,7 @@
 917857|Bacheli, Madhya Pradesh
 917858|Kuakunda, Madhya Pradesh
 917859|Lohadigundah, Madhya Pradesh
+917860|Uttar Pradesh(East)
 917861|Netanar, Madhya Pradesh
 917862|Bastanar, Madhya Pradesh
 917863|Chingamut, Madhya Pradesh
@@ -2238,15 +2356,93 @@
 917866|Konta, Madhya Pradesh
 917867|Bokaband, Madhya Pradesh
 917868|Kanker, Madhya Pradesh
-91788|Durg, Madhya Pradesh
-9179|Ahemdabad Local, Gujarat
-9180|Bangalore, Karnataka
+917869|Madhya Pradesh & Chhattisgarh
+917870|Bihar & Jhanrkhand
+917875|Maharashtra
+917878|Gujarat
+917879|Madhya Pradesh & Chhattisgarh
+917890|Kolkata
+917893|Andhra Pradesh
+917895|Uttar Pradesh(west) & Uttarakhand
+917897|Uttar Pradesh(East)
+917898|Madhya Pradesh & Chhattisgarh
+917899|Karnataka
+918000|Gujarat
+918001|West Bengal & Andaman Nicobar
+918002|Bihar & Jharkhand
+918003|Rajasthan
+918004|Uttar Pradesh(East)
+918005|Uttar Pradesh(East)
+918006|Uttar Pradesh(East)
+918007|Maharashtra
+918008|Andhra Pradesh
+918009|Uttar Pradesh(East)
+918010|Delhi
+918011|Assam
+918012|Assam
+918013|Kolkata
+918014|North East
+918015|Tamilnadu
+918016|West Bengal
+918017|Kolkata
+918018|Orissa
+918019|Andhra Pradesh
+918050|Karnataka
+918051|Bihar & Jharkhand
+918052|Uttar Pradesh(East)
+918053|Haryana
+918054|Punjab
+918055|Maharashtra
+918056|Tamilnadu
+918057|Uttar Pradesh(west) & Uttarkhand
+918058|Rajasthan
+918059|Haryana
+918080|Mumbai
+918081|Uttar Pradesh(East)
+918082|Mumbai
+918083|Bihar & Jharkhand
+918084|Bihar & Jharkhand
+918085|Madhya Pradesh & Chhattisgarh
+918086|Kerala
+918087|Maharashtra
+918088|Karnataka
+918089|Kerala
+918090|Delhi
+918091|Himachal Pradesh
+918092|Rajasthan
+918093|Orissa
+918094|Rajasthan
+918095|Karnataka
+918096|Andhra Pradesh
+918097|Mumbai
+918098|Tamilnadu
+918099|Andhra Pradesh
+918100|Kolkata
+918101|West Bengal & Andaman Nicobar
+918102|Bihar & Jharkhand
+918103|Madhya Pradesh & Chhattisgarh
+918104|Rajasthan
+918105|Karnataka
+918106|Andhra Pradesh
+918107|Rajasthan
+918108|Mumbai
+918109|Madhya Pradesh & Chhattisgarh
 918110|Anekal, Karnataka
 918111|Hosakote, Karnataka
 918113|Channapatna, Karnataka
 918117|Kanakapura, Karnataka
 918118|Nelamangala, Karnataka
 918119|Doddaballapur, Karnataka
+918120|Madhya Pradesh & Chhattisgarh
+918121|Andhra Pradesh
+918122|Tamilnadu
+918123|Karnataka
+918124|Tamilnadu
+918125|Andhra Pradesh
+918126|Uttar Pradesh(west) & Uttarkhand
+918127|Uttar Pradesh(East)
+918128|Gujarat
+918129|Kerala
 918131|Gubbi, Karnataka
 918132|Kunigal, Karnataka
 918133|Chikkanayakanahalli, Karnataka
@@ -2256,6 +2452,16 @@
 918137|Madugiri, Karnataka
 918138|Koratageri, Karnataka
 918139|Turuvekere, Karnataka
+918140|Gujarat
+918141|Gujarat
+918142|Andhra Pradesh
+918143|Andhra Pradesh
+918144|Tamilnadu
+918145|West Bengal & Andaman Nicobar
+918146|Punjab
+918147|Karnataka
+918148|Tamilnadu
+918149|Maharashtra
 918150|Bagepalli, Karnataka
 918151|Malur, Karnataka
 918152|Kolar, Karnataka
@@ -2266,7 +2472,6 @@
 918157|Srinivasapur, Karnataka
 918158|Sidlaghatta, Karnataka
 918159|Mulbagal, Karnataka
-91816|Tumkur, Karnataka
 918170|Alur, Karnataka
 918172|Hassan, Karnataka
 918173|Sakleshpur, Karnataka
@@ -2293,8 +2498,6 @@
 918196|Jagalur, Karnataka
 918198|Molkalmuru, Karnataka
 918199|Hosadurga, Karnataka
-91820|Udupi, Karnataka
-91821|Mysore, Karnataka
 918221|Nanjangud, Karnataka
 918222|Hunsur, Karnataka
 918223|K.R.Nagar, Karnataka
@@ -2309,7 +2512,6 @@
 918232|Mandya, Karnataka
 918234|Nagamangala, Karnataka
 918236|Pandavpura, Karnataka
-91824|Mangalore, Karnataka
 918251|Puttur, Karnataka
 918253|Hebri, Karnataka
 918254|Kundapur, Karnataka
@@ -2334,8 +2536,6 @@
 918289|Athani, Karnataka
 918301|Mundagod, Karnataka
 918304|Kundgol, Karnataka
-91831|Belgaum, Karnataka
-91832|Panji, Maharashtra
 918330|Saundatti, Karnataka
 918331|Raibag/Kudchi, Karnataka
 918332|Gokak, Karnataka
@@ -2350,6 +2550,7 @@
 918343|Ponda, Maharashtra
 918345|Sanguem, Maharashtra
 918346|Canacona/Quepem, Maharashtra
+918348|West Bengal & Andaman Nicobar
 918350|Mudhol, Karnataka
 918351|Hungund, Karnataka
 918352|Bijapur, Karnataka
@@ -2360,7 +2561,6 @@
 918357|Badami, Karnataka
 918358|Basavanabagewadi, Karnataka
 918359|Indi, Karnataka
-91836|Hubli, Karnataka
 918370|Kalghatagi, Karnataka
 918371|Mundargi, Karnataka
 918372|Gadag, Karnataka
@@ -2409,11 +2609,16 @@
 918424|Devarahippargi, Karnataka
 918425|Biligi, Karnataka
 918426|Telgi, Karnataka
+918427|Punjab
+918436|West Bengal & Andaman Nicobar
+918437|Punjab
 918440|Nimburga, Karnataka
 918441|Sedam, Karnataka
 918442|Jewargi, Karnataka
 918443|Shorapur, Karnataka
 918444|Hunsagi, Karnataka
+918445|West Bengal & Andaman Nicobar
+918447|Delhi
 918450|Andole/Jogipet, Andhra Pradesh
 918451|Zahirabad, Andhra Pradesh
 918452|Medak, Andhra Pradesh
@@ -2477,6 +2682,7 @@
 918523|Alur, Andhra Pradesh
 918524|Srisailam, Andhra Pradesh
 918525|Gudur/Kodumur, Andhra Pradesh
+918527|Delhi
 918531|Deodurga, Karnataka
 918532|Raichur, Karnataka
 918533|Gangavathi, Karnataka
@@ -2496,10 +2702,12 @@
 918549|Kalwakurthy, Andhra Pradesh
 918550|Yellanuru, Andhra Pradesh
 918551|Garladinne, Andhra Pradesh
+918552|Maharashtra
 918552|Gooty/Guntakal, Andhra Pradesh
 918554|Anantapur, Andhra Pradesh
 918556|Hindupur, Andhra Pradesh
 918557|Penukonda, Andhra Pradesh
+918558|Orissa
 918558|Tadipatri, Andhra Pradesh
 918559|Dharmavaram, Andhra Pradesh
 918560|Jammalamadugu, Andhra Pradesh
@@ -2525,6 +2733,7 @@
 918583|Sodam, Andhra Pradesh
 918584|Piler, Andhra Pradesh
 918585|Pakala, Andhra Pradesh
+918586|Andhra Pradesh
 918586|Vayalpad, Andhra Pradesh
 918587|Venkatgirikota, Andhra Pradesh
 918588|Vaimpalli, Andhra Pradesh
@@ -2532,12 +2741,16 @@
 918592|Ongole, Andhra Pradesh
 918593|Medarmetla, Andhra Pradesh
 918594|Chirala, Andhra Pradesh
+918595|Tamilnadu
 918596|Markapur, Andhra Pradesh
 918598|Kandukuru, Andhra Pradesh
+918599|Punjab
 918599|Ulvapadu, Andhra Pradesh
-91861|Nellore, Andhra Pradesh
+918600|Maharashtra
+918603|Bihar & Jharkhand
 918620|Udaygiri, Andhra Pradesh
 918621|Rapur/Podalakur, Andhra Pradesh
+918622|Karnataka
 918622|Kovvur, Andhra Pradesh
 918623|Sullurpet, Andhra Pradesh
 918624|Gudur, Andhra Pradesh
@@ -2546,7 +2759,6 @@
 918627|Atmakur, Andhra Pradesh
 918628|Chejerla, Andhra Pradesh
 918629|Vinjamuru, Andhra Pradesh
-91863|Guntur, Andhra Pradesh
 918640|Krosuru, Andhra Pradesh
 918641|Sattenapalli, Andhra Pradesh
 918642|Guntur Palnad/Macherala, Andhra Pradesh
@@ -2557,10 +2769,12 @@
 918647|Narsaraopet, Andhra Pradesh
 918648|Repalle, Andhra Pradesh
 918649|Piduguralla, Andhra Pradesh
+918650|Delhi
+918654|Tamilnadu
 918654|Jaggayyapet, Andhra Pradesh
 918656|Nuzvidu, Andhra Pradesh
 918659|Mylavaram, Andhra Pradesh
-91866|Vijayawada, Andhra Pradesh
+918669|Rajasthan
 918671|Divi/Challapalli, Andhra Pradesh
 918672|Bandar/Machilipatnam, Andhra Pradesh
 918673|Tirivuru, Andhra Pradesh
@@ -2575,11 +2789,14 @@
 918684|Suryapet, Andhra Pradesh
 918685|Bhongir, Andhra Pradesh
 918689|Miryalguda, Andhra Pradesh
+918690|Andhra Pradesh
+918691|Uttar Pradesh(west) & Uttarakhand
 918691|Devarakonda, Andhra Pradesh
 918692|Nampalle, Andhra Pradesh
 918693|Thungaturthy, Andhra Pradesh
 918694|Ramannapet, Andhra Pradesh
-91870|Warangal, Andhra Pradesh
+918696|Maharashtra
+918697|Bihar & Jharkhand
 918710|Cherial, Andhra Pradesh
 918711|Wardhannapet/Ghanapur, Andhra Pradesh
 918713|Parkal, Andhra Pradesh
@@ -2620,34 +2837,90 @@
 918752|Bhainsa, Andhra Pradesh
 918753|Outsarangapalle, Andhra Pradesh
 918761|Sathupalli, Andhra Pradesh
-91877|Tirupathi, Andhra Pradesh
-91878|Karimnagar, Andhra Pradesh
+918800|Delhi
+918801|Andhra Pradesh
+918802|Delhi
+918803|Jammu & Kashmir
+918804|Bihar & Jharkhand
+918805|Maharashtra
+918806|Maharashtra
+918807|Tamilnadu
+918808|Uttar Pradesh(East)
+918809|Bihar & Jharnkhand
 918811|Polavaram, Andhra Pradesh
 918812|Eluru, Andhra Pradesh
 918813|Eluru Kovvur/Nidadavolu, Andhra Pradesh
 918814|Eluru Narsapur/Palakole, Andhra Pradesh
 918816|Bhimavaram, Andhra Pradesh
+918817|Madhya Pradesh & Chhattisgarh
 918818|Tadepalligudem, Andhra Pradesh
 918819|Tanuku, Andhra Pradesh
 918821|Jangareddygudem, Andhra Pradesh
+918822|Assam
 918823|Chintalapudi, Andhra Pradesh
+918825|Tamilnadu
+918826|Delhi
+918827|Madhya Pradesh & Chhattisgarh
+918828|Mumbai
 918829|Bhimadole, Andhra Pradesh
-91883|Rajahmundri, Andhra Pradesh
-91884|Kakinada, Andhra Pradesh
+918844|Assam
 918852|Peddapuram, Andhra Pradesh
 918854|Tuni, Andhra Pradesh
 918855|Mandapeta/Ravulapalem, Andhra Pradesh
 918856|Amalapuram, Andhra Pradesh
 918857|Ramachandrapuram, Andhra Pradesh
+918860|Delhi
+918861|karnataka
 918862|Razole, Andhra Pradesh
 918863|Chavitidibbalu, Andhra Pradesh
 918864|Rampachodavaram, Andhra Pradesh
 918865|Yelavaram, Andhra Pradesh
+918866|Gujarat
+918867|karnataka
 918868|Yeleswaram, Andhra Pradesh
 918869|Pithapuram, Andhra Pradesh
-91891|Visakhapatnam, Andhra Pradesh
+918870|Tamilnadu
+918871|Madhya Pradesh & Chhattisgarh
+918872|Punjab
+918873|Bihar & Jharkhand
+918874|Uttar Pradesh(East)
+918875|Rajasthan
+918876|Assam
+918877|Bihar & Jharnkhand
+918878|Madhya Pradesh & Chhattisgarh
+918879|Mumbai
+918880|Karnataka
+918881|Uttar Pradesh(west) & Uttarakhand
+918882|Delhi
+918883|Tamilnadu
+918884|Karnataka
+918885|Andhra Pradesh
+918886|Andhra Pradesh
+918888|Maharashtra
+918889|Madhya Pradesh & Chhattisgarh
+918890|Rajasthan
+918891|Kerala
+918892|Karnataka
+918893|Kerala
+918894|Himachal Pradesh
+918895|Orissa
+918896|Uttar Pradesh(East)
+918897|Andhra Pradesh
+918898|Mumbai
+918899|Uttar Pradesh(west) & Uttarakhand
+918900|West Bengal & Andaman Nicobar
+918901|Haryana
+918902|Kolkata
+918903|Tamilnadu
+918904|Karnataka
+918905|Gujarat
+918906|West Bengal
+918907|Kerala
+918908|Orissa
+918909|Uttar Pradesh(west) & Uttarakhand
 918922|Vizayanagaram, Andhra Pradesh
 918924|Anakapalle, Andhra Pradesh
+918928|Maharashtra
 918931|Yelamanchili, Andhra Pradesh
 918932|Narsipatnam, Andhra Pradesh
 918933|Bheemunipatnam, Andhra Pradesh
@@ -2656,14 +2929,1060 @@
 918936|Araku, Andhra Pradesh
 918937|Chintapalle, Andhra Pradesh
 918938|Sileru, Andhra Pradesh
+918939|Chennai
 918941|Palakonda/Rajam, Andhra Pradesh
 918942|Srikakulam, Andhra Pradesh
 918944|Bobbili, Andhra Pradesh
 918945|Tekkali/Palasa, Andhra Pradesh
 918946|Pathapatnam/Hiramandalam, Andhra Pradesh
 918947|Sompeta, Andhra Pradesh
+918950|Haryana
+918951|Karnataka
+918952|North East
 918952|Chepurupalli/Garividi, Andhra Pradesh
+918953|Uttar Pradesh(East)
+918954|Uttar Pradesh(East)
+918955|Rajasthan
+918956|Maharashtra
+918957|Uttar Pradesh(East)
+918958|Uttar Pradesh(west) & Uttarakhand
+918959|madhya Pradesh & Chhattisgarh
+918960|Uttar Pradesh(East)
+918961|Kolkata
+918962|Madhya Pradesh & Chhattisgarh
 918963|Parvathipuram, Andhra Pradesh
 918964|Saluru, Andhra Pradesh
 918965|Gajapathinagaram, Andhra Pradesh
 918966|Srungavarapukota/Kothavalasa, Andhra Pradesh
+918967|West Bengal & Andaman Nicobar
+918968|Punjab
+918970|Karnataka
+918971|Karnataka
+918972|West Bengal & Andaman Nicobar
+918973|Tamilnadu
+918974|North East
+918975|Maharashtra
+918976|Maharashtra
+918977|Andhra Pradesh
+918978|Andhra Pradesh
+918979|Uttar Pradesh(west) & Uttarakhand
+918980|Gujarat
+918981|Kolkata
+918982|Madhya Pradesh & Chhattisgarh
+918983|Maharashtra
+918984|Orissa
+918985|Andhra Pradesh
+918986|Bihar & jharkhand
+918987|Bihar & jharkhand
+918988|Himachal Pradesh
+918989|Madhya Pradesh & Chhattisgarh
+918990|Madhya Pradesh & Chhattisgarh
+918991|Maharashtra
+918992|Punjab
+918993|Rajasthan
+918994|Tamilnadu
+918995|Uttar Pradesh(west) & Uttarakhand
+918996|Uttar Pradesh(west) & Uttarakhand
+918997|Rajasthan
+918998|Bihar
+918999|Mumbai
+919000|Andhra Pradesh
+919001|Rajasthan
+919002|West Bengal & Andaman Nicobar
+919003|Tamilnadu
+919004|Mumbai
+919005|Uttar Pradesh
+919006|Bihar
+919007|Kolkata
+919008|Karnataka
+919009|Madhya Pradesh & Chhattisgarh
+919010|Andhra Pradesh
+919011|Maharashtra
+919012|Uttar Pradesh
+919013|Delhi
+919014|Andhra Pradesh
+919015|Delhi
+919016|Gujarat
+919017|Haryana
+919018|Jammu & Kashmir
+919019|Karnataka
+919020|Kerala
+919021|Maharashtra
+919022|Mumbai
+919023|Punjab
+919024|Rajasthan
+919025|Chhattisgarh
+919026|Assam
+919027|Uttar Pradesh
+919028|Maharashtra
+919029|Mumbai
+919030|Andhra Pradesh
+919031|Bihar
+919032|Andhra Pradesh
+919033|Gujarat
+919034|Haryana
+919035|Karnataka
+919036|Karnataka
+919037|Kerala
+919038|Kolkata
+919039|Madhya Pradesh & Chhattisgarh
+919040|Orissa
+919041|Punjab
+919042|Tamilnadu
+919043|Tamilnadu
+919044|Uttar Pradesh
+919045|Uttar Pradesh(west) & Uttarkhand
+919046|West Bengal & Andaman Nicobar
+919047|Tamilnadu
+919048|Kerala
+919049|Maharashtra
+919050|Haryana
+919051|KOLKATA
+919052|Andhra Pradesh
+919053|HARYANA
+919054|Himachal Pradesh
+919055|Jammu & Kashmir
+919056|Punjab
+919057|Rajasthan
+919058|Uttar Pradesh
+919059|Andhra Pradesh
+919060|Karnataka
+919061|Kerala
+919062|Kolkata
+919063|Andhra Pradesh
+919064|Assam
+919065|Bihar & Jharkhand
+919066|Delhi
+919067|Gujarat
+919068|Haryana
+919069|Himachal Pradesh
+919070|Jammu & Kashmir
+919071|Karnataka
+919072|Kerala
+919073|Kolkata
+919074|Madhya Pradesh & Chhattisgarh
+919075|maharashtra
+919076|Mumbai
+919077|North East
+919078|Orissa
+919079|Rajasthan
+919080|Tamilnadu
+919081|Uttar Pradesh
+919082|Uttar Pradesh
+919083|West Bengal & Andaman Nicobar
+919084|Delhi
+919085|Assam
+919086|Jammu & Kashmir
+919087|Karnataka
+919088|Kolakatha
+919089|North East
+919090|Orissa
+919091|Punjab
+919092|Tamilnadu
+919093|West Bengal & Andaman Nicobar
+919094|Chennai
+919095|Tamilnadu
+919096|Maharashtra
+919097|Bihar & Jharkhand
+919098|Madhya Pradesh & Chhattisgarh
+919099|Gujarat
+919100|Not Available
+919101|Assam
+919102|Bihar & Jharkhand
+919103|Delhi
+919104|Gujarat
+919105|Haryana
+919106|Himachal Pradesh
+919107|Jammu & Kashmir
+919108|Karnataka
+919109|Kerala
+919110|Kolakata
+919111|Madhya Pradesh & Chhattisgarh
+919112|maharashtra
+919113|North East
+919114|Orissa
+919115|Punjab
+919116|Rajasthan
+919117|Tamilnadu
+919118|Uttarpradesh(East)
+919119|Uttar Pradesh(west) & Uttarkhand
+919120|West Bengal & Andaman Nicobar
+919121|Assam
+919122|Bihar & jharkhand
+919123|North East
+919124|Orissa
+919125|Uttar Pradesh
+919126|West Bengal & Andaman Nicobar
+919127|Assam
+919128|Bihar & Jharkhand
+919129|Himachal Pradesh
+919130|Jammu & Kashmir
+919131|North East
+919132|Orissa
+919133|Andhra Pradesh
+919134|Assam
+919135|Bihar Jharkhand
+919136|Delhi
+919137|Gujarat
+919138|Haryana
+919139|Himachal Pradesh
+919140|Jammu & Kashmir
+919141|Karnataka
+919142|Kerala
+919143|Kolkata
+919144|Madhya Pradesh & Chhattisgarh
+919145|Maharashtra
+919146|Mumbai
+919147|North East
+919148|Orissa
+919149|Punjab
+919150|Chennai
+919151|Uttar Pradesh(East)
+919152|Uttar Pradesh(West)
+919153|Kolkata
+919154|Andhra Pradesh
+919155|Delhi
+919156|HARYANA
+919157|Maharashtra
+919158|Mumbai
+919159|Tamilnadu
+919160|Andhra Pradesh
+919161|Uttar Pradesh(East)
+919162|Bihar & jharjhand
+919163|Kolkata
+919164|Karnataka
+919165|Mumbai
+919166|Rajasthan
+919167|Mumbai
+919168|Tamilnadu
+919169|Uttar Pradesh(East)
+919170|Uttar Pradesh(west) & Uttarkhand
+919171|Tamilnadu
+919172|Mumbai
+919173|Gujarat
+919174|Madhaya Pradesh & Chhattisgarh
+919175|Maharashtra
+919176|Chennai
+919177|Andhra Pradesh
+919178|Orissa
+919179|Madhya Pradesh & Chhattisgarh
+919180|Andhra Pradesh
+919181|Assam
+919182|Bihar
+919183|Chennai
+919184|Gujarat
+919185|Himachal Pradesh
+919186|Jammu & Kashmir
+919187|Karnataka
+919188|Kerala
+919189|Kolkata
+919190|Madhya Pradesh & Chhattisgarh
+919191|North East
+919192|Orissa
+919193|Punjab
+919194|Rajasthan
+919195|Tamilnadu
+919196|Uttar Pradesh
+919197|West Bengal & Andaman Nicobar
+919198|Uttar Pradesh
+919199|Bihar & Jharkhand
+919200|Madhya Pradesh & Chhattisgarh
+919201|Madhya Pradesh & Chhattisgarh
+919202|Madhya Pradesh & Chhattisgarh
+919203|Madhya Pradesh & Chhattisgarh
+919204|Bihar & Jharkhand
+919205|Jammu & Kashmir
+919206|North East
+919207|Assam
+919208|Uttar Pradesh(East)
+919209|Maharashtra
+919210|Delhi
+919211|Delhi
+919212|Delhi
+919213|Delhi
+919214|Rajasthan
+919215|Haryana
+919216|Punjab
+919217|Panjab
+919218|Himachal Pradesh
+919219|Uttar Pradesh(west) & Uttarkhand
+919220|Mumbai
+919221|Mumbai
+919222|Mumbai
+919223|Mumbai
+919224|Mumbai
+919225|Maharashtra
+919226|Maharashtra
+919227|Gujarat
+919228|Gujarat
+919229|Madhya Pradesh & Chhattisgarh
+919230|Kolkata
+919231|Kolkata
+919232|West Bengal & Andaman Nicobar
+919233|West Bengal & Andaman Nicobar
+919234|Bihar & Jharkhand
+919235|Uttar Pradesh(East)
+919236|Uttar Pradesh(East)
+919237|Orissa
+919238|Orissa
+919239|Kolkata
+919240|Chennai
+919241|Karnataka
+919242|Karnataka
+919243|Karnataka
+919244|Tamilnadu
+919245|Tamilnadu
+919246|Andhra Pradesh
+919247|Andhra Pradesh
+919248|Andhra Pradesh
+919249|Kerala
+919250|Delhi
+919251|Rajasthan
+919252|Rajasthan
+919253|Haryana
+919254|Haryana
+919255|Haryana
+919256|Punjab
+919257|Punjab
+919258|Uttar Pradesh(west) & Uttarkhand
+919259|Uttar Pradesh(west) & Uttarkhand
+919260|Tamilnadu
+919261|Delhi
+919262|Tamilnadu
+919263|Tamilnadu
+919264|Tamilnadu
+919265|Tamilnadu
+919266|Tamilnadu
+919267|Tamilnadu
+919268|Delhi
+919269|Rajasthan
+919270|Maharashtra
+919271|Maharashtra
+919272|Maharashtra
+919273|Maharashtra
+919274|Gujarat
+919275|Gujarat
+919276|Gujarat
+919277|Gujarat
+919278|Delhi
+919279|Bihar & Jharkhand
+919280|Chennai
+919281|Chennai
+919282|Chennai
+919283|Chennai
+919284|Chennai
+919285|Chennai
+919286|Uttar Pradesh(west) & Uttarkhand
+919287|Kerala
+919288|Kerala
+919289|Delhi
+919290|Andhra Pradesh
+919291|Andhra Pradesh
+919292|Andhra Pradesh
+919293|Andhra Pradesh
+919294|Andhra Pradesh
+919295|Andhra Pradesh
+919296|Andhra Pradesh
+919297|Andhra Pradesh
+919298|Andhra Pradesh
+919299|Andhra Pradesh
+919300|Madhya Pradesh & Chhattisgarh
+919301|Madhya Pradesh & Chhattisgarh
+919302|Madhya Pradesh & Chhattisgarh
+919303|Madhya Pradesh & Chhattisgarh
+919304|Bihar & Jharkhand
+919305|Uttar Pradesh(East)
+919306|Jammu & Kashmir
+919307|Uttar Pradesh(East)
+919308|Bihar & Jharkhand
+919309|Rajasthan
+919310|Delhi
+919311|Delhi
+919312|Delhi
+919313|Delhi
+919314|Rajasthan
+919315|Haryana
+919316|Punjab
+919317|Panjab
+919318|Himachal Pradesh
+919319|Uttar Pradesh(west) & Uttarkhand
+919320|Mumbai
+919321|Mumbai
+919322|Mumbai
+919323|Mumbai
+919324|Mumbai
+919325|Maharashtra
+919326|Maharashtra
+919327|Gujarat
+919328|Gujarat
+919329|Madhya Pradesh & Chhattisgarh
+919330|Kolkata
+919331|Kolkata
+919332|West Bengal & Andaman Nicobar
+919333|West Bengal & Andaman Nicobar
+919334|Bihar & Jharkhand
+919335|Uttar Pradesh(East)
+919336|Uttar Pradesh(East)
+919337|Orissa
+919338|Orissa
+919339|Kolkata
+919340|Chennai
+919341|Karnataka
+919342|Karnataka
+919343|Karnataka
+919344|Tamilnadu
+919345|Tamilnadu
+919346|Andhra Pradesh
+919347|Andhra Pradesh
+919348|Andhra Pradesh
+919349|Kerala
+919350|Delhi
+919351|Rajasthan
+919352|Rajasthan
+919353|Haryana
+919354|Haryana
+919355|Haryana
+919356|Punjab
+919357|Punjab
+919358|Uttar Pradesh(west) & Uttarkhand
+919359|Uttar Pradesh(west) & Uttarkhand
+919360|Tamilnadu
+919361|Tamilnadu
+919362|Tamilnadu
+919363|Tamilnadu
+919364|Tamilnadu
+919365|Tamilnadu
+919366|Tamilnadu
+919367|Tamilnadu
+919368|Uttar Pradesh(west) & Uttarkhand
+919369|Uttar Pradesh(East)
+919370|Maharashtra
+919371|Maharashtra
+919372|Maharashtra
+919373|Maharashtra
+919374|Gujarat
+919375|Gujarat
+919376|Gujarat
+919377|Gujarat
+919378|West Bengal & Andaman Nicobar
+919379|Karnataka
+919380|Chennai
+919381|Chennai
+919382|Chennai
+919383|Chennai
+919384|Chennai
+919385|Chennai
+919386|Bihar & Jharkhand
+919387|Kerala
+919388|Kerala
+919389|Uttar Pradesh(East)
+919390|Andhra Pradesh
+919391|Andhra Pradesh
+919392|Andhra Pradesh
+919393|Andhra Pradesh
+919394|Andhra Pradesh
+919395|Andhra Pradesh
+919396|Andhra Pradesh
+919397|Andhra Pradesh
+919398|Andhra Pradesh
+919399|Andhra Pradesh
+919400|Andhra Pradesh
+919401|Assam
+919402|North East
+919403|Maharashtra
+919404|Maharashtra
+919405|Maharashtra
+919406|Madhya Pradesh & Chhattisgarh
+919407|Madhya Pradesh & Chhattisgarh
+919408|Gujarat
+919409|Gujarat
+919410|Uttar Pradesh(West) & Uttarkhand
+919411|Uttar Pradesh(West) & Uttarkhand
+919412|Uttar Pradesh(West) & Uttarkhand
+919413|Rajasthan
+919414|Rajasthan
+919415|Uttar Pradesh(East)
+919416|Haryana
+919417|Tamilnadu
+919418|Uttarpradesh(East)
+919419|Uttar Pradesh(west) & Uttarkhand
+919420|MahaRashtra
+919421|MahaRashtra
+919422|MahaRashtra
+919423|MahaRashtra
+919424|Madhya Pradesh & Chhattisgarh
+919425|Madhya Pradesh & Chhattisgarh
+919426|Gujarat
+919427|Gujarat
+919428|Gujarat
+919429|Gujarat
+919430|Bihar & Jharkhand
+919431|Bihar & Jharkhand
+919432|Kolkata
+919433|Kolkata
+919434|West Bengal & Andaman Nicobar
+919435|Assam
+919436|North East
+919437|Orissa
+919438|Orissa
+919439|Orissa
+919440|Andhra Pradesh
+919441|Andhra Pradesh
+919442|Tamilnadu
+919443|Tamilnadu
+919444|Chennai
+919445|Chennai
+919446|Kolkata
+919447|Kolkata
+919448|Karnataka
+919449|Karnataka
+919450|Uttar Pradesh(East)
+919451|Uttar Pradesh(East)
+919452|Uttar Pradesh(East)
+919453|Uttar Pradesh(East)
+919454|Uttar Pradesh(East)
+919455|Uttar Pradesh(East)
+919456|Uttar Pradesh(west) & Uttarkhand
+919457|Uttar Pradesh(west) & Uttarkhand
+919458|Uttar Pradesh(west) & Uttarkhand
+919459|Himachal Pradesh
+919460|Rajastan
+919461|Rajastan
+919462|Rajastan
+919463|Punjab
+919464|Punjab
+919465|Punjab
+919466|Haryana
+919467|Haryana
+919468|Rajasthan
+919469|Jammu & Kashmir
+919470|Bihar & Jarkhand
+919471|Bihar & Jarkhand
+919472|Bihar & Jarkhand
+919473|Utter Pradesh(East)
+919474|West Bengal & Andaman Nicobar
+919475|West Bengal & Andaman Nicobar
+919476|West Bengal & Andaman Nicobar
+919477|Kolkata
+919478|Panjab
+919479|Madhya Pradesh & Chhattisgarh
+919480|Delhi
+919481|Delhi
+919482|Karnataka
+919483|Delhi
+919484|Delhi
+919485|Delhi
+919486|Tamilnadu
+919487|Tamilnadu
+919488|Tamilnadu
+919489|Tamilnadu
+919490|Andhra Pradesh
+919491|Andhra Pradesh
+919492|Madhya Pradesh & Chhattisgarh
+919493|Andhra Pradesh
+919494|Andhra Pradesh
+919495|Kerala
+919496|Kerala
+919497|Kerala
+919498|Chennai
+919499|Chennai
+919500|Tamilnadu
+919501|Panjab
+919502|Andhra Pradesh
+919503|Maharashtra
+919504|Bihar & Jharkhand
+919505|Andhra Pradesh
+919506|Uttar Pradesh(East)
+919507|Bihar & Jharkhand
+919508|Assam
+919509|Rastasthan
+919510|Gujarat
+919511|Maharashtra
+919512|Gujarat
+919513|Karnataka
+919514|Tamilnadu
+919515|Andhra Pradesh
+919516|Kerala
+919517|Punjab
+919518|Haryana
+919519|Uttarpradesh(East)
+919520|Uttar Pradesh(west) & Uttarkhand
+919521|Rajastan
+919522|Madhya Pradesh & Chhattisgarh
+919523|Bihar & Jharkhand
+919524|Tamilnadu
+919525| Bihar & Jharkhand
+919526|Kerala
+919527|Maharashtra
+919528|Uttar Pradesh(west) & Uttarkhand
+919529|Rajasthan
+919530|Panjab
+919531|West Bengal & Andaman Nicobar
+919532|Uttar Pradesh(East)
+919533|Andhra Pradesh
+919534|Bihar & Jharkhand
+919535|Karnataka
+919536|Uttar Pradesh(west) & Uttarkhand
+919537|Gujarat
+919538|Karnataka
+919539|Kerala
+919540|Delhi
+919541|Haryana
+919542|Andhra Pradesh
+919543|Chennai
+919544|Kerala
+919545|Madhya Pradesh & Chhattisgarh
+919546|Bihar & Jharkhand
+919547|West Bengal & Andaman Nicobar
+919548|Uttar Pradesh(west) & Uttarkhand
+919549|Rajasthan
+919550|Andhra Pradesh
+919551|Chennai
+919552|Maharashtra
+919553|Andhra Pradesh
+919554|Uttar Pradesh(East)
+919555|Delhi
+919556|Orissa
+919557|Uttar Pradesh(west) & Uttarkhand
+919558|Gujarat
+919559|Uttar Pradesh(East)
+919560|Delhi
+919561|Maharashtra
+919562|Kerala
+919563|West Bengal & Andaman Nicobar
+919564|West Bengal & Andaman Nicobar
+919565|Uttar Pradesh(East)
+919566|Tamilnadu
+919567|Kerala
+919568|Uttar Pradesh(west) & Uttarkhand
+919569|Panjab
+919570|Bihar & Jarkhand
+919571|Rajastan
+919572|Bihar & Jarkhand
+919573|Andhra Pradesh
+919574|Gujarat
+919575|Madhya Pradesh & Chhattisgarh
+919576|Bihar & Jharkhand
+919577|Assam
+919578|Tamilnadu
+919579|Maharashtra
+919580|Uttar Pradesh(East)
+919581|Andhra Pradesh
+919582|Delhi
+919583|Orissa
+919584|Madhya Pradesh & Chhattisgarh
+919585|Tamilnadu
+919586|Gujarat
+919587|Rajastan
+919588|Mumbai
+919589|Madhya Pradesh & Chhattisgarh
+919590|Karnataka
+919591|Karnataka
+919592|Panjab
+919593|West Bengal & Andaman Nicobar
+919594|Mumbai
+919595|Maharashtra
+919596|Jammu & Kasmir
+919597|Tamilnadu
+919598|Uttar Pradesh(East)
+919599|Delhi
+919600|Tamilnadu
+919601|Gujarat
+919602|Rajasthan
+919603|Andhra Pradesh
+919604|Maharashtra
+919605|Kerala
+919606|North East
+919607|Assam
+919608|Bihar & Jharkhand
+919609|West Bengal & Andaman Nicobar
+919610|Rajasthan
+919611|Karnataka
+919612|North East
+919613|Assam
+919614|West Bengal & Andaman Nicobar
+919615|North East
+919616|Uttar Pradesh(East)
+919617|Madhya Pradesh & Chhattisgarh
+919618|Andhra Pradesh
+919619|Mumbai
+919620|Karnataka
+919621|UttarPradesh(East)
+919622|Jammu & Kashmir
+919623|Maharashtra
+919624|Gujarat
+919625| Himachal Pradesh
+919626|Tamilnadu
+919627|Uttar Pradesh(west) & Uttarkhand
+919628|Uttar Pradesh(East)
+919629|Tamilnadu
+919630|Madhya Pradesh & Chhattisgarh
+919631|Bihar & Jharkhand
+919632|Karnataka
+919633|Kerala
+919634|Uttar Pradesh(west) & Uttarkhand
+919635|West Bengal & Andaman Nicobar
+919636|Rajasthan
+919637|Maharashtra
+919638|Gujarat
+919639|Uttar Pradesh(west) & Uttarkhand
+919640|Andhra Pradesh
+919641|West Bengal & Andaman Nicobar
+919642|Andhra Pradesh
+919643|Bihar & Jharkhand
+919644|Madhya Pradesh & Chhattisgarh
+919645|Kerala
+919646|Punjab
+919647|West Bengal & Andaman Nicobar
+919648|Uttar Pradesh(East)
+919649|Rajasthan
+919650|Delhi
+919651|Uttar Pradesh(East)
+919652|Andhra Pradesh
+919653|Punjab
+919654|Delhi
+919655|Tamilnadu
+919656|Kerala
+919657|Maharashtra
+919658|Orissa
+919659|Tamilnadu
+919660|Rajasthan
+919661|Bihar & Jharkhand
+919662|Gujarat
+919663|Karnataka
+919664|Mumbai
+919665|Mumbai
+919666|Andhra Pradesh
+919667|Rajasthan
+919668|Orissa
+919669|Madhya Pradesh & Chhattisgarh
+919670|Uttar Pradesh(East)
+919671|Haryana
+919672|Rajasthan
+919673|Maharashtra
+919674|Kolakata
+919675|Uttar Pradesh(west) & Uttarkhand
+919676|Andhra Pradesh
+919677|Tamilnadu
+919678|Assam
+919679|West Bengal & Andaman Nicobar
+919680|Rajasthan
+919681|Kolkata
+919682|Uttar Pradesh(west) & Uttarkhand
+919683|Haryana
+919684|Maharashtra
+919685|Madhya Pradesh & Chhattisgarh
+919686|Karnataka
+919687|Gujarat
+919688|Tamilnadu
+919689|Maharashtra
+919690|Uttar Pradesh(west) & Uttarkhand
+919691|Madhya Pradesh & Chhattisgarh
+919692|Orissa
+919693|Bihar & Jharkhand
+919694|Rajasthan
+919695|Uttar Pradesh(East)
+919696|Uttar Pradesh(East)
+919697|Jammu & Kashmir
+919698|Tamilnadu
+919699|Maharashtra
+919700|Andhra Pradesh
+919701|Andhra Pradesh
+919702|Mumbai
+919703|Andhra Pradesh
+919704|Andhra Pradesh
+919705|Andhra Pradesh
+919706|Assam
+919707|Assam
+919708|Bihar & Jharkhand
+919709|Bihar & Jharkhand
+919710|Chennai
+919711|Delhi
+919712|Gujarat
+919713|Madhya Pradesh & Chhattisgarh
+919714|Gujarat
+919715|Tamilnadu
+919716|Delhi
+919717|Delhi
+919718|Delhi
+919719|Uttar Pradesh(west) & Uttarkhand
+919720|Uttar Pradesh(west) & Uttarkhand
+919721|UttarPradesh(East)
+919722|Gujarat
+919723|Gujarat
+919724|Gujarat
+919725| Gujarat
+919726|Gujarat
+919727|Gujarat
+919728|Haryana
+919729|Haryana
+919730|Maharashtra
+919731|Karnataka
+919732|West Bengal & Andaman Nicobar
+919733|West Bengal & Andaman Nicobar
+919734|West Bengal & Andaman Nicobar
+919735|West Bengal & Andaman Nicobar
+919736|Himachal Pradesh
+919737|Gujarat
+919738|Karnataka
+919739|Karnataka
+919740|Karnataka
+919741|Karnataka
+919742|Karnataka
+919743|Karnataka
+919744|Kerala
+919745|Kerala
+919746|Kerala
+919747|Kerala
+919748|Kolkata
+919749|West Bengal & Andaman Nicobar
+919750|Tamilnadu
+919751|vodafone
+919752|Madhya Pradesh & Chhattisgarh
+919753|Madhya Pradesh & Chhattisgarh
+919754|Madhya Pradesh & Chhattisgarh
+919755|Madhya Pradesh & Chhattisgarh
+919756|Uttar Pradesh(west) & Uttarkhand
+919757|Mumbai
+919758|Uttar Pradesh(west) & Uttarkhand
+919759|Uttar Pradesh(west) & Uttarkhand
+919760|Uttar Pradesh(west) & Uttarkhand
+919761|Uttar Pradesh(west) & Uttarkhand
+919762|Maharashtra
+919763|Maharashtra
+919764|Maharashtra
+919765|Maharashtra
+919766|Maharashtra
+919767|Maharashtra
+919768|Mumbai
+919769|Mumbai
+919770|Madhya Pradesh & Chhattisgarh
+919771|Bihar & Jharkhand
+919772|Rajasthan
+919773|Mumbai
+919774|North East
+919775|West Bengal & Andaman Nicobar
+919776|Orissa
+919777|Orissa
+919778|Orissa
+919779|Panjab
+919780|Punjab
+919781|Punjab
+919782|Rajasthan
+919783|Rajasthan
+919784|Maharashtra
+919785|Rajasthan
+919786|Tamilnadu
+919787|Tamilnadu
+919788|Tamilnadu
+919789|Tamilnadu
+919790|Tamilnadu
+919791|Tamilnadu
+919792|Uttar Pradesh(East)
+919793|Uttar Pradesh(East)
+919794|Uttar Pradesh(East)
+919795|Uttar Pradesh(East)
+919796|Jammu & Kashmir
+919797|Jammu & Kashmir
+919798|Bihar & Jharkhand
+919799|Rajasthan
+919800|West Bengal & Andaman Nicobar
+919801|Bihar & Jharkhand
+919802|Haryana
+919803|Panjab
+919804|Kolkata
+919805|Himachal Pradesh
+919806|Madhya Pradesh & Chhattisgarh
+919807|Uttar Pradesh(East)
+919808|Uttar Pradesh(west) & Uttarkhand
+919809|Kerala
+919810|Delhi
+919811|Delhi
+919812|Haryana
+919813|Haryana
+919814|Punjab
+919815|Punjab
+919816|Himachal Pradesh
+919817|Himachal Pradesh
+919818|Delhi
+919819|Mumbai
+919820|Mumbai
+919821|Mumbai
+919822|Maharashtra
+919823|Maharashtra
+919824|Gujarat
+919825| Gujarat
+919826|Madhya Pradesh & Chhattisgarh
+919827|Madhya Pradesh & Chhattisgarh
+919828|Rajasthan
+919829|Rajasthan
+919830|Kolakata
+919831|Kolkata
+919832|West Bengal & Andaman Nicobar
+919833|Mumbai
+919834|Madhya Pradesh & Chhattisgarh
+919835|Bihar & Jharkhand
+919836|Kolkata
+919837|Uttar Pradesh(west) & Uttarkhand
+919838|Uttar Pradesh(East)
+919839|Uttar Pradesh(East)
+919840|Chennai
+919841|Chennai
+919842|Tamilnadu
+919843|Tamilnadu
+919844|Karnataka
+919845|Karnataka
+919846|Kerala
+919847|Kerala
+919848|Andhra Pradesh
+919849|Andhra Pradesh
+919850|Maharashtra
+919851|West Bengal & Andaman Nicobar
+919852|Bihar & Jharkhand
+919853|Orissa
+919854|Assam
+919855|Panjab
+919856|North East
+919857|Himachal Pradesh
+919858|Jammu & Kashmir
+919859|Assam
+919860|Maharashtra
+919861|Orissa
+919862|North East
+919863|North East
+919864|Assam
+919865|Tamilnadu
+919866|Andhra Pradesh
+919867|Mumbai
+919868|Delhi
+919869|Mumbai
+919870|Mumbai
+919871|Delhi
+919872|Punjab
+919873|Delhi
+919874|Kolkata
+919875|Rajasthan
+919876|Punjab
+919877|Punjab
+919878|Punjab
+919879|Gujarat
+919880|Karnataka
+919881|Maharashtra
+919882|Himachal Pradesh
+919883|Kolkata
+919884|chennai
+919885|Andhra Pradesh
+919886|Karnataka
+919887|Rajasthan
+919888|Punjab
+919889|Uttar Pradesh(East)
+919890|Maharashtra
+919891|Haryana
+919892|Mumbai
+919893|Madhya Pradesh & Chhattisgarh
+919894|Tamilnadu
+919895|Kerala
+919896|Haryana
+919897|Uttar Pradesh(west) & Uttarkhand
+919898|Gujarat
+919899|Delhi
+919900|Karnataka
+919901|Karnataka
+919902|Karnataka
+919903|Kolkata
+919904|Gujarat
+919905|Bihar & Jharkhand
+919906|Jammu & Kashmir
+919907|Madhya Pradesh & Chhattisgarh
+919908|Andhra Pradesh
+919909|Gujarat
+919910|Delhi
+919911|Delhi
+919912|Andhra Pradesh
+919913|Gujarat
+919914|Punjab
+919915|Punjab
+919916|Karnataka
+919917|Uttar Pradesh(west) & Uttarkhand
+919918|Uttar Pradesh(East)
+919919|Uttar Pradesh(East)
+919920|Mumbai
+919921|Maharashtra
+919922|Maharashtra
+919923|Maharashtra
+919924|Gujarat
+919925| Gujarat
+919926|Madhya Pradesh & Chhattisgarh
+919927|Uttar Pradesh(west) & Uttarkhand
+919928|Rajasthan
+919929|Rajasthan
+919930|Mumbai
+919931|Bihar & Jharkhand
+919932|West Bengal & Andaman Nicobar
+919933|West Bengal & Andaman Nicobar
+919934|Bihar & Jharkhand
+919935|Bihar & Jharkhand
+919936|Uttar Pradesh(East)
+919937|Orissa
+919938|Orissa
+919939|Bihar & Jharkhand
+919940|Chennai
+919941|Chennai
+919942|Tamilnadu
+919943|Tamilnadu
+919944|Tamilnadu
+919945|Karnataka
+919946|Kerala
+919947|Kerala
+919948|Andhra Pradesh
+919949|Andhra Pradesh
+919950|Rajasthan
+919951|Andhra Pradesh
+919952|Tamilnadu
+919953|Delhi
+919954|Assam
+919955|Bihar & Jharkhand
+919956|Uttar Pradesh(East)
+919957|Assam
+919958|Delhi
+919959|Andhra Pradesh
+919960|Maharashtra
+919961|Kolkata
+919962|chennai
+919963|Andhra Pradesh
+919964|Karnataka
+919965|Tamilnadu
+919966|Andhra Pradesh
+919967|Mumbai
+919968|Delhi
+919969|Mumbai
+919970|Mumbai
+919971|Delhi
+919972|Karnataka
+919973|Bihar
+919974|Gujarat
+919975|Maharashtra
+919976|Tamilnadu
+919977|Madhya Pradesh & Chhattisgarh
+919978|Gujarat
+919979|Gujarat
+919980|Karnataka
+919981|Madhya Pradesh & Chhattisgarh
+919982|Rajasthan
+919983|Rajasthan
+919984|Uttar Pradesh(East)
+919985|Andhra Pradesh
+919986|Karnataka
+919987|Mumbai
+919988|Punjab
+919989|Andhra Pradesh
+919990|Delhi
+919991|Haryana
+919992|Haryana
+919993|Madhya Pradesh & Chhattisgarh
+919994|Tamilnadu
+919995|Kerala
+919996|Haryana
+919997|Uttar Pradesh(west) & Andaman Nicobar
+919998|Gujarat
+919999|Delhi
