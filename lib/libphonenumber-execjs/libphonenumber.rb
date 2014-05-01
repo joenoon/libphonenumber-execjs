@@ -35,7 +35,8 @@ class Libphonenumber
             type: phoneUtil.getNumberType(number),
             e164_number: phoneUtil.format(number, 0),
             is_possible_number: phoneUtil.isPossibleNumber(number),
-            validation_reasult: _is_reason
+            validation_reasult: _is_reason,
+            out_of_country_us_format: phoneUtil.formatOutOfCountryCallingNumber(number, "US")
           };
         }catch(e){
           return {
