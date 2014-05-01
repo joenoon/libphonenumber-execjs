@@ -34,6 +34,7 @@ class Libphonenumber
             country: phoneUtil.getRegionCodeForNumber(number),
             type: phoneUtil.getNumberType(number),
             e164_number: phoneUtil.format(number, 0),
+            national_format: phoneUtil.format(number, 1),
             is_possible_number: phoneUtil.isPossibleNumber(number),
             validation_reasult: _is_reason,
             out_of_country_us_format: phoneUtil.formatOutOfCountryCallingNumber(number, "US")
