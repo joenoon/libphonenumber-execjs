@@ -22,6 +22,7 @@ class Libphonenumber
           var number = phoneUtil.parseAndKeepRawInput(a, b);
           var VR = i18n.phonenumbers.PhoneNumberUtil.ValidationResult;
           var _r = phoneUtil.isPossibleNumberWithReason(number);
+          var _isValid = phoneUtil.isValidNumber(number);
           var _is_reason = null;
           for(reason in VR){
             if (_r == VR[reason]){
@@ -37,6 +38,7 @@ class Libphonenumber
             national_format: phoneUtil.format(number, 1),
             is_possible_number: phoneUtil.isPossibleNumber(number),
             validation_reasult: _is_reason,
+            is_valid: _isValid,
             out_of_country_us_format: phoneUtil.formatOutOfCountryCallingNumber(number, "US")
           };
         }catch(e){
