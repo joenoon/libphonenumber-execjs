@@ -14,8 +14,11 @@ Gemfile:
 
 Currently, only 3 functions are exposed directly:
 
-    libphonenumber.parse("9255550100", "US", 925)
-
+    libphonenumber.parse("7893461649", "IN") # => {"util"=>{"values_"=>{1=>91, 2=>7893461642.0}, "fields_"=>{1=>{"tag_"=>"1", "name_"=>"country_code", "isRepeated_"=>false, "isRequired_"=>true, "fieldType_"=>5, "deserializationConversionPermitted_"=>false, "defaultValue_"=>nil}, 2=>{"tag_"=>"2", "name_"=>"national_number", "isRepeated_"=>false, "isRequired_"=>true, "fieldType_"=>4, "deserializationConversionPermitted_"=>true, "defaultValue_"=>nil}, 3=>{"tag_"=>"3", "name_"=>"extension", "isRepeated_"=>false, "isRequired_"=>false, "fieldType_"=>9, "deserializationConversionPermitted_"=>false, "defaultValue_"=>nil}, 4=>{"tag_"=>"4", "name_"=>"italian_leading_zero", "isRepeated_"=>false, "isRequired_"=>false, "fieldType_"=>8, "deserializationConversionPermitted_"=>false, "defaultValue_"=>nil}, 5=>{"tag_"=>"5", "name_"=>"raw_input", "isRepeated_"=>false, "isRequired_"=>false, "fieldType_"=>9, "deserializationConversionPermitted_"=>false, "defaultValue_"=>nil}, 6=>{"tag_"=>"6", "name_"=>"country_code_source", "isRepeated_"=>false, "isRequired_"=>false, "fieldType_"=>14, "nativeType_"=>{"FROM_NUMBER_WITH_PLUS_SIGN"=>1, "FROM_NUMBER_WITH_IDD"=>5, "FROM_NUMBER_WITHOUT_PLUS_SIGN"=>10, "FROM_DEFAULT_COUNTRY"=>20}, "deserializationConversionPermitted_"=>false, "defaultValue_"=>1}, 7=>{"tag_"=>"7", "name_"=>"preferred_domestic_carrier_code", "isRepeated_"=>false, "isRequired_"=>false, "fieldType_"=>9, "deserializationConversionPermitted_"=>false, "defaultValue_"=>nil}, 8=>{"tag_"=>"8", "name_"=>"number_of_leading_zeros", "isRepeated_"=>false, "isRequired_"=>false, "fieldType_"=>5, "deserializationConversionPermitted_"=>false, "defaultValue_"=>1}}, "lazyDeserializer_"=>nil, "deserializedFields_"=>nil}, "country"=>"IN", "type"=>1, "e164_number"=>"+917893461642", "national_format"=>"+91 78 93 461642", "is_possible_number"=>true, "validation_reasult"=>"IS_POSSIBLE", "is_valid"=>true, "out_of_country_us_format"=>"011 91 78 93 461642"}
+    
+    libphonenumber.region # => Andhra Pradesh
+    libphonenumber.carrier # => Airtel
+    
 However, the entire js context of the library is available via the `context` accessor:
     
     libphonenumber.context.call "i18n.phonenumbers.PhoneNumberUtil.extractPossibleNumber", "19255550100"
