@@ -6,7 +6,7 @@ ExecJS wrapper for Google's libphonenumber library
 
 Gemfile:
 
-    gem "libphonenumber-execjs"
+    gem 'libphonenumber-execjs', :github => 'hrishabhz/libphonenumber-execjs'
 
 ## Getting Started
 
@@ -14,8 +14,6 @@ Gemfile:
 
 Currently, only 3 functions are exposed directly:
 
-    libphonenumber.extractPossibleNumber("19255550100")
-    libphonenumber.normalize("19255550100")
     libphonenumber.parse("9255550100", "US", 925)
 
 However, the entire js context of the library is available via the `context` accessor:
