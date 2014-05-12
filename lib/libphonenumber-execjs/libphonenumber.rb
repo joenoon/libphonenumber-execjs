@@ -35,7 +35,6 @@ class Libphonenumber
           for(f in m.fields_){
             parsing_result[m.fields_[f].name_] = m.values_[m.fields_[f].tag_] || null
           }
-          parsing_result.national_number = parseInt(parsing_result.national_number) || null
           return {
             util: {values_ : m.values_},
             country: phoneUtil.getRegionCodeForNumber(number),
