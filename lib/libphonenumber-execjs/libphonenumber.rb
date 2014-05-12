@@ -55,7 +55,12 @@ class Libphonenumber
         }
       })
     ', str, default_region
-    @parse
+    if @parse['util']
+      tmp = []
+      @parse['util']['values_'].map{|k,v| tmp[k] = v}
+      @parse['util']['values_'] = tmp
+    end
+    @parse.to_openstruct
   end
 
   def read_data(t='geocoding',a=nil, b=nil)
