@@ -30,8 +30,14 @@ class Libphonenumber
               break;
             }
           }
+          m = phoneUtil.parse(a,b);
+          parsing_result = {}
+          for(f in m.fields_){
+            parsing_result[m.fields_[f].name_] = m.values_[m.fields_[f].tag_] || null
+          }
+          parsing_result.national_number = parseInt(parsing_result.national_number) || null
           return {
-            util: phoneUtil.parse(a,b),
+            util: {values_ : m.values_},
             country: phoneUtil.getRegionCodeForNumber(number),
             type: phoneUtil.getNumberType(number),
             e164_number: phoneUtil.format(number, 0),
@@ -39,7 +45,8 @@ class Libphonenumber
             is_possible_number: phoneUtil.isPossibleNumber(number),
             validation_reasult: _is_reason,
             is_valid: _isValid,
-            out_of_country_us_format: phoneUtil.formatOutOfCountryCallingNumber(number, "US")
+            out_of_country_us_format: phoneUtil.formatOutOfCountryCallingNumber(number, "US"),
+            parsing_result: parsing_result
           };
         }catch(e){
           return {
