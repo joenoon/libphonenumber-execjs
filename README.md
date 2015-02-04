@@ -45,7 +45,12 @@ Or to get back an array in the form of [ formatted, cc, ndc ]:
 
 There is a rake task `build_js` in the Rakefile.  You will need the source for google closure, and libphonenumber checked out locally.
 
-See the Rakefile for details.
+    $ git clone git@github.com:google/closure-library.git
+    $ git clone git@github.com:googlei18n/libphonenumber.git
+    $ chmod +x closure-library/closure/bin/build/closurebuilder.py
+    $ CLOSURE_PATH=closure-library/ LIBPHONENUMBER_PATH=libphonenumber/ bundle exec rake build_js
+
+See the Rakefile for more details.
 
 ## Information about libphonenumber
 
