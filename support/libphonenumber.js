@@ -24,6 +24,9 @@ var CLOSURE_NO_DEPS = true;
  * global <code>CLOSURE_NO_DEPS</code> is set to true.  This allows projects to
  * include their own deps file(s) from different locations.
  *
+ * @author arv@google.com (Erik Arvidsson)
+ *
+ * @provideGoog
  */
 
 
@@ -35,13 +38,13 @@ var COMPILED = false;
 
 
 /**
- * Base namespace for the Closure library.  Checks to see goog is
- * already defined in the current scope before assigning to prevent
- * clobbering if base.js is loaded more than once.
+ * Base namespace for the Closure library.  Checks to see goog is already
+ * defined in the current scope before assigning to prevent clobbering if
+ * base.js is loaded more than once.
  *
  * @const
  */
-var goog = goog || {}; // Identifies this file as the Closure base.
+var goog = goog || {};
 
 
 /**
@@ -51,116 +54,63 @@ goog.global = this;
 
 
 /**
- * @define {boolean} DEBUG is provided as a convenience so that debugging code
- * that should not be included in a production js_binary can be easily stripped
- * by specifying --define goog.DEBUG=false to the JSCompiler. For example, most
- * toString() methods should be declared inside an "if (goog.DEBUG)" conditional
- * because they are generally used for debugging purposes and it is difficult
- * for the JSCompiler to statically determine whether they are used.
+ * A hook for overriding the define values in uncompiled mode.
+ *
+ * In uncompiled mode, {@code CLOSURE_UNCOMPILED_DEFINES} may be defined before
+ * loading base.js.  If a key is defined in {@code CLOSURE_UNCOMPILED_DEFINES},
+ * {@code goog.define} will use the value instead of the default value.  This
+ * allows flags to be overwritten without compilation (this is normally
+ * accomplished with the compiler's "define" flag).
+ *
+ * Example:
+ * <pre>
+ *   var CLOSURE_UNCOMPILED_DEFINES = {'goog.DEBUG': false};
+ * </pre>
+ *
+ * @type {Object<string, (string|number|boolean)>|undefined}
  */
-goog.DEBUG = true;
+goog.global.CLOSURE_UNCOMPILED_DEFINES;
 
 
 /**
- * @define {string} LOCALE defines the locale being used for compilation. It is
- * used to select locale specific data to be compiled in js binary. BUILD rule
- * can specify this value by "--define goog.LOCALE=<locale_name>" as JSCompiler
- * option.
+ * A hook for overriding the define values in uncompiled or compiled mode,
+ * like CLOSURE_UNCOMPILED_DEFINES but effective in compiled code.  In
+ * uncompiled code CLOSURE_UNCOMPILED_DEFINES takes precedence.
  *
- * Take into account that the locale code format is important. You should use
- * the canonical Unicode format with hyphen as a delimiter. Language must be
- * lowercase, Language Script - Capitalized, Region - UPPERCASE.
- * There are few examples: pt-BR, en, en-US, sr-Latin-BO, zh-Hans-CN.
+ * Also unlike CLOSURE_UNCOMPILED_DEFINES the values must be number, boolean or
+ * string literals or the compiler will emit an error.
  *
- * See more info about locale codes here:
- * http://www.unicode.org/reports/tr35/#Unicode_Language_and_Locale_Identifiers
+ * While any @define value may be set, only those set with goog.define will be
+ * effective for uncompiled code.
  *
- * For language codes you should use values defined by ISO 693-1. See it here
- * http://www.w3.org/WAI/ER/IG/ert/iso639.htm. There is only one exception from
- * this rule: the Hebrew language. For legacy reasons the old code (iw) should
- * be used instead of the new code (he), see http://wiki/Main/IIISynonyms.
+ * Example:
+ * <pre>
+ *   var CLOSURE_DEFINES = {'goog.DEBUG': false} ;
+ * </pre>
+ *
+ * @type {Object<string, (string|number|boolean)>|undefined}
  */
-goog.LOCALE = 'en';  // default to en
+goog.global.CLOSURE_DEFINES;
 
 
 /**
- * Creates object stubs for a namespace.  The presence of one or more
- * goog.provide() calls indicate that the file defines the given
- * objects/namespaces.  Build tools also scan for provide/require statements
- * to discern dependencies, build dependency files (see deps.js), etc.
- * @see goog.require
- * @param {string} name Namespace provided by this file in the form
- *     "goog.package.part".
+ * Returns true if the specified value is not undefined.
+ * WARNING: Do not use this to test if an object has a property. Use the in
+ * operator instead.
+ *
+ * @param {?} val Variable to test.
+ * @return {boolean} Whether variable is defined.
  */
-goog.provide = function(name) {
-  if (!COMPILED) {
-    // Ensure that the same namespace isn't provided twice. This is intended
-    // to teach new developers that 'goog.provide' is effectively a variable
-    // declaration. And when JSCompiler transforms goog.provide into a real
-    // variable declaration, the compiled JS should work the same as the raw
-    // JS--even when the raw JS uses goog.provide incorrectly.
-    if (goog.isProvided_(name)) {
-      throw Error('Namespace "' + name + '" already declared.');
-    }
-    delete goog.implicitNamespaces_[name];
-
-    var namespace = name;
-    while ((namespace = namespace.substring(0, namespace.lastIndexOf('.')))) {
-      if (goog.getObjectByName(namespace)) {
-        break;
-      }
-      goog.implicitNamespaces_[namespace] = true;
-    }
-  }
-
-  goog.exportPath_(name);
+goog.isDef = function(val) {
+  // void 0 always evaluates to undefined and hence we do not need to depend on
+  // the definition of the global variable named 'undefined'.
+  return val !== void 0;
 };
 
 
 /**
- * Marks that the current file should only be used for testing, and never for
- * live code in production.
- * @param {string=} opt_message Optional message to add to the error that's
- *     raised when used in production code.
- */
-goog.setTestOnly = function(opt_message) {
-  if (COMPILED && !goog.DEBUG) {
-    opt_message = opt_message || '';
-    throw Error('Importing test-only code into non-debug environment' +
-                opt_message ? ': ' + opt_message : '.');
-  }
-};
-
-
-if (!COMPILED) {
-
-  /**
-   * Check if the given name has been goog.provided. This will return false for
-   * names that are available only as implicit namespaces.
-   * @param {string} name name of the object to look for.
-   * @return {boolean} Whether the name has been provided.
-   * @private
-   */
-  goog.isProvided_ = function(name) {
-    return !goog.implicitNamespaces_[name] && !!goog.getObjectByName(name);
-  };
-
-  /**
-   * Namespaces implicitly defined by goog.provide. For example,
-   * goog.provide('goog.events.Event') implicitly declares
-   * that 'goog' and 'goog.events' must be namespaces.
-   *
-   * @type {Object}
-   * @private
-   */
-  goog.implicitNamespaces_ = {};
-}
-
-
-/**
- * Builds an object structure for the provided namespace path,
- * ensuring that names that already exist are not overwritten. For
- * example:
+ * Builds an object structure for the provided namespace path, ensuring that
+ * names that already exist are not overwritten. For example:
  * "a.b.c" -> a = {};a.b={};a.b.c={};
  * Used by goog.provide and goog.exportSymbol.
  * @param {string} name name of the object that this file defines.
@@ -200,9 +150,388 @@ goog.exportPath_ = function(name, opt_object, opt_objectToExportTo) {
 
 
 /**
- * Returns an object based on its fully qualified external name.  If you are
- * using a compilation pass that renames property names beware that using this
- * function will not find renamed properties.
+ * Defines a named value. In uncompiled mode, the value is retreived from
+ * CLOSURE_DEFINES or CLOSURE_UNCOMPILED_DEFINES if the object is defined and
+ * has the property specified, and otherwise used the defined defaultValue.
+ * When compiled the default can be overridden using the compiler
+ * options or the value set in the CLOSURE_DEFINES object.
+ *
+ * @param {string} name The distinguished name to provide.
+ * @param {string|number|boolean} defaultValue
+ */
+goog.define = function(name, defaultValue) {
+  var value = defaultValue;
+  if (!COMPILED) {
+    if (goog.global.CLOSURE_UNCOMPILED_DEFINES &&
+        Object.prototype.hasOwnProperty.call(
+            goog.global.CLOSURE_UNCOMPILED_DEFINES, name)) {
+      value = goog.global.CLOSURE_UNCOMPILED_DEFINES[name];
+    } else if (goog.global.CLOSURE_DEFINES &&
+        Object.prototype.hasOwnProperty.call(
+            goog.global.CLOSURE_DEFINES, name)) {
+      value = goog.global.CLOSURE_DEFINES[name];
+    }
+  }
+  goog.exportPath_(name, value);
+};
+
+
+/**
+ * @define {boolean} DEBUG is provided as a convenience so that debugging code
+ * that should not be included in a production js_binary can be easily stripped
+ * by specifying --define goog.DEBUG=false to the JSCompiler. For example, most
+ * toString() methods should be declared inside an "if (goog.DEBUG)" conditional
+ * because they are generally used for debugging purposes and it is difficult
+ * for the JSCompiler to statically determine whether they are used.
+ */
+goog.DEBUG = true;
+
+
+/**
+ * @define {string} LOCALE defines the locale being used for compilation. It is
+ * used to select locale specific data to be compiled in js binary. BUILD rule
+ * can specify this value by "--define goog.LOCALE=<locale_name>" as JSCompiler
+ * option.
+ *
+ * Take into account that the locale code format is important. You should use
+ * the canonical Unicode format with hyphen as a delimiter. Language must be
+ * lowercase, Language Script - Capitalized, Region - UPPERCASE.
+ * There are few examples: pt-BR, en, en-US, sr-Latin-BO, zh-Hans-CN.
+ *
+ * See more info about locale codes here:
+ * http://www.unicode.org/reports/tr35/#Unicode_Language_and_Locale_Identifiers
+ *
+ * For language codes you should use values defined by ISO 693-1. See it here
+ * http://www.w3.org/WAI/ER/IG/ert/iso639.htm. There is only one exception from
+ * this rule: the Hebrew language. For legacy reasons the old code (iw) should
+ * be used instead of the new code (he), see http://wiki/Main/IIISynonyms.
+ */
+goog.define('goog.LOCALE', 'en');  // default to en
+
+
+/**
+ * @define {boolean} Whether this code is running on trusted sites.
+ *
+ * On untrusted sites, several native functions can be defined or overridden by
+ * external libraries like Prototype, Datejs, and JQuery and setting this flag
+ * to false forces closure to use its own implementations when possible.
+ *
+ * If your JavaScript can be loaded by a third party site and you are wary about
+ * relying on non-standard implementations, specify
+ * "--define goog.TRUSTED_SITE=false" to the JSCompiler.
+ */
+goog.define('goog.TRUSTED_SITE', true);
+
+
+/**
+ * @define {boolean} Whether a project is expected to be running in strict mode.
+ *
+ * This define can be used to trigger alternate implementations compatible with
+ * running in EcmaScript Strict mode or warn about unavailable functionality.
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions_and_function_scope/Strict_mode
+ *
+ */
+goog.define('goog.STRICT_MODE_COMPATIBLE', false);
+
+
+/**
+ * @define {boolean} Whether code that calls {@link goog.setTestOnly} should
+ *     be disallowed in the compilation unit.
+ */
+goog.define('goog.DISALLOW_TEST_ONLY_CODE', COMPILED && !goog.DEBUG);
+
+
+/**
+ * Defines a namespace in Closure.
+ *
+ * A namespace may only be defined once in a codebase. It may be defined using
+ * goog.provide() or goog.module().
+ *
+ * The presence of one or more goog.provide() calls in a file indicates
+ * that the file defines the given objects/namespaces.
+ * Provided symbols must not be null or undefined.
+ *
+ * In addition, goog.provide() creates the object stubs for a namespace
+ * (for example, goog.provide("goog.foo.bar") will create the object
+ * goog.foo.bar if it does not already exist).
+ *
+ * Build tools also scan for provide/require/module statements
+ * to discern dependencies, build dependency files (see deps.js), etc.
+ *
+ * @see goog.require
+ * @see goog.module
+ * @param {string} name Namespace provided by this file in the form
+ *     "goog.package.part".
+ */
+goog.provide = function(name) {
+  if (!COMPILED) {
+    // Ensure that the same namespace isn't provided twice.
+    // A goog.module/goog.provide maps a goog.require to a specific file
+    if (goog.isProvided_(name)) {
+      throw Error('Namespace "' + name + '" already declared.');
+    }
+  }
+
+  goog.constructNamespace_(name);
+};
+
+
+/**
+ * @param {string} name Namespace provided by this file in the form
+ *     "goog.package.part".
+ * @param {Object=} opt_obj The object to embed in the namespace.
+ * @private
+ */
+goog.constructNamespace_ = function(name, opt_obj) {
+  if (!COMPILED) {
+    delete goog.implicitNamespaces_[name];
+
+    var namespace = name;
+    while ((namespace = namespace.substring(0, namespace.lastIndexOf('.')))) {
+      if (goog.getObjectByName(namespace)) {
+        break;
+      }
+      goog.implicitNamespaces_[namespace] = true;
+    }
+  }
+
+  goog.exportPath_(name, opt_obj);
+};
+
+
+/**
+ * Module identifier validation regexp.
+ * Note: This is a conservative check, it is very possible to be more lienent,
+ *   the primary exclusion here is "/" and "\" and a leading ".", these
+ *   restrictions are intended to leave the door open for using goog.require
+ *   with relative file paths rather than module identifiers.
+ * @private
+ */
+goog.VALID_MODULE_RE_ = /^[a-zA-Z_$][a-zA-Z0-9._$]*$/;
+
+
+/**
+ * Defines a module in Closure.
+ *
+ * Marks that this file must be loaded as a module and claims the namespace.
+ *
+ * A namespace may only be defined once in a codebase. It may be defined using
+ * goog.provide() or goog.module().
+ *
+ * goog.module() has three requirements:
+ * - goog.module may not be used in the same file as goog.provide.
+ * - goog.module must be the first statement in the file.
+ * - only one goog.module is allowed per file.
+ *
+ * When a goog.module annotated file is loaded, it is enclosed in
+ * a strict function closure. This means that:
+ * - any variables declared in a goog.module file are private to the file
+ * (not global), though the compiler is expected to inline the module.
+ * - The code must obey all the rules of "strict" JavaScript.
+ * - the file will be marked as "use strict"
+ *
+ * NOTE: unlike goog.provide, goog.module does not declare any symbols by
+ * itself. If declared symbols are desired, use
+ * goog.module.declareLegacyNamespace().
+ *
+ *
+ * See the public goog.module proposal: http://goo.gl/Va1hin
+ *
+ * @param {string} name Namespace provided by this file in the form
+ *     "goog.package.part", is expected but not required.
+ */
+goog.module = function(name) {
+  if (!goog.isString(name) ||
+      !name ||
+      name.search(goog.VALID_MODULE_RE_) == -1) {
+    throw Error('Invalid module identifier');
+  }
+  if (!goog.isInModuleLoader_()) {
+    throw Error('Module ' + name + ' has been loaded incorrectly.');
+  }
+  if (goog.moduleLoaderState_.moduleName) {
+    throw Error('goog.module may only be called once per module.');
+  }
+
+  // Store the module name for the loader.
+  goog.moduleLoaderState_.moduleName = name;
+  if (!COMPILED) {
+    // Ensure that the same namespace isn't provided twice.
+    // A goog.module/goog.provide maps a goog.require to a specific file
+    if (goog.isProvided_(name)) {
+      throw Error('Namespace "' + name + '" already declared.');
+    }
+    delete goog.implicitNamespaces_[name];
+  }
+};
+
+
+/**
+ * @param {string} name The module identifier.
+ * @return {?} The module exports for an already loaded module or null.
+ *
+ * Note: This is not an alternative to goog.require, it does not
+ * indicate a hard dependency, instead it is used to indicate
+ * an optional dependency or to access the exports of a module
+ * that has already been loaded.
+ * @suppress {missingProvide}
+ */
+goog.module.get = function(name) {
+  return goog.module.getInternal_(name);
+};
+
+
+/**
+ * @param {string} name The module identifier.
+ * @return {?} The module exports for an already loaded module or null.
+ * @private
+ */
+goog.module.getInternal_ = function(name) {
+  if (!COMPILED) {
+    if (goog.isProvided_(name)) {
+      // goog.require only return a value with-in goog.module files.
+      return name in goog.loadedModules_ ?
+          goog.loadedModules_[name] :
+          goog.getObjectByName(name);
+    } else {
+      return null;
+    }
+  }
+};
+
+
+/**
+ * @private {?{
+ *   moduleName: (string|undefined),
+ *   declareTestMethods: boolean
+ * }}
+ */
+goog.moduleLoaderState_ = null;
+
+
+/**
+ * @private
+ * @return {boolean} Whether a goog.module is currently being initialized.
+ */
+goog.isInModuleLoader_ = function() {
+  return goog.moduleLoaderState_ != null;
+};
+
+
+/**
+ * Indicate that a module's exports that are known test methods should
+ * be copied to the global object.  This makes the test methods visible to
+ * test runners that inspect the global object.
+ *
+ * TODO(johnlenz): Make the test framework aware of goog.module so
+ * that this isn't necessary. Alternately combine this with goog.setTestOnly
+ * to minimize boiler plate.
+ * @suppress {missingProvide}
+ */
+goog.module.declareTestMethods = function() {
+  if (!goog.isInModuleLoader_()) {
+    throw new Error('goog.module.declareTestMethods must be called from ' +
+        'within a goog.module');
+  }
+  goog.moduleLoaderState_.declareTestMethods = true;
+};
+
+
+/**
+ * Provide the module's exports as a globally accessible object under the
+ * module's declared name.  This is intended to ease migration to goog.module
+ * for files that have existing usages.
+ * @suppress {missingProvide}
+ */
+goog.module.declareLegacyNamespace = function() {
+  if (!COMPILED && !goog.isInModuleLoader_()) {
+    throw new Error('goog.module.declareLegacyNamespace must be called from ' +
+        'within a goog.module');
+  }
+  if (!COMPILED && !goog.moduleLoaderState_.moduleName) {
+    throw Error('goog.module must be called prior to ' +
+        'goog.module.declareLegacyNamespace.');
+  }
+  goog.moduleLoaderState_.declareLegacyNamespace = true;
+};
+
+
+/**
+ * Marks that the current file should only be used for testing, and never for
+ * live code in production.
+ *
+ * In the case of unit tests, the message may optionally be an exact namespace
+ * for the test (e.g. 'goog.stringTest'). The linter will then ignore the extra
+ * provide (if not explicitly defined in the code).
+ *
+ * @param {string=} opt_message Optional message to add to the error that's
+ *     raised when used in production code.
+ */
+goog.setTestOnly = function(opt_message) {
+  if (goog.DISALLOW_TEST_ONLY_CODE) {
+    opt_message = opt_message || '';
+    throw Error('Importing test-only code into non-debug environment' +
+                (opt_message ? ': ' + opt_message : '.'));
+  }
+};
+
+
+/**
+ * Forward declares a symbol. This is an indication to the compiler that the
+ * symbol may be used in the source yet is not required and may not be provided
+ * in compilation.
+ *
+ * The most common usage of forward declaration is code that takes a type as a
+ * function parameter but does not need to require it. By forward declaring
+ * instead of requiring, no hard dependency is made, and (if not required
+ * elsewhere) the namespace may never be required and thus, not be pulled
+ * into the JavaScript binary. If it is required elsewhere, it will be type
+ * checked as normal.
+ *
+ *
+ * @param {string} name The namespace to forward declare in the form of
+ *     "goog.package.part".
+ */
+goog.forwardDeclare = function(name) {};
+
+
+if (!COMPILED) {
+
+  /**
+   * Check if the given name has been goog.provided. This will return false for
+   * names that are available only as implicit namespaces.
+   * @param {string} name name of the object to look for.
+   * @return {boolean} Whether the name has been provided.
+   * @private
+   */
+  goog.isProvided_ = function(name) {
+    return (name in goog.loadedModules_) ||
+        (!goog.implicitNamespaces_[name] &&
+            goog.isDefAndNotNull(goog.getObjectByName(name)));
+  };
+
+  /**
+   * Namespaces implicitly defined by goog.provide. For example,
+   * goog.provide('goog.events.Event') implicitly declares that 'goog' and
+   * 'goog.events' must be namespaces.
+   *
+   * @type {!Object<string, (boolean|undefined)>}
+   * @private
+   */
+  goog.implicitNamespaces_ = {'goog.module': true};
+
+  // NOTE: We add goog.module as an implicit namespace as goog.module is defined
+  // here and because the existing module package has not been moved yet out of
+  // the goog.module namespace. This satisifies both the debug loader and
+  // ahead-of-time dependency management.
+}
+
+
+/**
+ * Returns an object based on its fully qualified external name.  The object
+ * is not found if null or undefined.  If you are using a compilation pass that
+ * renames property names beware that using this function will not find renamed
+ * properties.
  *
  * @param {string} name The fully qualified name.
  * @param {Object=} opt_obj The object within which to look; default is
@@ -226,7 +555,7 @@ goog.getObjectByName = function(name, opt_obj) {
 /**
  * Globalizes a whole namespace, such as goog or goog.lang.
  *
- * @param {Object} obj The namespace to globalize.
+ * @param {!Object} obj The namespace to globalize.
  * @param {Object=} opt_global The object to add the properties to.
  * @deprecated Properties may be explicitly exported to the global scope, but
  *     this should no longer be done in bulk.
@@ -242,22 +571,21 @@ goog.globalize = function(obj, opt_global) {
 /**
  * Adds a dependency from a file to the files it requires.
  * @param {string} relPath The path to the js file.
- * @param {Array} provides An array of strings with the names of the objects
- *                         this file provides.
- * @param {Array} requires An array of strings with the names of the objects
- *                         this file requires.
+ * @param {!Array<string>} provides An array of strings with
+ *     the names of the objects this file provides.
+ * @param {!Array<string>} requires An array of strings with
+ *     the names of the objects this file requires.
+ * @param {boolean=} opt_isModule Whether this dependency must be loaded as
+ *     a module as declared by goog.module.
  */
-goog.addDependency = function(relPath, provides, requires) {
-  if (!COMPILED) {
+goog.addDependency = function(relPath, provides, requires, opt_isModule) {
+  if (goog.DEPENDENCIES_ENABLED) {
     var provide, require;
     var path = relPath.replace(/\\/g, '/');
     var deps = goog.dependencies_;
     for (var i = 0; provide = provides[i]; i++) {
       deps.nameToPath[provide] = path;
-      if (!(path in deps.pathToNames)) {
-        deps.pathToNames[path] = {};
-      }
-      deps.pathToNames[path][provide] = true;
+      deps.pathIsModule[path] = !!opt_isModule;
     }
     for (var j = 0; require = requires[j]; j++) {
       if (!(path in deps.requires)) {
@@ -271,17 +599,17 @@ goog.addDependency = function(relPath, provides, requires) {
 
 
 
-// NOTE(user): The debug DOM loader was included in base.js as an orignal
-// way to do "debug-mode" development.  The dependency system can sometimes
-// be confusing, as can the debug DOM loader's asyncronous nature.
+// NOTE(nnaze): The debug DOM loader was included in base.js as an original way
+// to do "debug-mode" development.  The dependency system can sometimes be
+// confusing, as can the debug DOM loader's asynchronous nature.
 //
-// With the DOM loader, a call to goog.require() is not blocking -- the
-// script will not load until some point after the current script.  If a
-// namespace is needed at runtime, it needs to be defined in a previous
-// script, or loaded via require() with its registered dependencies.
+// With the DOM loader, a call to goog.require() is not blocking -- the script
+// will not load until some point after the current script.  If a namespace is
+// needed at runtime, it needs to be defined in a previous script, or loaded via
+// require() with its registered dependencies.
 // User-defined namespaces may need their own deps file.  See http://go/js_deps,
 // http://go/genjsdeps, or, externally, DepsWriter.
-// http://code.google.com/closure/library/docs/depswriter.html
+// https://developers.google.com/closure/library/docs/depswriter
 //
 // Because of legacy clients, the DOM loader can't be easily removed from
 // base.js.  Work is being done to make it disableable or replaceable for
@@ -299,29 +627,44 @@ goog.addDependency = function(relPath, provides, requires) {
  * provided (and depend on the fact that some outside tool correctly ordered
  * the script).
  */
-goog.ENABLE_DEBUG_LOADER = true;
+goog.define('goog.ENABLE_DEBUG_LOADER', true);
 
 
 /**
- * Implements a system for the dynamic resolution of dependencies
- * that works in parallel with the BUILD system. Note that all calls
- * to goog.require will be stripped by the JSCompiler when the
- * --closure_pass option is used.
+ * @param {string} msg
+ * @private
+ */
+goog.logToConsole_ = function(msg) {
+  if (goog.global.console) {
+    goog.global.console['error'](msg);
+  }
+};
+
+
+/**
+ * Implements a system for the dynamic resolution of dependencies that works in
+ * parallel with the BUILD system. Note that all calls to goog.require will be
+ * stripped by the JSCompiler when the --closure_pass option is used.
  * @see goog.provide
- * @param {string} name Namespace to include (as was given in goog.provide())
- *     in the form "goog.package.part".
+ * @param {string} name Namespace to include (as was given in goog.provide()) in
+ *     the form "goog.package.part".
+ * @return {?} If called within a goog.module file, the associated namespace or
+ *     module otherwise null.
  */
 goog.require = function(name) {
 
-  // if the object already exists we do not need do do anything
-  // TODO(user): If we start to support require based on file name this has
-  //            to change
-  // TODO(user): If we allow goog.foo.* this has to change
-  // TODO(user): If we implement dynamic load after page load we should probably
-  //            not remove this code for the compiled output
+  // If the object already exists we do not need do do anything.
   if (!COMPILED) {
+    if (goog.ENABLE_DEBUG_LOADER && goog.IS_OLD_IE_) {
+      goog.maybeProcessDeferredDep_(name);
+    }
+
     if (goog.isProvided_(name)) {
-      return;
+      if (goog.isInModuleLoader_()) {
+        return goog.module.getInternal_(name);
+      } else {
+        return null;
+      }
     }
 
     if (goog.ENABLE_DEBUG_LOADER) {
@@ -329,24 +672,20 @@ goog.require = function(name) {
       if (path) {
         goog.included_[path] = true;
         goog.writeScripts_();
-        return;
+        return null;
       }
     }
 
     var errorMessage = 'goog.require could not find: ' + name;
-    if (goog.global.console) {
-      goog.global.console['error'](errorMessage);
-    }
+    goog.logToConsole_(errorMessage);
 
-
-      throw Error(errorMessage);
-
+    throw Error(errorMessage);
   }
 };
 
 
 /**
- * Path for included scripts
+ * Path for included scripts.
  * @type {string}
  */
 goog.basePath = '';
@@ -360,8 +699,7 @@ goog.global.CLOSURE_BASE_PATH;
 
 
 /**
- * Whether to write out Closure's deps file. By default,
- * the deps are written.
+ * Whether to write out Closure's deps file. By default, the deps are written.
  * @type {boolean|undefined}
  */
 goog.global.CLOSURE_NO_DEPS;
@@ -375,6 +713,7 @@ goog.global.CLOSURE_NO_DEPS;
  *
  * The function is passed the script source, which is a relative URI. It should
  * return true if the script was imported, false otherwise.
+ * @type {(function(string): boolean)|undefined}
  */
 goog.global.CLOSURE_IMPORT_SCRIPT;
 
@@ -389,30 +728,29 @@ goog.nullFunction = function() {};
 /**
  * The identity function. Returns its first argument.
  *
- * @param {...*} var_args The arguments of the function.
- * @return {*} The first argument.
+ * @param {*=} opt_returnValue The single value that will be returned.
+ * @param {...*} var_args Optional trailing arguments. These are ignored.
+ * @return {?} The first argument. We can't know the type -- just pass it along
+ *      without type.
  * @deprecated Use goog.functions.identity instead.
  */
-goog.identityFunction = function(var_args) {
-  return arguments[0];
+goog.identityFunction = function(opt_returnValue, var_args) {
+  return opt_returnValue;
 };
 
 
 /**
  * When defining a class Foo with an abstract method bar(), you can do:
- *
  * Foo.prototype.bar = goog.abstractMethod
  *
- * Now if a subclass of Foo fails to override bar(), an error
- * will be thrown when bar() is invoked.
+ * Now if a subclass of Foo fails to override bar(), an error will be thrown
+ * when bar() is invoked.
  *
- * Note: This does not take the name of the function to override as
- * an argument because that would make it more difficult to obfuscate
- * our JavaScript code.
+ * Note: This does not take the name of the function to override as an argument
+ * because that would make it more difficult to obfuscate our JavaScript code.
  *
  * @type {!Function}
- * @throws {Error} when invoked to indicate the method should be
- *   overridden.
+ * @throws {Error} when invoked to indicate the method should be overridden.
  */
 goog.abstractMethod = function() {
   throw Error('unimplemented abstract method');
@@ -420,42 +758,102 @@ goog.abstractMethod = function() {
 
 
 /**
- * Adds a {@code getInstance} static method that always return the same instance
- * object.
+ * Adds a {@code getInstance} static method that always returns the same
+ * instance object.
  * @param {!Function} ctor The constructor for the class to add the static
  *     method to.
  */
 goog.addSingletonGetter = function(ctor) {
   ctor.getInstance = function() {
-    return ctor.instance_ || (ctor.instance_ = new ctor());
+    if (ctor.instance_) {
+      return ctor.instance_;
+    }
+    if (goog.DEBUG) {
+      // NOTE: JSCompiler can't optimize away Array#push.
+      goog.instantiatedSingletons_[goog.instantiatedSingletons_.length] = ctor;
+    }
+    return ctor.instance_ = new ctor;
   };
 };
 
 
-if (!COMPILED && goog.ENABLE_DEBUG_LOADER) {
+/**
+ * All singleton classes that have been instantiated, for testing. Don't read
+ * it directly, use the {@code goog.testing.singleton} module. The compiler
+ * removes this variable if unused.
+ * @type {!Array<!Function>}
+ * @private
+ */
+goog.instantiatedSingletons_ = [];
+
+
+/**
+ * @define {boolean} Whether to load goog.modules using {@code eval} when using
+ * the debug loader.  This provides a better debugging experience as the
+ * source is unmodified and can be edited using Chrome Workspaces or
+ * similiar.  However in some environments the use of {@code eval} is banned
+ * so we provide an alternative.
+ */
+goog.define('goog.LOAD_MODULE_USING_EVAL', true);
+
+
+/**
+ * @define {boolean} Whether the exports of goog.modules should be sealed when
+ * possible.
+ */
+goog.define('goog.SEAL_MODULE_EXPORTS', goog.DEBUG);
+
+
+/**
+ * The registry of initialized modules:
+ * the module identifier to module exports map.
+ * @private @const {!Object<string, ?>}
+ */
+goog.loadedModules_ = {};
+
+
+/**
+ * True if goog.dependencies_ is available.
+ * @const {boolean}
+ */
+goog.DEPENDENCIES_ENABLED = !COMPILED && goog.ENABLE_DEBUG_LOADER;
+
+
+if (goog.DEPENDENCIES_ENABLED) {
   /**
-   * Object used to keep track of urls that have already been added. This
-   * record allows the prevention of circular dependencies.
-   * @type {Object}
-   * @private
+   * Object used to keep track of urls that have already been added. This record
+   * allows the prevention of circular dependencies.
+   * @private {!Object<string, boolean>}
    */
   goog.included_ = {};
 
 
   /**
    * This object is used to keep track of dependencies and other data that is
-   * used for loading scripts
+   * used for loading scripts.
    * @private
-   * @type {Object}
+   * @type {{
+   *   pathIsModule: !Object<string, boolean>,
+   *   nameToPath: !Object<string, string>,
+   *   requires: !Object<string, !Object<string, boolean>>,
+   *   visited: !Object<string, boolean>,
+   *   written: !Object<string, boolean>,
+   *   deferred: !Object<string, string>
+   * }}
    */
   goog.dependencies_ = {
-    pathToNames: {}, // 1 to many
+    pathIsModule: {}, // 1 to 1
+
     nameToPath: {}, // 1 to 1
+
     requires: {}, // 1 to many
-    // used when resolving dependencies to prevent us from
-    // visiting the file twice
+
+    // Used when resolving dependencies to prevent us from visiting file twice.
     visited: {},
-    written: {} // used to keep track of script files we have written
+
+    written: {}, // Used to keep track of script files we have written.
+
+    deferred: {} // Used to track deferred module evaluations in old IEs
   };
 
 
@@ -472,7 +870,7 @@ if (!COMPILED && goog.ENABLE_DEBUG_LOADER) {
 
 
   /**
-   * Tries to detect the base path of the base.js script that bootstraps Closure
+   * Tries to detect the base path of base.js script that bootstraps Closure.
    * @private
    */
   goog.findBasePath_ = function() {
@@ -487,7 +885,8 @@ if (!COMPILED && goog.ENABLE_DEBUG_LOADER) {
     // Search backwards since the current script is in almost all cases the one
     // that has base.js.
     for (var i = scripts.length - 1; i >= 0; --i) {
-      var src = scripts[i].src;
+      var script = /** @type {!HTMLScriptElement} */ (scripts[i]);
+      var src = script.src;
       var qmark = src.lastIndexOf('?');
       var l = qmark == -1 ? src.length : qmark;
       if (src.substr(l - 7, 7) == 'base.js') {
@@ -502,14 +901,237 @@ if (!COMPILED && goog.ENABLE_DEBUG_LOADER) {
    * Imports a script if, and only if, that script hasn't already been imported.
    * (Must be called at execution time)
    * @param {string} src Script source.
+   * @param {string=} opt_sourceText The optionally source text to evaluate
    * @private
    */
-  goog.importScript_ = function(src) {
+  goog.importScript_ = function(src, opt_sourceText) {
     var importScript = goog.global.CLOSURE_IMPORT_SCRIPT ||
         goog.writeScriptTag_;
-    if (!goog.dependencies_.written[src] && importScript(src)) {
+    if (importScript(src, opt_sourceText)) {
       goog.dependencies_.written[src] = true;
     }
+  };
+
+
+  /** @const @private {boolean} */
+  goog.IS_OLD_IE_ = goog.global.document &&
+      goog.global.document.all && !goog.global.atob;
+
+
+  /**
+   * Given a URL initiate retrieval and execution of the module.
+   * @param {string} src Script source URL.
+   * @private
+   */
+  goog.importModule_ = function(src) {
+    // In an attempt to keep browsers from timing out loading scripts using
+    // synchronous XHRs, put each load in its own script block.
+    var bootstrap = 'goog.retrieveAndExecModule_("' + src + '");';
+
+    if (goog.importScript_('', bootstrap)) {
+      goog.dependencies_.written[src] = true;
+    }
+  };
+
+
+  /** @private {!Array<string>} */
+  goog.queuedModules_ = [];
+
+
+  /**
+   * Return an appropriate module text. Suitable to insert into
+   * a script tag (that is unescaped).
+   * @param {string} srcUrl
+   * @param {string} scriptText
+   * @return {string}
+   * @private
+   */
+  goog.wrapModule_ = function(srcUrl, scriptText) {
+    if (!goog.LOAD_MODULE_USING_EVAL || !goog.isDef(goog.global.JSON)) {
+      return '' +
+          'goog.loadModule(function(exports) {' +
+          '"use strict";' +
+          scriptText +
+          '\n' + // terminate any trailing single line comment.
+          ';return exports' +
+          '});' +
+          '\n//# sourceURL=' + srcUrl + '\n';
+    } else {
+      return '' +
+          'goog.loadModule(' +
+          goog.global.JSON.stringify(
+              scriptText + '\n//# sourceURL=' + srcUrl + '\n') +
+          ');';
+    }
+  };
+
+  // On IE9 and ealier, it is necessary to handle
+  // deferred module loads. In later browsers, the
+  // code to be evaluated is simply inserted as a script
+  // block in the correct order. To eval deferred
+  // code at the right time, we piggy back on goog.require to call
+  // goog.maybeProcessDeferredDep_.
+  //
+  // The goog.requires are used both to bootstrap
+  // the loading process (when no deps are available) and
+  // declare that they should be available.
+  //
+  // Here we eval the sources, if all the deps are available
+  // either already eval'd or goog.require'd.  This will
+  // be the case when all the dependencies have already
+  // been loaded, and the dependent module is loaded.
+  //
+  // But this alone isn't sufficient because it is also
+  // necessary to handle the case where there is no root
+  // that is not deferred.  For that there we register for an event
+  // and trigger goog.loadQueuedModules_ handle any remaining deferred
+  // evaluations.
+
+  /**
+   * Handle any remaining deferred goog.module evals.
+   * @private
+   */
+  goog.loadQueuedModules_ = function() {
+    var count = goog.queuedModules_.length;
+    if (count > 0) {
+      var queue = goog.queuedModules_;
+      goog.queuedModules_ = [];
+      for (var i = 0; i < count; i++) {
+        var path = queue[i];
+        goog.maybeProcessDeferredPath_(path);
+      }
+    }
+  };
+
+
+  /**
+   * Eval the named module if its dependencies are
+   * available.
+   * @param {string} name The module to load.
+   * @private
+   */
+  goog.maybeProcessDeferredDep_ = function(name) {
+    if (goog.isDeferredModule_(name) &&
+        goog.allDepsAreAvailable_(name)) {
+      var path = goog.getPathFromDeps_(name);
+      goog.maybeProcessDeferredPath_(goog.basePath + path);
+    }
+  };
+
+  /**
+   * @param {string} name The module to check.
+   * @return {boolean} Whether the name represents a
+   *     module whose evaluation has been deferred.
+   * @private
+   */
+  goog.isDeferredModule_ = function(name) {
+    var path = goog.getPathFromDeps_(name);
+    if (path && goog.dependencies_.pathIsModule[path]) {
+      var abspath = goog.basePath + path;
+      return (abspath) in goog.dependencies_.deferred;
+    }
+    return false;
+  };
+
+  /**
+   * @param {string} name The module to check.
+   * @return {boolean} Whether the name represents a
+   *     module whose declared dependencies have all been loaded
+   *     (eval'd or a deferred module load)
+   * @private
+   */
+  goog.allDepsAreAvailable_ = function(name) {
+    var path = goog.getPathFromDeps_(name);
+    if (path && (path in goog.dependencies_.requires)) {
+      for (var requireName in goog.dependencies_.requires[path]) {
+        if (!goog.isProvided_(requireName) &&
+            !goog.isDeferredModule_(requireName)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
+
+  /**
+   * @param {string} abspath
+   * @private
+   */
+  goog.maybeProcessDeferredPath_ = function(abspath) {
+    if (abspath in goog.dependencies_.deferred) {
+      var src = goog.dependencies_.deferred[abspath];
+      delete goog.dependencies_.deferred[abspath];
+      goog.globalEval(src);
+    }
+  };
+
+
+  /**
+   * @param {function(?):?|string} moduleDef The module definition.
+   */
+  goog.loadModule = function(moduleDef) {
+    // NOTE: we allow function definitions to be either in the from
+    // of a string to eval (which keeps the original source intact) or
+    // in a eval forbidden environment (CSP) we allow a function definition
+    // which in its body must call {@code goog.module}, and return the exports
+    // of the module.
+    var previousState = goog.moduleLoaderState_;
+    try {
+      goog.moduleLoaderState_ = {
+        moduleName: undefined, declareTestMethods: false};
+      var exports;
+      if (goog.isFunction(moduleDef)) {
+        exports = moduleDef.call(goog.global, {});
+      } else if (goog.isString(moduleDef)) {
+        exports = goog.loadModuleFromSource_.call(goog.global, moduleDef);
+      } else {
+        throw Error('Invalid module definition');
+      }
+
+      var moduleName = goog.moduleLoaderState_.moduleName;
+      if (!goog.isString(moduleName) || !moduleName) {
+        throw Error('Invalid module name \"' + moduleName + '\"');
+      }
+
+      // Don't seal legacy namespaces as they may be uses as a parent of
+      // another namespace
+      if (goog.moduleLoaderState_.declareLegacyNamespace) {
+        goog.constructNamespace_(moduleName, exports);
+      } else if (goog.SEAL_MODULE_EXPORTS && Object.seal) {
+        Object.seal(exports);
+      }
+
+      goog.loadedModules_[moduleName] = exports;
+      if (goog.moduleLoaderState_.declareTestMethods) {
+        for (var entry in exports) {
+          if (entry.indexOf('test', 0) === 0 ||
+              entry == 'tearDown' ||
+              entry == 'setUp' ||
+              entry == 'setUpPage' ||
+              entry == 'tearDownPage') {
+            goog.global[entry] = exports[entry];
+          }
+        }
+      }
+    } finally {
+      goog.moduleLoaderState_ = previousState;
+    }
+  };
+
+
+  /**
+   * @param {string} source
+   * @return {!Object}
+   * @private
+   */
+  goog.loadModuleFromSource_ = function(source) {
+    // NOTE: we avoid declaring parameters or local variables here to avoid
+    // masking globals or leaking values into the module definition.
+    'use strict';
+    var exports = {};
+    eval(arguments[0]);
+    return exports;
   };
 
 
@@ -517,15 +1139,51 @@ if (!COMPILED && goog.ENABLE_DEBUG_LOADER) {
    * The default implementation of the import function. Writes a script tag to
    * import the script.
    *
-   * @param {string} src The script source.
+   * @param {string} src The script url.
+   * @param {string=} opt_sourceText The optionally source text to evaluate
    * @return {boolean} True if the script was imported, false otherwise.
    * @private
    */
-  goog.writeScriptTag_ = function(src) {
+  goog.writeScriptTag_ = function(src, opt_sourceText) {
     if (goog.inHtmlDocument_()) {
       var doc = goog.global.document;
-      doc.write(
-          '<script type="text/javascript" src="' + src + '"></' + 'script>');
+
+      // If the user tries to require a new symbol after document load,
+      // something has gone terribly wrong. Doing a document.write would
+      // wipe out the page.
+      if (doc.readyState == 'complete') {
+        // Certain test frameworks load base.js multiple times, which tries
+        // to write deps.js each time. If that happens, just fail silently.
+        // These frameworks wipe the page between each load of base.js, so this
+        // is OK.
+        var isDeps = /\bdeps.js$/.test(src);
+        if (isDeps) {
+          return false;
+        } else {
+          throw Error('Cannot write "' + src + '" after document load');
+        }
+      }
+
+      var isOldIE = goog.IS_OLD_IE_;
+
+      if (opt_sourceText === undefined) {
+        if (!isOldIE) {
+          doc.write(
+              '<script type="text/javascript" src="' +
+                  src + '"></' + 'script>');
+        } else {
+          var state = " onreadystatechange='goog.onScriptLoad_(this, " +
+              ++goog.lastNonModuleScriptIndex_ + ")' ";
+          doc.write(
+              '<script type="text/javascript" src="' +
+                  src + '"' + state + '></' + 'script>');
+        }
+      } else {
+        doc.write(
+            '<script type="text/javascript">' +
+            opt_sourceText +
+            '</' + 'script>');
+      }
       return true;
     } else {
       return false;
@@ -533,24 +1191,46 @@ if (!COMPILED && goog.ENABLE_DEBUG_LOADER) {
   };
 
 
+  /** @private {number} */
+  goog.lastNonModuleScriptIndex_ = 0;
+
+
+  /**
+   * A readystatechange handler for legacy IE
+   * @param {!HTMLScriptElement} script
+   * @param {number} scriptIndex
+   * @return {boolean}
+   * @private
+   */
+  goog.onScriptLoad_ = function(script, scriptIndex) {
+    // for now load the modules when we reach the last script,
+    // later allow more inter-mingling.
+    if (script.readyState == 'complete' &&
+        goog.lastNonModuleScriptIndex_ == scriptIndex) {
+      goog.loadQueuedModules_();
+    }
+    return true;
+  };
+
   /**
    * Resolves dependencies based on the dependencies added using addDependency
    * and calls importScript_ in the correct order.
    * @private
    */
   goog.writeScripts_ = function() {
-    // the scripts we need to write this time
+    /** @type {!Array<string>} The scripts we need to write this time. */
     var scripts = [];
     var seenScript = {};
     var deps = goog.dependencies_;
 
+    /** @param {string} path */
     function visitNode(path) {
       if (path in deps.written) {
         return;
       }
 
-      // we have already visited this one. We can get here if we have cyclic
-      // dependencies
+      // We have already visited this one. We can get here if we have cyclic
+      // dependencies.
       if (path in deps.visited) {
         if (!(path in seenScript)) {
           seenScript[path] = true;
@@ -587,13 +1267,36 @@ if (!COMPILED && goog.ENABLE_DEBUG_LOADER) {
       }
     }
 
+    // record that we are going to load all these scripts.
     for (var i = 0; i < scripts.length; i++) {
-      if (scripts[i]) {
-        goog.importScript_(goog.basePath + scripts[i]);
+      var path = scripts[i];
+      goog.dependencies_.written[path] = true;
+    }
+
+    // If a module is loaded synchronously then we need to
+    // clear the current inModuleLoader value, and restore it when we are
+    // done loading the current "requires".
+    var moduleState = goog.moduleLoaderState_;
+    goog.moduleLoaderState_ = null;
+
+    var loadingModule = false;
+    for (var i = 0; i < scripts.length; i++) {
+      var path = scripts[i];
+      if (path) {
+        if (!deps.pathIsModule[path]) {
+          goog.importScript_(goog.basePath + path);
+        } else {
+          loadingModule = true;
+          goog.importModule_(goog.basePath + path);
+        }
       } else {
+        goog.moduleLoaderState_ = moduleState;
         throw Error('Undefined script input');
       }
     }
+
+    // restore the current "module loading state"
+    goog.moduleLoaderState_ = moduleState;
   };
 
 
@@ -620,6 +1323,74 @@ if (!COMPILED && goog.ENABLE_DEBUG_LOADER) {
   }
 }
 
+
+/**
+ * Normalize a file path by removing redundant ".." and extraneous "." file
+ * path components.
+ * @param {string} path
+ * @return {string}
+ * @private
+ */
+goog.normalizePath_ = function(path) {
+  var components = path.split('/');
+  var i = 0;
+  while (i < components.length) {
+    if (components[i] == '.') {
+      components.splice(i, 1);
+    } else if (i && components[i] == '..' &&
+        components[i - 1] && components[i - 1] != '..') {
+      components.splice(--i, 2);
+    } else {
+      i++;
+    }
+  }
+  return components.join('/');
+};
+
+
+/**
+ * Retrieve and execute a module.
+ * @param {string} src Script source URL.
+ * @private
+ */
+goog.retrieveAndExecModule_ = function(src) {
+  if (!COMPILED) {
+    // The full but non-canonicalized URL for later use.
+    var originalPath = src;
+    // Canonicalize the path, removing any /./ or /../ since Chrome's debugging
+    // console doesn't auto-canonicalize XHR loads as it does <script> srcs.
+    src = goog.normalizePath_(src);
+
+    var importScript = goog.global.CLOSURE_IMPORT_SCRIPT ||
+        goog.writeScriptTag_;
+
+    var scriptText = null;
+
+    var xhr = new goog.global['XMLHttpRequest']();
+
+    /** @this {Object} */
+    xhr.onload = function() {
+      scriptText = this.responseText;
+    };
+    xhr.open('get', src, false);
+    xhr.send();
+
+    scriptText = xhr.responseText;
+
+    if (scriptText != null) {
+      var execModuleScript = goog.wrapModule_(src, scriptText);
+      var isOldIE = goog.IS_OLD_IE_;
+      if (isOldIE) {
+        goog.dependencies_.deferred[originalPath] = execModuleScript;
+        goog.queuedModules_.push(originalPath);
+      } else {
+        importScript(src, execModuleScript);
+      }
+    } else {
+      throw new Error('load of ' + src + 'failed');
+    }
+  }
+};
 
 
 //==============================================================================
@@ -681,7 +1452,7 @@ goog.typeOf = function(value) {
       if ((className == '[object Array]' ||
            // In IE all non value types are wrapped as objects across window
            // boundaries (not iframe though) so we have to do object detection
-           // for this edge case
+           // for this edge case.
            typeof value.length == 'number' &&
            typeof value.splice != 'undefined' &&
            typeof value.propertyIsEnumerable != 'undefined' &&
@@ -711,17 +1482,15 @@ goog.typeOf = function(value) {
         return 'function';
       }
 
-
     } else {
       return 'null';
     }
 
   } else if (s == 'function' && typeof value.call == 'undefined') {
-    // In Safari typeof nodeList returns 'function', and on Firefox
-    // typeof behaves similarly for HTML{Applet,Embed,Object}Elements
-    // and RegExps.  We would like to return object for those and we can
-    // detect an invalid function by making sure that the function
-    // object has a call method.
+    // In Safari typeof nodeList returns 'function', and on Firefox typeof
+    // behaves similarly for HTML{Applet,Embed,Object}, Elements and RegExps. We
+    // would like to return object for those and we can detect an invalid
+    // function by making sure that the function object has a call method.
     return 'object';
   }
   return s;
@@ -729,67 +1498,8 @@ goog.typeOf = function(value) {
 
 
 /**
- * Safe way to test whether a property is enumarable.  It allows testing
- * for enumerable on objects where 'propertyIsEnumerable' is overridden or
- * does not exist (like DOM nodes in IE). Does not use browser native
- * Object.propertyIsEnumerable.
- * @param {Object} object The object to test if the property is enumerable.
- * @param {string} propName The property name to check for.
- * @return {boolean} True if the property is enumarable.
- * @private
- */
-goog.propertyIsEnumerableCustom_ = function(object, propName) {
-  // KJS in Safari 2 is not ECMAScript compatible and lacks crucial methods
-  // such as propertyIsEnumerable.  We therefore use a workaround.
-  // Does anyone know a more efficient work around?
-  if (propName in object) {
-    for (var key in object) {
-      if (key == propName &&
-          Object.prototype.hasOwnProperty.call(object, propName)) {
-        return true;
-      }
-    }
-  }
-  return false;
-};
-
-
-/**
- * Safe way to test whether a property is enumarable.  It allows testing
- * for enumerable on objects where 'propertyIsEnumerable' is overridden or
- * does not exist (like DOM nodes in IE).
- * @param {Object} object The object to test if the property is enumerable.
- * @param {string} propName The property name to check for.
- * @return {boolean} True if the property is enumarable.
- * @private
- */
-goog.propertyIsEnumerable_ = function(object, propName) {
-  // In IE if object is from another window, cannot use propertyIsEnumerable
-  // from this window's Object. Will raise a 'JScript object expected' error.
-  if (object instanceof Object) {
-    return Object.prototype.propertyIsEnumerable.call(object, propName);
-  } else {
-    return goog.propertyIsEnumerableCustom_(object, propName);
-  }
-};
-
-
-/**
- * Returns true if the specified value is not |undefined|.
- * WARNING: Do not use this to test if an object has a property. Use the in
- * operator instead.  Additionally, this function assumes that the global
- * undefined variable has not been redefined.
- * @param {*} val Variable to test.
- * @return {boolean} Whether variable is defined.
- */
-goog.isDef = function(val) {
-  return val !== undefined;
-};
-
-
-/**
- * Returns true if the specified value is |null|
- * @param {*} val Variable to test.
+ * Returns true if the specified value is null.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is null.
  */
 goog.isNull = function(val) {
@@ -798,8 +1508,8 @@ goog.isNull = function(val) {
 
 
 /**
- * Returns true if the specified value is defined and not null
- * @param {*} val Variable to test.
+ * Returns true if the specified value is defined and not null.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is defined and not null.
  */
 goog.isDefAndNotNull = function(val) {
@@ -809,8 +1519,8 @@ goog.isDefAndNotNull = function(val) {
 
 
 /**
- * Returns true if the specified value is an array
- * @param {*} val Variable to test.
+ * Returns true if the specified value is an array.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is an array.
  */
 goog.isArray = function(val) {
@@ -821,20 +1531,22 @@ goog.isArray = function(val) {
 /**
  * Returns true if the object looks like an array. To qualify as array like
  * the value needs to be either a NodeList or an object with a Number length
- * property.
- * @param {*} val Variable to test.
+ * property. As a special case, a function value is not array like, because its
+ * length property is fixed to correspond to the number of expected arguments.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is an array.
  */
 goog.isArrayLike = function(val) {
   var type = goog.typeOf(val);
+  // We do not use goog.isObject here in order to exclude function values.
   return type == 'array' || type == 'object' && typeof val.length == 'number';
 };
 
 
 /**
- * Returns true if the object looks like a Date. To qualify as Date-like
- * the value needs to be an object and have a getFullYear() function.
- * @param {*} val Variable to test.
+ * Returns true if the object looks like a Date. To qualify as Date-like the
+ * value needs to be an object and have a getFullYear() function.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is a like a Date.
  */
 goog.isDateLike = function(val) {
@@ -843,8 +1555,8 @@ goog.isDateLike = function(val) {
 
 
 /**
- * Returns true if the specified value is a string
- * @param {*} val Variable to test.
+ * Returns true if the specified value is a string.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is a string.
  */
 goog.isString = function(val) {
@@ -853,8 +1565,8 @@ goog.isString = function(val) {
 
 
 /**
- * Returns true if the specified value is a boolean
- * @param {*} val Variable to test.
+ * Returns true if the specified value is a boolean.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is boolean.
  */
 goog.isBoolean = function(val) {
@@ -863,8 +1575,8 @@ goog.isBoolean = function(val) {
 
 
 /**
- * Returns true if the specified value is a number
- * @param {*} val Variable to test.
+ * Returns true if the specified value is a number.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is a number.
  */
 goog.isNumber = function(val) {
@@ -873,8 +1585,8 @@ goog.isNumber = function(val) {
 
 
 /**
- * Returns true if the specified value is a function
- * @param {*} val Variable to test.
+ * Returns true if the specified value is a function.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is a function.
  */
 goog.isFunction = function(val) {
@@ -883,30 +1595,32 @@ goog.isFunction = function(val) {
 
 
 /**
- * Returns true if the specified value is an object.  This includes arrays
- * and functions.
- * @param {*} val Variable to test.
+ * Returns true if the specified value is an object.  This includes arrays and
+ * functions.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is an object.
  */
 goog.isObject = function(val) {
-  var type = goog.typeOf(val);
-  return type == 'object' || type == 'array' || type == 'function';
+  var type = typeof val;
+  return type == 'object' && val != null || type == 'function';
+  // return Object(val) === val also works, but is slower, especially if val is
+  // not an object.
 };
 
 
 /**
- * Gets a unique ID for an object. This mutates the object so that further
- * calls with the same object as a parameter returns the same value. The unique
- * ID is guaranteed to be unique across the current session amongst objects that
- * are passed into {@code getUid}. There is no guarantee that the ID is unique
- * or consistent across sessions. It is unsafe to generate unique ID for
- * function prototypes.
+ * Gets a unique ID for an object. This mutates the object so that further calls
+ * with the same object as a parameter returns the same value. The unique ID is
+ * guaranteed to be unique across the current session amongst objects that are
+ * passed into {@code getUid}. There is no guarantee that the ID is unique or
+ * consistent across sessions. It is unsafe to generate unique ID for function
+ * prototypes.
  *
  * @param {Object} obj The object to get the unique ID for.
  * @return {number} The unique ID for the object.
  */
 goog.getUid = function(obj) {
-  // TODO(user): Make the type stricter, do not accept null.
+  // TODO(arv): Make the type stricter, do not accept null.
 
   // In Opera window.hasOwnProperty exists but always returns false so we avoid
   // using it. As a consequence the unique ID generated for BaseClass.prototype
@@ -917,16 +1631,29 @@ goog.getUid = function(obj) {
 
 
 /**
+ * Whether the given object is alreay assigned a unique ID.
+ *
+ * This does not modify the object.
+ *
+ * @param {!Object} obj The object to check.
+ * @return {boolean} Whether there an assigned unique id for the object.
+ */
+goog.hasUid = function(obj) {
+  return !!obj[goog.UID_PROPERTY_];
+};
+
+
+/**
  * Removes the unique ID from an object. This is useful if the object was
  * previously mutated using {@code goog.getUid} in which case the mutation is
  * undone.
  * @param {Object} obj The object to remove the unique ID field from.
  */
 goog.removeUid = function(obj) {
-  // TODO(user): Make the type stricter, do not accept null.
+  // TODO(arv): Make the type stricter, do not accept null.
 
-  // DOM nodes in IE are not instance of Object and throws exception
-  // for delete. Instead we try to use removeAttribute
+  // In IE, DOM nodes are not instances of Object and throw an exception if we
+  // try to delete.  Instead we try to use removeAttribute.
   if ('removeAttribute' in obj) {
     obj.removeAttribute(goog.UID_PROPERTY_);
   }
@@ -940,12 +1667,11 @@ goog.removeUid = function(obj) {
 
 /**
  * Name for unique ID property. Initialized in a way to help avoid collisions
- * with other closure javascript on the same page.
+ * with other closure JavaScript on the same page.
  * @type {string}
  * @private
  */
-goog.UID_PROPERTY_ = 'closure_uid_' +
-    Math.floor(Math.random() * 2147483648).toString(36);
+goog.UID_PROPERTY_ = 'closure_uid_' + ((Math.random() * 1e9) >>> 0);
 
 
 /**
@@ -1007,30 +1733,17 @@ goog.cloneObject = function(obj) {
 
 
 /**
- * Forward declaration for the clone method. This is necessary until the
- * compiler can better support duck-typing constructs as used in
- * goog.cloneObject.
- *
- * TODO(user): Remove once the JSCompiler can infer that the check for
- * proto.clone is safe in goog.cloneObject.
- *
- * @type {Function}
- */
-Object.prototype.clone;
-
-
-/**
  * A native implementation of goog.bind.
  * @param {Function} fn A function to partially apply.
- * @param {Object|undefined} selfObj Specifies the object which |this| should
+ * @param {Object|undefined} selfObj Specifies the object which this should
  *     point to when the function is run.
- * @param {...*} var_args Additional arguments that are partially
- *     applied to the function.
+ * @param {...*} var_args Additional arguments that are partially applied to the
+ *     function.
  * @return {!Function} A partially-applied form of the function bind() was
  *     invoked as a method of.
  * @private
- * @suppress {deprecated} The compiler thinks that Function.prototype.bind
- *     is deprecated because some people have declared a pure-JS version.
+ * @suppress {deprecated} The compiler thinks that Function.prototype.bind is
+ *     deprecated because some people have declared a pure-JS version.
  *     Only the pure-JS version is truly deprecated.
  */
 goog.bindNative_ = function(fn, selfObj, var_args) {
@@ -1041,10 +1754,10 @@ goog.bindNative_ = function(fn, selfObj, var_args) {
 /**
  * A pure-JS implementation of goog.bind.
  * @param {Function} fn A function to partially apply.
- * @param {Object|undefined} selfObj Specifies the object which |this| should
+ * @param {Object|undefined} selfObj Specifies the object which this should
  *     point to when the function is run.
- * @param {...*} var_args Additional arguments that are partially
- *     applied to the function.
+ * @param {...*} var_args Additional arguments that are partially applied to the
+ *     function.
  * @return {!Function} A partially-applied form of the function bind() was
  *     invoked as a method of.
  * @private
@@ -1074,36 +1787,36 @@ goog.bindJs_ = function(fn, selfObj, var_args) {
 /**
  * Partially applies this function to a particular 'this object' and zero or
  * more arguments. The result is a new function with some arguments of the first
- * function pre-filled and the value of |this| 'pre-specified'.<br><br>
+ * function pre-filled and the value of this 'pre-specified'.
  *
- * Remaining arguments specified at call-time are appended to the pre-
- * specified ones.<br><br>
+ * Remaining arguments specified at call-time are appended to the pre-specified
+ * ones.
  *
- * Also see: {@link #partial}.<br><br>
+ * Also see: {@link #partial}.
  *
  * Usage:
  * <pre>var barMethBound = bind(myFunction, myObj, 'arg1', 'arg2');
  * barMethBound('arg3', 'arg4');</pre>
  *
- * @param {Function} fn A function to partially apply.
- * @param {Object|undefined} selfObj Specifies the object which |this| should
- *     point to when the function is run.
- * @param {...*} var_args Additional arguments that are partially
- *     applied to the function.
+ * @param {?function(this:T, ...)} fn A function to partially apply.
+ * @param {T} selfObj Specifies the object which this should point to when the
+ *     function is run.
+ * @param {...*} var_args Additional arguments that are partially applied to the
+ *     function.
  * @return {!Function} A partially-applied form of the function bind() was
  *     invoked as a method of.
+ * @template T
  * @suppress {deprecated} See above.
  */
 goog.bind = function(fn, selfObj, var_args) {
   // TODO(nicksantos): narrow the type signature.
   if (Function.prototype.bind &&
-      // NOTE(nicksantos): Somebody pulled base.js into the default
-      // Chrome extension environment. This means that for Chrome extensions,
-      // they get the implementation of Function.prototype.bind that
-      // calls goog.bind instead of the native one. Even worse, we don't want
-      // to introduce a circular dependency between goog.bind and
-      // Function.prototype.bind, so we have to hack this to make sure it
-      // works correctly.
+      // NOTE(nicksantos): Somebody pulled base.js into the default Chrome
+      // extension environment. This means that for Chrome extensions, they get
+      // the implementation of Function.prototype.bind that calls goog.bind
+      // instead of the native one. Even worse, we don't want to introduce a
+      // circular dependency between goog.bind and Function.prototype.bind, so
+      // we have to hack this to make sure it works correctly.
       Function.prototype.bind.toString().indexOf('native code') != -1) {
     goog.bind = goog.bindNative_;
   } else {
@@ -1122,17 +1835,17 @@ goog.bind = function(fn, selfObj, var_args) {
  * g(arg3, arg4);
  *
  * @param {Function} fn A function to partially apply.
- * @param {...*} var_args Additional arguments that are partially
- *     applied to fn.
+ * @param {...*} var_args Additional arguments that are partially applied to fn.
  * @return {!Function} A partially-applied form of the function bind() was
  *     invoked as a method of.
  */
 goog.partial = function(fn, var_args) {
   var args = Array.prototype.slice.call(arguments, 1);
   return function() {
-    // Prepend the bound arguments to the current arguments.
-    var newArgs = Array.prototype.slice.call(arguments);
-    newArgs.unshift.apply(newArgs, args);
+    // Clone the array (with slice()) and append additional arguments
+    // to the existing arguments.
+    var newArgs = args.slice();
+    newArgs.push.apply(newArgs, arguments);
     return fn.apply(this, newArgs);
   };
 };
@@ -1162,7 +1875,7 @@ goog.mixin = function(target, source) {
  * @return {number} An integer value representing the number of milliseconds
  *     between midnight, January 1, 1970 and the current time.
  */
-goog.now = Date.now || (function() {
+goog.now = (goog.TRUSTED_SITE && Date.now) || (function() {
   // Unary plus operator converts its operand to a number which in the case of
   // a date is done by calling getTime().
   return +new Date();
@@ -1170,7 +1883,7 @@ goog.now = Date.now || (function() {
 
 
 /**
- * Evals javascript in the global scope.  In IE this uses execScript, other
+ * Evals JavaScript in the global scope.  In IE this uses execScript, other
  * browsers use goog.global.eval. If goog.global.eval does not evaluate in the
  * global scope (for example, in Safari), appends a script tag instead.
  * Throws an exception if neither execScript or eval is defined.
@@ -1223,8 +1936,7 @@ goog.evalWorksForGlobals_ = null;
 /**
  * Optional map of CSS class names to obfuscated names used with
  * goog.getCssName().
- * @type {Object|undefined}
- * @private
+ * @private {!Object<string, string>|undefined}
  * @see goog.setCssNameMapping
  */
 goog.cssNameMapping_;
@@ -1245,27 +1957,26 @@ goog.cssNameMappingStyle_;
  *
  * This function works in tandem with @see goog.setCssNameMapping.
  *
- * Without any mapping set, the arguments are simple joined with a
- * hyphen and passed through unaltered.
+ * Without any mapping set, the arguments are simple joined with a hyphen and
+ * passed through unaltered.
  *
- * When there is a mapping, there are two possible styles in which
- * these mappings are used. In the BY_PART style, each part (i.e. in
- * between hyphens) of the passed in css name is rewritten according
- * to the map. In the BY_WHOLE style, the full css name is looked up in
- * the map directly. If a rewrite is not specified by the map, the
- * compiler will output a warning.
+ * When there is a mapping, there are two possible styles in which these
+ * mappings are used. In the BY_PART style, each part (i.e. in between hyphens)
+ * of the passed in css name is rewritten according to the map. In the BY_WHOLE
+ * style, the full css name is looked up in the map directly. If a rewrite is
+ * not specified by the map, the compiler will output a warning.
  *
- * When the mapping is passed to the compiler, it will replace calls
- * to goog.getCssName with the strings from the mapping, e.g.
+ * When the mapping is passed to the compiler, it will replace calls to
+ * goog.getCssName with the strings from the mapping, e.g.
  *     var x = goog.getCssName('foo');
  *     var y = goog.getCssName(this.baseClass, 'active');
  *  becomes:
  *     var x= 'foo';
  *     var y = this.baseClass + '-active';
  *
- * If one argument is passed it will be processed, if two are passed
- * only the modifier will be processed, as it is assumed the first
- * argument was generated as a result of calling goog.getCssName.
+ * If one argument is passed it will be processed, if two are passed only the
+ * modifier will be processed, as it is assumed the first argument was generated
+ * as a result of calling goog.getCssName.
  *
  * @param {string} className The class name.
  * @param {string=} opt_modifier A modifier to be appended to the class name.
@@ -1344,7 +2055,7 @@ goog.setCssNameMapping = function(mapping, opt_style) {
  * are made in uncompiled mode.
  *
  * A hook for overriding the CSS name mapping.
- * @type {Object|undefined}
+ * @type {!Object<string, string>|undefined}
  */
 goog.global.CLOSURE_CSS_NAME_MAPPING;
 
@@ -1357,34 +2068,61 @@ if (!COMPILED && goog.global.CLOSURE_CSS_NAME_MAPPING) {
 
 
 /**
- * Abstract implementation of goog.getMsg for use with localized messages.
+ * Gets a localized message.
+ *
+ * This function is a compiler primitive. If you give the compiler a localized
+ * message bundle, it will replace the string at compile-time with a localized
+ * version, and expand goog.getMsg call to a concatenated string.
+ *
+ * Messages must be initialized in the form:
+ * <code>
+ * var MSG_NAME = goog.getMsg('Hello {$placeholder}', {'placeholder': 'world'});
+ * </code>
+ *
  * @param {string} str Translatable string, places holders in the form {$foo}.
- * @param {Object=} opt_values Map of place holder name to value.
+ * @param {Object<string, string>=} opt_values Maps place holder name to value.
  * @return {string} message with placeholders filled.
  */
 goog.getMsg = function(str, opt_values) {
-  var values = opt_values || {};
-  for (var key in values) {
-    var value = ('' + values[key]).replace(/\$/g, '$$$$');
-    str = str.replace(new RegExp('\\{\\$' + key + '\\}', 'gi'), value);
+  if (opt_values) {
+    str = str.replace(/\{\$([^}]+)}/g, function(match, key) {
+      return key in opt_values ? opt_values[key] : match;
+    });
   }
   return str;
 };
 
 
 /**
+ * Gets a localized message. If the message does not have a translation, gives a
+ * fallback message.
+ *
+ * This is useful when introducing a new message that has not yet been
+ * translated into all languages.
+ *
+ * This function is a compiler primitive. Must be used in the form:
+ * <code>var x = goog.getMsgWithFallback(MSG_A, MSG_B);</code>
+ * where MSG_A and MSG_B were initialized with goog.getMsg.
+ *
+ * @param {string} a The preferred message.
+ * @param {string} b The fallback message.
+ * @return {string} The best translated message.
+ */
+goog.getMsgWithFallback = function(a, b) {
+  return a;
+};
+
+
+/**
  * Exposes an unobfuscated global namespace path for the given object.
- * Note that fields of the exported object *will* be obfuscated,
- * unless they are exported in turn via this function or
- * goog.exportProperty
+ * Note that fields of the exported object *will* be obfuscated, unless they are
+ * exported in turn via this function or goog.exportProperty.
  *
- * <p>Also handy for making public items that are defined in anonymous
- * closures.
+ * Also handy for making public items that are defined in anonymous closures.
  *
- * ex. goog.exportSymbol('Foo', Foo);
+ * ex. goog.exportSymbol('public.path.Foo', Foo);
  *
- * ex. goog.exportSymbol('public.path.Foo.staticFunction',
- *                       Foo.staticFunction);
+ * ex. goog.exportSymbol('public.path.Foo.staticFunction', Foo.staticFunction);
  *     public.path.Foo.staticFunction();
  *
  * ex. goog.exportSymbol('public.path.Foo.prototype.myMethod',
@@ -1394,7 +2132,7 @@ goog.getMsg = function(str, opt_values) {
  * @param {string} publicPath Unobfuscated name to export.
  * @param {*} object Object the name should point to.
  * @param {Object=} opt_objectToExportTo The object to add the path to; default
- *     is |goog.global|.
+ *     is goog.global.
  */
 goog.exportSymbol = function(publicPath, object, opt_objectToExportTo) {
   goog.exportPath_(publicPath, object, opt_objectToExportTo);
@@ -1420,25 +2158,15 @@ goog.exportProperty = function(object, publicName, symbol) {
  * Usage:
  * <pre>
  * function ParentClass(a, b) { }
- * ParentClass.prototype.foo = function(a) { }
+ * ParentClass.prototype.foo = function(a) { };
  *
  * function ChildClass(a, b, c) {
- *   goog.base(this, a, b);
+ *   ChildClass.base(this, 'constructor', a, b);
  * }
  * goog.inherits(ChildClass, ParentClass);
  *
  * var child = new ChildClass('a', 'b', 'see');
- * child.foo(); // works
- * </pre>
- *
- * In addition, a superclass' implementation of a method can be invoked
- * as follows:
- *
- * <pre>
- * ChildClass.prototype.foo = function(a) {
- *   ChildClass.superClass_.foo.call(this, a);
- *   // other code
- * };
+ * child.foo(); // This works.
  * </pre>
  *
  * @param {Function} childCtor Child class.
@@ -1450,7 +2178,35 @@ goog.inherits = function(childCtor, parentCtor) {
   tempCtor.prototype = parentCtor.prototype;
   childCtor.superClass_ = parentCtor.prototype;
   childCtor.prototype = new tempCtor();
+  /** @override */
   childCtor.prototype.constructor = childCtor;
+
+  /**
+   * Calls superclass constructor/method.
+   *
+   * This function is only available if you use goog.inherits to
+   * express inheritance relationships between classes.
+   *
+   * NOTE: This is a replacement for goog.base and for superClass_
+   * property defined in childCtor.
+   *
+   * @param {!Object} me Should always be "this".
+   * @param {string} methodName The method name to call. Calling
+   *     superclass constructor can be done with the special string
+   *     'constructor'.
+   * @param {...*} var_args The arguments to pass to superclass
+   *     method/constructor.
+   * @return {*} The return value of the superclass method/constructor.
+   */
+  childCtor.base = function(me, methodName, var_args) {
+    // Copying using loop to avoid deop due to passing arguments object to
+    // function. This is faster in many JS engines as of late 2014.
+    var args = new Array(arguments.length - 2);
+    for (var i = 2; i < arguments.length; i++) {
+      args[i - 2] = arguments[i];
+    }
+    return parentCtor.prototype[methodName].apply(me, args);
+  };
 };
 
 
@@ -1458,36 +2214,53 @@ goog.inherits = function(childCtor, parentCtor) {
  * Call up to the superclass.
  *
  * If this is called from a constructor, then this calls the superclass
- * contructor with arguments 1-N.
+ * constructor with arguments 1-N.
  *
- * If this is called from a prototype method, then you must pass
- * the name of the method as the second argument to this function. If
- * you do not, you will get a runtime error. This calls the superclass'
- * method with arguments 2-N.
+ * If this is called from a prototype method, then you must pass the name of the
+ * method as the second argument to this function. If you do not, you will get a
+ * runtime error. This calls the superclass' method with arguments 2-N.
  *
- * This function only works if you use goog.inherits to express
- * inheritance relationships between your classes.
+ * This function only works if you use goog.inherits to express inheritance
+ * relationships between your classes.
  *
- * This function is a compiler primitive. At compile-time, the
- * compiler will do macro expansion to remove a lot of
- * the extra overhead that this function introduces. The compiler
- * will also enforce a lot of the assumptions that this function
- * makes, and treat it as a compiler error if you break them.
+ * This function is a compiler primitive. At compile-time, the compiler will do
+ * macro expansion to remove a lot of the extra overhead that this function
+ * introduces. The compiler will also enforce a lot of the assumptions that this
+ * function makes, and treat it as a compiler error if you break them.
  *
  * @param {!Object} me Should always be "this".
  * @param {*=} opt_methodName The method name if calling a super method.
  * @param {...*} var_args The rest of the arguments.
  * @return {*} The return value of the superclass method.
+ * @suppress {es5Strict} This method can not be used in strict mode, but
+ *     all Closure Library consumers must depend on this file.
  */
 goog.base = function(me, opt_methodName, var_args) {
   var caller = arguments.callee.caller;
-  if (caller.superClass_) {
-    // This is a constructor. Call the superclass constructor.
-    return caller.superClass_.constructor.apply(
-        me, Array.prototype.slice.call(arguments, 1));
+
+  if (goog.STRICT_MODE_COMPATIBLE || (goog.DEBUG && !caller)) {
+    throw Error('arguments.caller not defined.  goog.base() cannot be used ' +
+                'with strict mode code. See ' +
+                'http://www.ecma-international.org/ecma-262/5.1/#sec-C');
   }
 
-  var args = Array.prototype.slice.call(arguments, 2);
+  if (caller.superClass_) {
+    // Copying using loop to avoid deop due to passing arguments object to
+    // function. This is faster in many JS engines as of late 2014.
+    var ctorArgs = new Array(arguments.length - 1);
+    for (var i = 1; i < arguments.length; i++) {
+      ctorArgs[i - 1] = arguments[i];
+    }
+    // This is a constructor. Call the superclass constructor.
+    return caller.superClass_.constructor.apply(me, ctorArgs);
+  }
+
+  // Copying using loop to avoid deop due to passing arguments object to
+  // function. This is faster in many JS engines as of late 2014.
+  var args = new Array(arguments.length - 2);
+  for (var i = 2; i < arguments.length; i++) {
+    args[i - 2] = arguments[i];
+  }
   var foundCaller = false;
   for (var ctor = me.constructor;
        ctor; ctor = ctor.superClass_ && ctor.superClass_.constructor) {
@@ -1498,8 +2271,8 @@ goog.base = function(me, opt_methodName, var_args) {
     }
   }
 
-  // If we did not find the caller in the prototype chain,
-  // then one of two things happened:
+  // If we did not find the caller in the prototype chain, then one of two
+  // things happened:
   // 1) The caller is an instance method.
   // 2) This method was not called by the right caller.
   if (me[opt_methodName] === caller) {
@@ -1514,17 +2287,371 @@ goog.base = function(me, opt_methodName, var_args) {
 
 /**
  * Allow for aliasing within scope functions.  This function exists for
- * uncompiled code - in compiled code the calls will be inlined and the
- * aliases applied.  In uncompiled code the function is simply run since the
- * aliases as written are valid JavaScript.
+ * uncompiled code - in compiled code the calls will be inlined and the aliases
+ * applied.  In uncompiled code the function is simply run since the aliases as
+ * written are valid JavaScript.
+ *
+ *
  * @param {function()} fn Function to call.  This function can contain aliases
  *     to namespaces (e.g. "var dom = goog.dom") or classes
- *    (e.g. "var Timer = goog.Timer").
+ *     (e.g. "var Timer = goog.Timer").
  */
 goog.scope = function(fn) {
   fn.call(goog.global);
 };
 
+
+/*
+ * To support uncompiled, strict mode bundles that use eval to divide source
+ * like so:
+ *    eval('someSource;//# sourceUrl sourcefile.js');
+ * We need to export the globally defined symbols "goog" and "COMPILED".
+ * Exporting "goog" breaks the compiler optimizations, so we required that
+ * be defined externally.
+ * NOTE: We don't use goog.exportSymbol here because we don't want to trigger
+ * extern generation when that compiler option is enabled.
+ */
+if (!COMPILED) {
+  goog.global['COMPILED'] = COMPILED;
+}
+
+
+
+//==============================================================================
+// goog.defineClass implementation
+//==============================================================================
+
+
+/**
+ * Creates a restricted form of a Closure "class":
+ *   - from the compiler's perspective, the instance returned from the
+ *     constructor is sealed (no new properties may be added).  This enables
+ *     better checks.
+ *   - the compiler will rewrite this definition to a form that is optimal
+ *     for type checking and optimization (initially this will be a more
+ *     traditional form).
+ *
+ * @param {Function} superClass The superclass, Object or null.
+ * @param {goog.defineClass.ClassDescriptor} def
+ *     An object literal describing the
+ *     the class.  It may have the following properties:
+ *     "constructor": the constructor function
+ *     "statics": an object literal containing methods to add to the constructor
+ *        as "static" methods or a function that will receive the constructor
+ *        function as its only parameter to which static properties can
+ *        be added.
+ *     all other properties are added to the prototype.
+ * @return {!Function} The class constructor.
+ */
+goog.defineClass = function(superClass, def) {
+  // TODO(johnlenz): consider making the superClass an optional parameter.
+  var constructor = def.constructor;
+  var statics = def.statics;
+  // Wrap the constructor prior to setting up the prototype and static methods.
+  if (!constructor || constructor == Object.prototype.constructor) {
+    constructor = function() {
+      throw Error('cannot instantiate an interface (no constructor defined).');
+    };
+  }
+
+  var cls = goog.defineClass.createSealingConstructor_(constructor, superClass);
+  if (superClass) {
+    goog.inherits(cls, superClass);
+  }
+
+  // Remove all the properties that should not be copied to the prototype.
+  delete def.constructor;
+  delete def.statics;
+
+  goog.defineClass.applyProperties_(cls.prototype, def);
+  if (statics != null) {
+    if (statics instanceof Function) {
+      statics(cls);
+    } else {
+      goog.defineClass.applyProperties_(cls, statics);
+    }
+  }
+
+  return cls;
+};
+
+
+/**
+ * @typedef {
+ *     !Object|
+ *     {constructor:!Function}|
+ *     {constructor:!Function, statics:(Object|function(Function):void)}}
+ * @suppress {missingProvide}
+ */
+goog.defineClass.ClassDescriptor;
+
+
+/**
+ * @define {boolean} Whether the instances returned by
+ * goog.defineClass should be sealed when possible.
+ */
+goog.define('goog.defineClass.SEAL_CLASS_INSTANCES', goog.DEBUG);
+
+
+/**
+ * If goog.defineClass.SEAL_CLASS_INSTANCES is enabled and Object.seal is
+ * defined, this function will wrap the constructor in a function that seals the
+ * results of the provided constructor function.
+ *
+ * @param {!Function} ctr The constructor whose results maybe be sealed.
+ * @param {Function} superClass The superclass constructor.
+ * @return {!Function} The replacement constructor.
+ * @private
+ */
+goog.defineClass.createSealingConstructor_ = function(ctr, superClass) {
+  if (goog.defineClass.SEAL_CLASS_INSTANCES &&
+      Object.seal instanceof Function) {
+    // Don't seal subclasses of unsealable-tagged legacy classes.
+    if (superClass && superClass.prototype &&
+        superClass.prototype[goog.UNSEALABLE_CONSTRUCTOR_PROPERTY_]) {
+      return ctr;
+    }
+    /**
+     * @this {*}
+     * @return {?}
+     */
+    var wrappedCtr = function() {
+      // Don't seal an instance of a subclass when it calls the constructor of
+      // its super class as there is most likely still setup to do.
+      var instance = ctr.apply(this, arguments) || this;
+      instance[goog.UID_PROPERTY_] = instance[goog.UID_PROPERTY_];
+      if (this.constructor === wrappedCtr) {
+        Object.seal(instance);
+      }
+      return instance;
+    };
+    return wrappedCtr;
+  }
+  return ctr;
+};
+
+
+// TODO(johnlenz): share these values with the goog.object
+/**
+ * The names of the fields that are defined on Object.prototype.
+ * @type {!Array<string>}
+ * @private
+ * @const
+ */
+goog.defineClass.OBJECT_PROTOTYPE_FIELDS_ = [
+  'constructor',
+  'hasOwnProperty',
+  'isPrototypeOf',
+  'propertyIsEnumerable',
+  'toLocaleString',
+  'toString',
+  'valueOf'
+];
+
+
+// TODO(johnlenz): share this function with the goog.object
+/**
+ * @param {!Object} target The object to add properties to.
+ * @param {!Object} source The object to copy properites from.
+ * @private
+ */
+goog.defineClass.applyProperties_ = function(target, source) {
+  // TODO(johnlenz): update this to support ES5 getters/setters
+
+  var key;
+  for (key in source) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      target[key] = source[key];
+    }
+  }
+
+  // For IE the for-in-loop does not contain any properties that are not
+  // enumerable on the prototype object (for example isPrototypeOf from
+  // Object.prototype) and it will also not include 'replace' on objects that
+  // extend String and change 'replace' (not that it is common for anyone to
+  // extend anything except Object).
+  for (var i = 0; i < goog.defineClass.OBJECT_PROTOTYPE_FIELDS_.length; i++) {
+    key = goog.defineClass.OBJECT_PROTOTYPE_FIELDS_[i];
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      target[key] = source[key];
+    }
+  }
+};
+
+
+/**
+ * Sealing classes breaks the older idiom of assigning properties on the
+ * prototype rather than in the constructor.  As such, goog.defineClass
+ * must not seal subclasses of these old-style classes until they are fixed.
+ * Until then, this marks a class as "broken", instructing defineClass
+ * not to seal subclasses.
+ * @param {!Function} ctr The legacy constructor to tag as unsealable.
+ */
+goog.tagUnsealableClass = function(ctr) {
+  if (!COMPILED && goog.defineClass.SEAL_CLASS_INSTANCES) {
+    ctr.prototype[goog.UNSEALABLE_CONSTRUCTOR_PROPERTY_] = true;
+  }
+};
+
+
+/**
+ * Name for unsealable tag property.
+ * @const @private {string}
+ */
+goog.UNSEALABLE_CONSTRUCTOR_PROPERTY_ = 'goog_defineClass_legacy_unsealable';
+
+// Copyright 2006 The Closure Library Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS-IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Utility for fast string concatenation.
+ */
+
+goog.provide('goog.string.StringBuffer');
+
+
+
+/**
+ * Utility class to facilitate string concatenation.
+ *
+ * @param {*=} opt_a1 Optional first initial item to append.
+ * @param {...*} var_args Other initial items to
+ *     append, e.g., new goog.string.StringBuffer('foo', 'bar').
+ * @constructor
+ */
+goog.string.StringBuffer = function(opt_a1, var_args) {
+  if (opt_a1 != null) {
+    this.append.apply(this, arguments);
+  }
+};
+
+
+/**
+ * Internal buffer for the string to be concatenated.
+ * @type {string}
+ * @private
+ */
+goog.string.StringBuffer.prototype.buffer_ = '';
+
+
+/**
+ * Sets the contents of the string buffer object, replacing what's currently
+ * there.
+ *
+ * @param {*} s String to set.
+ */
+goog.string.StringBuffer.prototype.set = function(s) {
+  this.buffer_ = '' + s;
+};
+
+
+/**
+ * Appends one or more items to the buffer.
+ *
+ * Calling this with null, undefined, or empty arguments is an error.
+ *
+ * @param {*} a1 Required first string.
+ * @param {*=} opt_a2 Optional second string.
+ * @param {...*} var_args Other items to append,
+ *     e.g., sb.append('foo', 'bar', 'baz').
+ * @return {!goog.string.StringBuffer} This same StringBuffer object.
+ * @suppress {duplicate}
+ */
+goog.string.StringBuffer.prototype.append = function(a1, opt_a2, var_args) {
+  // Use a1 directly to avoid arguments instantiation for single-arg case.
+  this.buffer_ += a1;
+  if (opt_a2 != null) { // second argument is undefined (null == undefined)
+    for (var i = 1; i < arguments.length; i++) {
+      this.buffer_ += arguments[i];
+    }
+  }
+  return this;
+};
+
+
+/**
+ * Clears the internal buffer.
+ */
+goog.string.StringBuffer.prototype.clear = function() {
+  this.buffer_ = '';
+};
+
+
+/**
+ * @return {number} the length of the current contents of the buffer.
+ */
+goog.string.StringBuffer.prototype.getLength = function() {
+  return this.buffer_.length;
+};
+
+
+/**
+ * @return {string} The concatenated string.
+ * @override
+ */
+goog.string.StringBuffer.prototype.toString = function() {
+  return this.buffer_;
+};
+
+// Copyright 2006 The Closure Library Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS-IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Definition of goog.dom.NodeType.
+ */
+
+goog.provide('goog.dom.NodeType');
+
+
+/**
+ * Constants for the nodeType attribute in the Node interface.
+ *
+ * These constants match those specified in the Node interface. These are
+ * usually present on the Node object in recent browsers, but not in older
+ * browsers (specifically, early IEs) and thus are given here.
+ *
+ * In some browsers (early IEs), these are not defined on the Node object,
+ * so they are provided here.
+ *
+ * See http://www.w3.org/TR/DOM-Level-2-Core/core.html#ID-1950641247
+ * @enum {number}
+ */
+goog.dom.NodeType = {
+  ELEMENT: 1,
+  ATTRIBUTE: 2,
+  TEXT: 3,
+  CDATA_SECTION: 4,
+  ENTITY_REFERENCE: 5,
+  ENTITY: 6,
+  PROCESSING_INSTRUCTION: 7,
+  COMMENT: 8,
+  DOCUMENT: 9,
+  DOCUMENT_TYPE: 10,
+  DOCUMENT_FRAGMENT: 11,
+  NOTATION: 12
+};
 
 // Copyright 2009 The Closure Library Authors. All Rights Reserved.
 //
@@ -1561,8 +2688,15 @@ goog.provide('goog.debug.Error');
  */
 goog.debug.Error = function(opt_msg) {
 
-  // Ensure there is a stack trace.
-  this.stack = new Error().stack || '';
+  // Attempt to ensure there is a stack trace.
+  if (Error.captureStackTrace) {
+    Error.captureStackTrace(this, goog.debug.Error);
+  } else {
+    var stack = new Error().stack;
+    if (stack) {
+      this.stack = stack;
+    }
+  }
 
   if (opt_msg) {
     this.message = String(opt_msg);
@@ -1573,6 +2707,7 @@ goog.inherits(goog.debug.Error, Error);
 
 /** @override */
 goog.debug.Error.prototype.name = 'CustomError';
+
 // Copyright 2006 The Closure Library Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -1589,6 +2724,7 @@ goog.debug.Error.prototype.name = 'CustomError';
 
 /**
  * @fileoverview Utilities for string manipulation.
+ * @author arv@google.com (Erik Arvidsson)
  */
 
 
@@ -1597,6 +2733,19 @@ goog.debug.Error.prototype.name = 'CustomError';
  */
 goog.provide('goog.string');
 goog.provide('goog.string.Unicode');
+
+
+/**
+ * @define {boolean} Enables HTML escaping of lowercase letter "e" which helps
+ * with detection of double-escaping as this letter is frequently used.
+ */
+goog.define('goog.string.DETECT_DOUBLE_ESCAPING', false);
+
+
+/**
+ * @define {boolean} Whether to force non-dom html unescaping.
+ */
+goog.define('goog.string.FORCE_NON_DOM_HTML_UNESCAPING', false);
 
 
 /**
@@ -1658,6 +2807,18 @@ goog.string.caseInsensitiveEndsWith = function(str, suffix) {
 
 
 /**
+ * Case-insensitive equality checker.
+ * @param {string} str1 First string to check.
+ * @param {string} str2 Second string to check.
+ * @return {boolean} True if {@code str1} and {@code str2} are the same string,
+ *     ignoring case.
+ */
+goog.string.caseInsensitiveEquals = function(str1, str2) {
+  return str1.toLowerCase() == str2.toLowerCase();
+};
+
+
+/**
  * Does simple python-style string substitution.
  * subs("foo%s hot%s", "bar", "dog") becomes "foobar hotdog".
  * @param {string} str The string containing the pattern.
@@ -1666,18 +2827,18 @@ goog.string.caseInsensitiveEndsWith = function(str, suffix) {
  *     {@code %s} has been replaced an argument from {@code var_args}.
  */
 goog.string.subs = function(str, var_args) {
-  // This appears to be slow, but testing shows it compares more or less
-  // equivalent to the regex.exec method.
-  for (var i = 1; i < arguments.length; i++) {
-    // We cast to String in case an argument is a Function.  Replacing $&, for
-    // example, with $$$& stops the replace from subsituting the whole match
-    // into the resultant string.  $$$& in the first replace becomes $$& in the
-    //  second, which leaves $& in the resultant string.  Also:
-    // $$, $`, $', $n $nn
-    var replacement = String(arguments[i]).replace(/\$/g, '$$$$');
-    str = str.replace(/\%s/, replacement);
+  var splitParts = str.split('%s');
+  var returnString = '';
+
+  var subsArguments = Array.prototype.slice.call(arguments, 1);
+  while (subsArguments.length &&
+         // Replace up to the last split part. We are inserting in the
+         // positions between split parts.
+         splitParts.length > 1) {
+    returnString += splitParts.shift() + subsArguments.shift();
   }
-  return str;
+
+  return returnString + splitParts.join('%s'); // Join unused '%s'
 };
 
 
@@ -1698,9 +2859,9 @@ goog.string.collapseWhitespace = function(str) {
 /**
  * Checks if a string is empty or contains only whitespaces.
  * @param {string} str The string to check.
- * @return {boolean} True if {@code str} is empty or whitespace only.
+ * @return {boolean} Whether {@code str} is empty or whitespace only.
  */
-goog.string.isEmpty = function(str) {
+goog.string.isEmptyOrWhitespace = function(str) {
   // testing length == 0 first is actually slower in all browsers (about the
   // same in Opera).
   // Since IE doesn't include non-breaking-space (0xa0) in their \s character
@@ -1711,13 +2872,51 @@ goog.string.isEmpty = function(str) {
 
 
 /**
- * Checks if a string is null, empty or contains only whitespaces.
- * @param {*} str The string to check.
- * @return {boolean} True if{@code str} is null, empty, or whitespace only.
+ * Checks if a string is empty.
+ * @param {string} str The string to check.
+ * @return {boolean} Whether {@code str} is empty.
  */
-goog.string.isEmptySafe = function(str) {
-  return goog.string.isEmpty(goog.string.makeSafe(str));
+goog.string.isEmptyString = function(str) {
+  return str.length == 0;
 };
+
+
+/**
+ * Checks if a string is empty or contains only whitespaces.
+ *
+ * TODO(user): Deprecate this when clients have been switched over to
+ * goog.string.isEmptyOrWhitespace.
+ *
+ * @param {string} str The string to check.
+ * @return {boolean} Whether {@code str} is empty or whitespace only.
+ */
+goog.string.isEmpty = goog.string.isEmptyOrWhitespace;
+
+
+/**
+ * Checks if a string is null, undefined, empty or contains only whitespaces.
+ * @param {*} str The string to check.
+ * @return {boolean} Whether {@code str} is null, undefined, empty, or
+ *     whitespace only.
+ * @deprecated Use goog.string.isEmptyOrWhitespace(goog.string.makeSafe(str))
+ *     instead.
+ */
+goog.string.isEmptyOrWhitespaceSafe = function(str) {
+  return goog.string.isEmptyOrWhitespace(goog.string.makeSafe(str));
+};
+
+
+/**
+ * Checks if a string is null, undefined, empty or contains only whitespaces.
+ *
+ * TODO(user): Deprecate this when clients have been switched over to
+ * goog.string.isEmptyOrWhitespaceSafe.
+ *
+ * @param {*} str The string to check.
+ * @return {boolean} Whether {@code str} is null, undefined, empty, or
+ *     whitespace only.
+ */
+goog.string.isEmptySafe = goog.string.isEmptyOrWhitespaceSafe;
 
 
 /**
@@ -1844,12 +3043,17 @@ goog.string.collapseBreakingSpaces = function(str) {
  * @param {string} str The string to trim.
  * @return {string} A trimmed copy of {@code str}.
  */
-goog.string.trim = function(str) {
-  // Since IE doesn't include non-breaking-space (0xa0) in their \s character
-  // class (as required by section 7.2 of the ECMAScript spec), we explicitly
-  // include it in the regexp to enforce consistent cross-browser behavior.
-  return str.replace(/^[\s\xa0]+|[\s\xa0]+$/g, '');
-};
+goog.string.trim = (goog.TRUSTED_SITE && String.prototype.trim) ?
+    function(str) {
+      return str.trim();
+    } :
+    function(str) {
+      // Since IE doesn't include non-breaking-space (0xa0) in their \s
+      // character class (as required by section 7.2 of the ECMAScript spec),
+      // we explicitly include it in the regexp to enforce consistent
+      // cross-browser behavior.
+      return str.replace(/^[\s\xa0]+|[\s\xa0]+$/g, '');
+    };
 
 
 /**
@@ -1978,14 +3182,6 @@ goog.string.numerateCompare = function(str1, str2) {
 
 
 /**
- * Regular expression used for determining if a string needs to be encoded.
- * @type {RegExp}
- * @private
- */
-goog.string.encodeUriRegExp_ = /^[a-zA-Z0-9\-_.!~*'()]*$/;
-
-
-/**
  * URL-encodes a string
  * @param {*} str The string to url-encode.
  * @return {string} An encoded copy of {@code str} that is safe for urls.
@@ -1993,15 +3189,7 @@ goog.string.encodeUriRegExp_ = /^[a-zA-Z0-9\-_.!~*'()]*$/;
  *     of URLs *will* be encoded.
  */
 goog.string.urlEncode = function(str) {
-  str = String(str);
-  // Checking if the search matches before calling encodeURIComponent avoids an
-  // extra allocation in IE6. This adds about 10us time in FF and a similiar
-  // over head in IE6 for lower working set apps, but for large working set
-  // apps like Gmail, it saves about 70us per call.
-  if (!goog.string.encodeUriRegExp_.test(str)) {
-    return encodeURIComponent(str);
-  }
-  return str;
+  return encodeURIComponent(String(str));
 };
 
 
@@ -2028,12 +3216,16 @@ goog.string.newLineToBr = function(str, opt_xml) {
 
 
 /**
- * Escape double quote '"' characters in addition to '&', '<', and '>' so that a
- * string can be included in an HTML tag attribute value within double quotes.
+ * Escapes double quote '"' and single quote '\'' characters in addition to
+ * '&', '<', and '>' so that a string can be included in an HTML tag attribute
+ * value within double or single quotes.
  *
  * It should be noted that > doesn't need to be escaped for the HTML or XML to
  * be valid, but it has been decided to escape it for consistency with other
  * implementations.
+ *
+ * With goog.string.DETECT_DOUBLE_ESCAPING, this function escapes also the
+ * lowercase letter "e".
  *
  * NOTE(user):
  * HtmlEscape is often called during the generation of large blocks of HTML.
@@ -2070,28 +3262,43 @@ goog.string.newLineToBr = function(str, opt_xml) {
 goog.string.htmlEscape = function(str, opt_isLikelyToContainHtmlChars) {
 
   if (opt_isLikelyToContainHtmlChars) {
-    return str.replace(goog.string.amperRe_, '&amp;')
-          .replace(goog.string.ltRe_, '&lt;')
-          .replace(goog.string.gtRe_, '&gt;')
-          .replace(goog.string.quotRe_, '&quot;');
+    str = str.replace(goog.string.AMP_RE_, '&amp;')
+          .replace(goog.string.LT_RE_, '&lt;')
+          .replace(goog.string.GT_RE_, '&gt;')
+          .replace(goog.string.QUOT_RE_, '&quot;')
+          .replace(goog.string.SINGLE_QUOTE_RE_, '&#39;')
+          .replace(goog.string.NULL_RE_, '&#0;');
+    if (goog.string.DETECT_DOUBLE_ESCAPING) {
+      str = str.replace(goog.string.E_RE_, '&#101;');
+    }
+    return str;
 
   } else {
     // quick test helps in the case when there are no chars to replace, in
     // worst case this makes barely a difference to the time taken
-    if (!goog.string.allRe_.test(str)) return str;
+    if (!goog.string.ALL_RE_.test(str)) return str;
 
     // str.indexOf is faster than regex.test in this case
     if (str.indexOf('&') != -1) {
-      str = str.replace(goog.string.amperRe_, '&amp;');
+      str = str.replace(goog.string.AMP_RE_, '&amp;');
     }
     if (str.indexOf('<') != -1) {
-      str = str.replace(goog.string.ltRe_, '&lt;');
+      str = str.replace(goog.string.LT_RE_, '&lt;');
     }
     if (str.indexOf('>') != -1) {
-      str = str.replace(goog.string.gtRe_, '&gt;');
+      str = str.replace(goog.string.GT_RE_, '&gt;');
     }
     if (str.indexOf('"') != -1) {
-      str = str.replace(goog.string.quotRe_, '&quot;');
+      str = str.replace(goog.string.QUOT_RE_, '&quot;');
+    }
+    if (str.indexOf('\'') != -1) {
+      str = str.replace(goog.string.SINGLE_QUOTE_RE_, '&#39;');
+    }
+    if (str.indexOf('\x00') != -1) {
+      str = str.replace(goog.string.NULL_RE_, '&#0;');
+    }
+    if (goog.string.DETECT_DOUBLE_ESCAPING && str.indexOf('e') != -1) {
+      str = str.replace(goog.string.E_RE_, '&#101;');
     }
     return str;
   }
@@ -2100,42 +3307,68 @@ goog.string.htmlEscape = function(str, opt_isLikelyToContainHtmlChars) {
 
 /**
  * Regular expression that matches an ampersand, for use in escaping.
- * @type {RegExp}
+ * @const {!RegExp}
  * @private
  */
-goog.string.amperRe_ = /&/g;
+goog.string.AMP_RE_ = /&/g;
 
 
 /**
  * Regular expression that matches a less than sign, for use in escaping.
- * @type {RegExp}
+ * @const {!RegExp}
  * @private
  */
-goog.string.ltRe_ = /</g;
+goog.string.LT_RE_ = /</g;
 
 
 /**
  * Regular expression that matches a greater than sign, for use in escaping.
- * @type {RegExp}
+ * @const {!RegExp}
  * @private
  */
-goog.string.gtRe_ = />/g;
+goog.string.GT_RE_ = />/g;
 
 
 /**
  * Regular expression that matches a double quote, for use in escaping.
- * @type {RegExp}
+ * @const {!RegExp}
  * @private
  */
-goog.string.quotRe_ = /\"/g;
+goog.string.QUOT_RE_ = /"/g;
+
+
+/**
+ * Regular expression that matches a single quote, for use in escaping.
+ * @const {!RegExp}
+ * @private
+ */
+goog.string.SINGLE_QUOTE_RE_ = /'/g;
+
+
+/**
+ * Regular expression that matches null character, for use in escaping.
+ * @const {!RegExp}
+ * @private
+ */
+goog.string.NULL_RE_ = /\x00/g;
+
+
+/**
+ * Regular expression that matches a lowercase letter "e", for use in escaping.
+ * @const {!RegExp}
+ * @private
+ */
+goog.string.E_RE_ = /e/g;
 
 
 /**
  * Regular expression that matches any character that needs to be escaped.
- * @type {RegExp}
+ * @const {!RegExp}
  * @private
  */
-goog.string.allRe_ = /[&<>\"]/;
+goog.string.ALL_RE_ = (goog.string.DETECT_DOUBLE_ESCAPING ?
+    /[\x00&<>"'e]/ :
+    /[\x00&<>"']/);
 
 
 /**
@@ -2146,10 +3379,10 @@ goog.string.allRe_ = /[&<>\"]/;
  */
 goog.string.unescapeEntities = function(str) {
   if (goog.string.contains(str, '&')) {
-    // We are careful not to use a DOM if we do not have one. We use the []
-    // notation so that the JSCompiler will not complain about these objects and
-    // fields in the case where we have no DOM.
-    if ('document' in goog.global) {
+    // We are careful not to use a DOM if we do not have one or we explicitly
+    // requested non-DOM html unescaping.
+    if (!goog.string.FORCE_NON_DOM_HTML_UNESCAPING &&
+        'document' in goog.global) {
       return goog.string.unescapeEntitiesUsingDom_(str);
     } else {
       // Fall back on pure XML entities
@@ -2161,15 +3394,39 @@ goog.string.unescapeEntities = function(str) {
 
 
 /**
+ * Unescapes a HTML string using the provided document.
+ *
+ * @param {string} str The string to unescape.
+ * @param {!Document} document A document to use in escaping the string.
+ * @return {string} An unescaped copy of {@code str}.
+ */
+goog.string.unescapeEntitiesWithDocument = function(str, document) {
+  if (goog.string.contains(str, '&')) {
+    return goog.string.unescapeEntitiesUsingDom_(str, document);
+  }
+  return str;
+};
+
+
+/**
  * Unescapes an HTML string using a DOM to resolve non-XML, non-numeric
  * entities. This function is XSS-safe and whitespace-preserving.
  * @private
  * @param {string} str The string to unescape.
+ * @param {Document=} opt_document An optional document to use for creating
+ *     elements. If this is not specified then the default window.document
+ *     will be used.
  * @return {string} The unescaped {@code str} string.
  */
-goog.string.unescapeEntitiesUsingDom_ = function(str) {
+goog.string.unescapeEntitiesUsingDom_ = function(str, opt_document) {
+  /** @type {!Object<string, string>} */
   var seen = {'&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"'};
-  var div = document.createElement('div');
+  var div;
+  if (opt_document) {
+    div = opt_document.createElement('div');
+  } else {
+    div = goog.global.document.createElement('div');
+  }
   // Match as many valid entity characters as possible. If the actual entity
   // happens to be shorter, it will still work as innerHTML will return the
   // trailing characters unchanged. Since the entity characters do not include
@@ -2252,7 +3509,19 @@ goog.string.HTML_ENTITY_PATTERN_ = /&([^;\s<&]+);?/g;
  * @return {string} An escaped copy of {@code str}.
  */
 goog.string.whitespaceEscape = function(str, opt_xml) {
+  // This doesn't use goog.string.preserveSpaces for backwards compatibility.
   return goog.string.newLineToBr(str.replace(/  /g, ' &#160;'), opt_xml);
+};
+
+
+/**
+ * Preserve spaces that would be otherwise collapsed in HTML by replacing them
+ * with non-breaking space Unicode characters.
+ * @param {string} str The string in which to preserve whitespace.
+ * @return {string} A copy of {@code str} with preserved whitespace.
+ */
+goog.string.preserveSpaces = function(str) {
+  return str.replace(/(^|[\n ]) /g, '$1' + goog.string.Unicode.NBSP);
 };
 
 
@@ -2353,8 +3622,7 @@ goog.string.truncateMiddle = function(str, chars,
 
 /**
  * Special chars that need to be escaped for goog.string.quote.
- * @private
- * @type {Object}
+ * @private {!Object<string, string>}
  */
 goog.string.specialEscapeChars_ = {
   '\0': '\\0',
@@ -2371,8 +3639,7 @@ goog.string.specialEscapeChars_ = {
 
 /**
  * Character mappings used internally for goog.string.escapeChar.
- * @private
- * @type {Object}
+ * @private {!Object<string, string>}
  */
 goog.string.jsEscapeCache_ = {
   '\'': '\\\''
@@ -2457,31 +3724,36 @@ goog.string.escapeChar = function(c) {
 
 
 /**
- * Takes a string and creates a map (Object) in which the keys are the
- * characters in the string. The value for the key is set to true. You can
- * then use goog.object.map or goog.array.map to change the values.
- * @param {string} s The string to build the map from.
- * @return {Object} The map of characters used.
+ * Determines whether a string contains a substring.
+ * @param {string} str The string to search.
+ * @param {string} subString The substring to search for.
+ * @return {boolean} Whether {@code str} contains {@code subString}.
  */
-// TODO(arv): It seems like we should have a generic goog.array.toMap. But do
-//            we want a dependency on goog.array in goog.string?
-goog.string.toMap = function(s) {
-  var rv = {};
-  for (var i = 0; i < s.length; i++) {
-    rv[s.charAt(i)] = true;
-  }
-  return rv;
+goog.string.contains = function(str, subString) {
+  return str.indexOf(subString) != -1;
 };
 
 
 /**
- * Checks whether a string contains a given character.
- * @param {string} s The string to test.
- * @param {string} ss The substring to test for.
- * @return {boolean} True if {@code s} contains {@code ss}.
+ * Determines whether a string contains a substring, ignoring case.
+ * @param {string} str The string to search.
+ * @param {string} subString The substring to search for.
+ * @return {boolean} Whether {@code str} contains {@code subString}.
  */
-goog.string.contains = function(s, ss) {
-  return s.indexOf(ss) != -1;
+goog.string.caseInsensitiveContains = function(str, subString) {
+  return goog.string.contains(str.toLowerCase(), subString.toLowerCase());
+};
+
+
+/**
+ * Returns the non-overlapping occurrences of ss in s.
+ * If either s or ss evalutes to false, then returns zero.
+ * @param {string} s The string to look in.
+ * @param {string} ss The string to look for.
+ * @return {number} Number of occurrences of ss in s.
+ */
+goog.string.countOf = function(s, ss) {
+  return s && ss ? s.split(ss).length - 1 : 0;
 };
 
 
@@ -2752,7 +4024,7 @@ goog.string.createUniqueString = function() {
 
 
 /**
- * Converts the supplied string to a number, which may be Ininity or NaN.
+ * Converts the supplied string to a number, which may be Infinity or NaN.
  * This function strips whitespace: (toNumber(' 123') === 123)
  * This function accepts scientific notation: (toNumber('1e1') === 10)
  *
@@ -2764,7 +4036,7 @@ goog.string.createUniqueString = function() {
  */
 goog.string.toNumber = function(str) {
   var num = Number(str);
-  if (num == 0 && goog.string.isEmpty(str)) {
+  if (num == 0 && goog.string.isEmptyOrWhitespace(str)) {
     return NaN;
   }
   return num;
@@ -2772,11 +4044,31 @@ goog.string.toNumber = function(str) {
 
 
 /**
- * A memoized cache for goog.string.toCamelCase.
- * @type {Object.<string>}
- * @private
+ * Returns whether the given string is lower camel case (e.g. "isFooBar").
+ *
+ * Note that this assumes the string is entirely letters.
+ * @see http://en.wikipedia.org/wiki/CamelCase#Variations_and_synonyms
+ *
+ * @param {string} str String to test.
+ * @return {boolean} Whether the string is lower camel case.
  */
-goog.string.toCamelCaseCache_ = {};
+goog.string.isLowerCamelCase = function(str) {
+  return /^[a-z]+([A-Z][a-z]*)*$/.test(str);
+};
+
+
+/**
+ * Returns whether the given string is upper camel case (e.g. "FooBarBaz").
+ *
+ * Note that this assumes the string is entirely letters.
+ * @see http://en.wikipedia.org/wiki/CamelCase#Variations_and_synonyms
+ *
+ * @param {string} str String to test.
+ * @return {boolean} Whether the string is upper camel case.
+ */
+goog.string.isUpperCamelCase = function(str) {
+  return /^([A-Z][a-z]*)+$/.test(str);
+};
 
 
 /**
@@ -2787,20 +4079,10 @@ goog.string.toCamelCaseCache_ = {};
  * @return {string} The string in camelCase form.
  */
 goog.string.toCamelCase = function(str) {
-  return goog.string.toCamelCaseCache_[str] ||
-      (goog.string.toCamelCaseCache_[str] =
-          String(str).replace(/\-([a-z])/g, function(all, match) {
-            return match.toUpperCase();
-          }));
+  return String(str).replace(/\-([a-z])/g, function(all, match) {
+    return match.toUpperCase();
+  });
 };
-
-
-/**
- * A memoized cache for goog.string.toSelectorCase.
- * @type {Object.<string>}
- * @private
- */
-goog.string.toSelectorCaseCache_ = {};
 
 
 /**
@@ -2811,10 +4093,187 @@ goog.string.toSelectorCaseCache_ = {};
  * @return {string} The string in selector-case form.
  */
 goog.string.toSelectorCase = function(str) {
-  return goog.string.toSelectorCaseCache_[str] ||
-      (goog.string.toSelectorCaseCache_[str] =
-          String(str).replace(/([A-Z])/g, '-$1').toLowerCase());
+  return String(str).replace(/([A-Z])/g, '-$1').toLowerCase();
 };
+
+
+/**
+ * Converts a string into TitleCase. First character of the string is always
+ * capitalized in addition to the first letter of every subsequent word.
+ * Words are delimited by one or more whitespaces by default. Custom delimiters
+ * can optionally be specified to replace the default, which doesn't preserve
+ * whitespace delimiters and instead must be explicitly included if needed.
+ *
+ * Default delimiter => " ":
+ *    goog.string.toTitleCase('oneTwoThree')    => 'OneTwoThree'
+ *    goog.string.toTitleCase('one two three')  => 'One Two Three'
+ *    goog.string.toTitleCase('  one   two   ') => '  One   Two   '
+ *    goog.string.toTitleCase('one_two_three')  => 'One_two_three'
+ *    goog.string.toTitleCase('one-two-three')  => 'One-two-three'
+ *
+ * Custom delimiter => "_-.":
+ *    goog.string.toTitleCase('oneTwoThree', '_-.')       => 'OneTwoThree'
+ *    goog.string.toTitleCase('one two three', '_-.')     => 'One two three'
+ *    goog.string.toTitleCase('  one   two   ', '_-.')    => '  one   two   '
+ *    goog.string.toTitleCase('one_two_three', '_-.')     => 'One_Two_Three'
+ *    goog.string.toTitleCase('one-two-three', '_-.')     => 'One-Two-Three'
+ *    goog.string.toTitleCase('one...two...three', '_-.') => 'One...Two...Three'
+ *    goog.string.toTitleCase('one. two. three', '_-.')   => 'One. two. three'
+ *    goog.string.toTitleCase('one-two.three', '_-.')     => 'One-Two.Three'
+ *
+ * @param {string} str String value in camelCase form.
+ * @param {string=} opt_delimiters Custom delimiter character set used to
+ *      distinguish words in the string value. Each character represents a
+ *      single delimiter. When provided, default whitespace delimiter is
+ *      overridden and must be explicitly included if needed.
+ * @return {string} String value in TitleCase form.
+ */
+goog.string.toTitleCase = function(str, opt_delimiters) {
+  var delimiters = goog.isString(opt_delimiters) ?
+      goog.string.regExpEscape(opt_delimiters) : '\\s';
+
+  // For IE8, we need to prevent using an empty character set. Otherwise,
+  // incorrect matching will occur.
+  delimiters = delimiters ? '|[' + delimiters + ']+' : '';
+
+  var regexp = new RegExp('(^' + delimiters + ')([a-z])', 'g');
+  return str.replace(regexp, function(all, p1, p2) {
+    return p1 + p2.toUpperCase();
+  });
+};
+
+
+/**
+ * Capitalizes a string, i.e. converts the first letter to uppercase
+ * and all other letters to lowercase, e.g.:
+ *
+ * goog.string.capitalize('one')     => 'One'
+ * goog.string.capitalize('ONE')     => 'One'
+ * goog.string.capitalize('one two') => 'One two'
+ *
+ * Note that this function does not trim initial whitespace.
+ *
+ * @param {string} str String value to capitalize.
+ * @return {string} String value with first letter in uppercase.
+ */
+goog.string.capitalize = function(str) {
+  return String(str.charAt(0)).toUpperCase() +
+      String(str.substr(1)).toLowerCase();
+};
+
+
+/**
+ * Parse a string in decimal or hexidecimal ('0xFFFF') form.
+ *
+ * To parse a particular radix, please use parseInt(string, radix) directly. See
+ * https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/parseInt
+ *
+ * This is a wrapper for the built-in parseInt function that will only parse
+ * numbers as base 10 or base 16.  Some JS implementations assume strings
+ * starting with "0" are intended to be octal. ES3 allowed but discouraged
+ * this behavior. ES5 forbids it.  This function emulates the ES5 behavior.
+ *
+ * For more information, see Mozilla JS Reference: http://goo.gl/8RiFj
+ *
+ * @param {string|number|null|undefined} value The value to be parsed.
+ * @return {number} The number, parsed. If the string failed to parse, this
+ *     will be NaN.
+ */
+goog.string.parseInt = function(value) {
+  // Force finite numbers to strings.
+  if (isFinite(value)) {
+    value = String(value);
+  }
+
+  if (goog.isString(value)) {
+    // If the string starts with '0x' or '-0x', parse as hex.
+    return /^\s*-?0x/i.test(value) ?
+        parseInt(value, 16) : parseInt(value, 10);
+  }
+
+  return NaN;
+};
+
+
+/**
+ * Splits a string on a separator a limited number of times.
+ *
+ * This implementation is more similar to Python or Java, where the limit
+ * parameter specifies the maximum number of splits rather than truncating
+ * the number of results.
+ *
+ * See http://docs.python.org/2/library/stdtypes.html#str.split
+ * See JavaDoc: http://goo.gl/F2AsY
+ * See Mozilla reference: http://goo.gl/dZdZs
+ *
+ * @param {string} str String to split.
+ * @param {string} separator The separator.
+ * @param {number} limit The limit to the number of splits. The resulting array
+ *     will have a maximum length of limit+1.  Negative numbers are the same
+ *     as zero.
+ * @return {!Array<string>} The string, split.
+ */
+
+goog.string.splitLimit = function(str, separator, limit) {
+  var parts = str.split(separator);
+  var returnVal = [];
+
+  // Only continue doing this while we haven't hit the limit and we have
+  // parts left.
+  while (limit > 0 && parts.length) {
+    returnVal.push(parts.shift());
+    limit--;
+  }
+
+  // If there are remaining parts, append them to the end.
+  if (parts.length) {
+    returnVal.push(parts.join(separator));
+  }
+
+  return returnVal;
+};
+
+
+/**
+ * Computes the Levenshtein edit distance between two strings.
+ * @param {string} a
+ * @param {string} b
+ * @return {number} The edit distance between the two strings.
+ */
+goog.string.editDistance = function(a, b) {
+  var v0 = [];
+  var v1 = [];
+
+  if (a == b) {
+    return 0;
+  }
+
+  if (!a.length || !b.length) {
+    return Math.max(a.length, b.length);
+  }
+
+  for (var i = 0; i < b.length + 1; i++) {
+    v0[i] = i;
+  }
+
+  for (var i = 0; i < a.length; i++) {
+    v1[0] = i + 1;
+
+    for (var j = 0; j < b.length; j++) {
+      var cost = a[i] != b[j];
+      // Cost for the substring is the minimum of adding one character, removing
+      // one character, or a swap.
+      v1[j + 1] = Math.min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost);
+    }
+
+    for (var j = 0; j < v0.length; j++) {
+      v0[j] = v1[j];
+    }
+  }
+
+  return v1[b.length];
+};
+
 // Copyright 2008 The Closure Library Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -2848,28 +4307,31 @@ goog.string.toSelectorCase = function(str) {
  * The compiler will leave in foo() (because its return value is used),
  * but it will remove bar() because it assumes it does not have side-effects.
  *
+ * @author agrieve@google.com (Andrew Grieve)
  */
 
 goog.provide('goog.asserts');
 goog.provide('goog.asserts.AssertionError');
 
 goog.require('goog.debug.Error');
+goog.require('goog.dom.NodeType');
 goog.require('goog.string');
 
 
 /**
  * @define {boolean} Whether to strip out asserts or to leave them in.
  */
-goog.asserts.ENABLE_ASSERTS = goog.DEBUG;
+goog.define('goog.asserts.ENABLE_ASSERTS', goog.DEBUG);
 
 
 
 /**
  * Error object for failed assertions.
  * @param {string} messagePattern The pattern that was used to form message.
- * @param {!Array.<*>} messageArgs The items to substitute into the pattern.
+ * @param {!Array<*>} messageArgs The items to substitute into the pattern.
  * @constructor
  * @extends {goog.debug.Error}
+ * @final
  */
 goog.asserts.AssertionError = function(messagePattern, messageArgs) {
   messageArgs.unshift(messagePattern);
@@ -2893,12 +4355,26 @@ goog.asserts.AssertionError.prototype.name = 'AssertionError';
 
 
 /**
+ * The default error handler.
+ * @param {!goog.asserts.AssertionError} e The exception to be handled.
+ */
+goog.asserts.DEFAULT_ERROR_HANDLER = function(e) { throw e; };
+
+
+/**
+ * The handler responsible for throwing or logging assertion errors.
+ * @private {function(!goog.asserts.AssertionError)}
+ */
+goog.asserts.errorHandler_ = goog.asserts.DEFAULT_ERROR_HANDLER;
+
+
+/**
  * Throws an exception with the given message and "Assertion failed" prefixed
  * onto it.
  * @param {string} defaultMessage The message to use if givenMessage is empty.
- * @param {Array.<*>} defaultArgs The substitution arguments for defaultMessage.
+ * @param {Array<*>} defaultArgs The substitution arguments for defaultMessage.
  * @param {string|undefined} givenMessage Message supplied by the caller.
- * @param {Array.<*>} givenArgs The substitution arguments for givenMessage.
+ * @param {Array<*>} givenArgs The substitution arguments for givenMessage.
  * @throws {goog.asserts.AssertionError} When the value is not a number.
  * @private
  */
@@ -2916,17 +4392,32 @@ goog.asserts.doAssertFailure_ =
   // a stack trace is added to var message above. With this, a stack trace is
   // not added until this line (it causes the extra garbage to be added after
   // the assertion message instead of in the middle of it).
-  throw new goog.asserts.AssertionError('' + message, args || []);
+  var e = new goog.asserts.AssertionError('' + message, args || []);
+  goog.asserts.errorHandler_(e);
+};
+
+
+/**
+ * Sets a custom error handler that can be used to customize the behavior of
+ * assertion failures, for example by turning all assertion failures into log
+ * messages.
+ * @param {function(!goog.asserts.AssertionError)} errorHandler
+ */
+goog.asserts.setErrorHandler = function(errorHandler) {
+  if (goog.asserts.ENABLE_ASSERTS) {
+    goog.asserts.errorHandler_ = errorHandler;
+  }
 };
 
 
 /**
  * Checks if the condition evaluates to true if goog.asserts.ENABLE_ASSERTS is
  * true.
- * @param {*} condition The condition to check.
+ * @template T
+ * @param {T} condition The condition to check.
  * @param {string=} opt_message Error message in case of failure.
  * @param {...*} var_args The items to substitute into the failure message.
- * @return {*} The value of the condition.
+ * @return {T} The value of the condition.
  * @throws {goog.asserts.AssertionError} When the condition evaluates to false.
  */
 goog.asserts.assert = function(condition, opt_message, var_args) {
@@ -2958,9 +4449,9 @@ goog.asserts.assert = function(condition, opt_message, var_args) {
  */
 goog.asserts.fail = function(opt_message, var_args) {
   if (goog.asserts.ENABLE_ASSERTS) {
-    throw new goog.asserts.AssertionError(
+    goog.asserts.errorHandler_(new goog.asserts.AssertionError(
         'Failure' + (opt_message ? ': ' + opt_message : ''),
-        Array.prototype.slice.call(arguments, 1));
+        Array.prototype.slice.call(arguments, 1)));
   }
 };
 
@@ -3043,7 +4534,7 @@ goog.asserts.assertObject = function(value, opt_message, var_args) {
  * @param {*} value The value to check.
  * @param {string=} opt_message Error message in case of failure.
  * @param {...*} var_args The items to substitute into the failure message.
- * @return {!Array} The value, guaranteed to be a non-null array.
+ * @return {!Array<?>} The value, guaranteed to be a non-null array.
  * @throws {goog.asserts.AssertionError} When the value is not an array.
  */
 goog.asserts.assertArray = function(value, opt_message, var_args) {
@@ -3052,7 +4543,7 @@ goog.asserts.assertArray = function(value, opt_message, var_args) {
         [goog.typeOf(value), value], opt_message,
         Array.prototype.slice.call(arguments, 2));
   }
-  return /** @type {!Array} */ (value);
+  return /** @type {!Array<?>} */ (value);
 };
 
 
@@ -3076,76 +4567,79 @@ goog.asserts.assertBoolean = function(value, opt_message, var_args) {
 
 
 /**
+ * Checks if the value is a DOM Element if goog.asserts.ENABLE_ASSERTS is true.
+ * @param {*} value The value to check.
+ * @param {string=} opt_message Error message in case of failure.
+ * @param {...*} var_args The items to substitute into the failure message.
+ * @return {!Element} The value, likely to be a DOM Element when asserts are
+ *     enabled.
+ * @throws {goog.asserts.AssertionError} When the value is not a boolean.
+ */
+goog.asserts.assertElement = function(value, opt_message, var_args) {
+  if (goog.asserts.ENABLE_ASSERTS && (!goog.isObject(value) ||
+      value.nodeType != goog.dom.NodeType.ELEMENT)) {
+    goog.asserts.doAssertFailure_('Expected Element but got %s: %s.',
+        [goog.typeOf(value), value], opt_message,
+        Array.prototype.slice.call(arguments, 2));
+  }
+  return /** @type {!Element} */ (value);
+};
+
+
+/**
  * Checks if the value is an instance of the user-defined type if
  * goog.asserts.ENABLE_ASSERTS is true.
+ *
+ * The compiler may tighten the type returned by this function.
+ *
  * @param {*} value The value to check.
- * @param {!Function} type A user-defined constructor.
+ * @param {function(new: T, ...)} type A user-defined constructor.
  * @param {string=} opt_message Error message in case of failure.
  * @param {...*} var_args The items to substitute into the failure message.
  * @throws {goog.asserts.AssertionError} When the value is not an instance of
  *     type.
+ * @return {T}
+ * @template T
  */
 goog.asserts.assertInstanceof = function(value, type, opt_message, var_args) {
   if (goog.asserts.ENABLE_ASSERTS && !(value instanceof type)) {
-    goog.asserts.doAssertFailure_('instanceof check failed.', null,
+    goog.asserts.doAssertFailure_('Expected instanceof %s but got %s.',
+        [goog.asserts.getType_(type), goog.asserts.getType_(value)],
         opt_message, Array.prototype.slice.call(arguments, 3));
   }
+  return value;
 };
 
-// Copyright 2009 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 /**
- * @fileoverview Utility methods for Protocol Buffer 2 implementation.
+ * Checks that no enumerable keys are present in Object.prototype. Such keys
+ * would break most code that use {@code for (var ... in ...)} loops.
  */
-
-goog.provide('goog.proto2.Util');
-
-goog.require('goog.asserts');
-
-
-/**
- * @define {boolean} Defines a PBCHECK constant that can be turned off by
- * clients of PB2. This for is clients that do not want assertion/checking
- * running even in non-COMPILED builds.
- */
-goog.proto2.Util.PBCHECK = !COMPILED;
-
-
-/**
- * Asserts that the given condition is true, if and only if the PBCHECK
- * flag is on.
- *
- * @param {*} condition The condition to check.
- * @param {string=} opt_message Error message in case of failure.
- * @throws {Error} Assertion failed, the condition evaluates to false.
- */
-goog.proto2.Util.assert = function(condition, opt_message) {
-  if (goog.proto2.Util.PBCHECK) {
-    goog.asserts.assert(condition, opt_message);
+goog.asserts.assertObjectPrototypeIsIntact = function() {
+  for (var key in Object.prototype) {
+    goog.asserts.fail(key + ' should not be enumerable in Object.prototype.');
   }
 };
 
 
 /**
- * Returns true if debug assertions (checks) are on.
- *
- * @return {boolean} The value of the PBCHECK constant.
+ * Returns the type of a value. If a constructor is passed, and a suitable
+ * string cannot be found, 'unknown type name' will be returned.
+ * @param {*} value A constructor, object, or primitive.
+ * @return {string} The best display name for the value, or 'unknown type name'.
+ * @private
  */
-goog.proto2.Util.conductChecks = function() {
-  return goog.proto2.Util.PBCHECK;
+goog.asserts.getType_ = function(value) {
+  if (value instanceof Function) {
+    return value.displayName || value.name || 'unknown type name';
+  } else if (value instanceof Object) {
+    return value.constructor.displayName || value.constructor.name ||
+        Object.prototype.toString.call(value);
+  } else {
+    return value === null ? 'null' : typeof value;
+  }
 };
+
 // Copyright 2008 The Closure Library Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -3166,7 +4660,7 @@ goog.proto2.Util.conductChecks = function() {
 
 goog.provide('goog.proto2.FieldDescriptor');
 
-goog.require('goog.proto2.Util');
+goog.require('goog.asserts');
 goog.require('goog.string');
 
 
@@ -3174,37 +4668,35 @@ goog.require('goog.string');
 /**
  * A class which describes a field in a Protocol Buffer 2 Message.
  *
- * @param {Function} messageType Constructor for the message
- *     class to which the field described by this class belongs.
+ * @param {function(new:goog.proto2.Message)} messageType Constructor for the
+ *     message class to which the field described by this class belongs.
  * @param {number|string} tag The field's tag index.
  * @param {Object} metadata The metadata about this field that will be used
  *     to construct this descriptor.
  *
  * @constructor
+ * @final
  */
 goog.proto2.FieldDescriptor = function(messageType, tag, metadata) {
   /**
    * The message type that contains the field that this
    * descriptor describes.
-   * @type {Function}
-   * @private
+   * @private {function(new:goog.proto2.Message)}
    */
   this.parent_ = messageType;
 
   // Ensure that the tag is numeric.
-  goog.proto2.Util.assert(goog.string.isNumeric(tag));
+  goog.asserts.assert(goog.string.isNumeric(tag));
 
   /**
    * The field's tag number.
-   * @type {number}
-   * @private
+   * @private {number}
    */
   this.tag_ = /** @type {number} */ (tag);
 
   /**
    * The field's name.
-   * @type {string}
-   * @private
+   * @private {string}
    */
   this.name_ = metadata.name;
 
@@ -3217,24 +4709,30 @@ goog.proto2.FieldDescriptor = function(messageType, tag, metadata) {
   /** @type {*} */
   metadata.required;
 
+  /** @type {*} */
+  metadata.packed;
+
+  /**
+   * If true, this field is a packed field.
+   * @private {boolean}
+   */
+  this.isPacked_ = !!metadata.packed;
+
   /**
    * If true, this field is a repeating field.
-   * @type {boolean}
-   * @private
+   * @private {boolean}
    */
   this.isRepeated_ = !!metadata.repeated;
 
   /**
    * If true, this field is required.
-   * @type {boolean}
-   * @private
+   * @private {boolean}
    */
   this.isRequired_ = !!metadata.required;
 
   /**
    * The field type of this field.
-   * @type {goog.proto2.FieldDescriptor.FieldType}
-   * @private
+   * @private {goog.proto2.FieldDescriptor.FieldType}
    */
   this.fieldType_ = metadata.fieldType;
 
@@ -3242,17 +4740,15 @@ goog.proto2.FieldDescriptor = function(messageType, tag, metadata) {
    * If this field is a primitive: The native (ECMAScript) type of this field.
    * If an enumeration: The enumeration object.
    * If a message or group field: The Message function.
-   * @type {Function}
-   * @private
+   * @private {Function}
    */
   this.nativeType_ = metadata.type;
 
   /**
    * Is it permissible on deserialization to convert between numbers and
-   * well-formed strings?  Is true for 64-bit integral field types, false for
-   * all other field types.
-   * @type {boolean}
-   * @private
+   * well-formed strings?  Is true for 64-bit integral field types and float and
+   * double types, false for all other field types.
+   * @private {boolean}
    */
   this.deserializationConversionPermitted_ = false;
 
@@ -3262,6 +4758,8 @@ goog.proto2.FieldDescriptor = function(messageType, tag, metadata) {
     case goog.proto2.FieldDescriptor.FieldType.FIXED64:
     case goog.proto2.FieldDescriptor.FieldType.SFIXED64:
     case goog.proto2.FieldDescriptor.FieldType.SINT64:
+    case goog.proto2.FieldDescriptor.FieldType.FLOAT:
+    case goog.proto2.FieldDescriptor.FieldType.DOUBLE:
       this.deserializationConversionPermitted_ = true;
       break;
   }
@@ -3269,8 +4767,7 @@ goog.proto2.FieldDescriptor = function(messageType, tag, metadata) {
   /**
    * The default value of this field, if different from the default, default
    * value.
-   * @type {*}
-   * @private
+   * @private {*}
    */
   this.defaultValue_ = metadata.defaultValue;
 };
@@ -3316,10 +4813,10 @@ goog.proto2.FieldDescriptor.prototype.getTag = function() {
 
 /**
  * Returns the descriptor describing the message that defined this field.
- * @return {goog.proto2.Descriptor} The descriptor.
+ * @return {!goog.proto2.Descriptor} The descriptor.
  */
 goog.proto2.FieldDescriptor.prototype.getContainingType = function() {
-  return this.parent_.descriptor_;
+  return this.parent_.getDescriptor();
 };
 
 
@@ -3347,9 +4844,14 @@ goog.proto2.FieldDescriptor.prototype.getDefaultValue = function() {
     } else if (nativeType === Number) {
       this.defaultValue_ = 0;
     } else if (nativeType === String) {
-      this.defaultValue_ = '';
+      if (this.deserializationConversionPermitted_) {
+        // This field is a 64 bit integer represented as a string.
+        this.defaultValue_ = '0';
+      } else {
+        this.defaultValue_ = '';
+      }
     } else {
-      this.defaultValue_ = new nativeType;
+      return new nativeType;
     }
   }
 
@@ -3393,12 +4895,10 @@ goog.proto2.FieldDescriptor.prototype.deserializationConversionPermitted =
  * Returns the descriptor of the message type of this field. Only valid
  * for fields of type GROUP and MESSAGE.
  *
- * @return {goog.proto2.Descriptor} The message descriptor.
+ * @return {!goog.proto2.Descriptor} The message descriptor.
  */
 goog.proto2.FieldDescriptor.prototype.getFieldMessageType = function() {
-  goog.proto2.Util.assert(this.isCompositeType(), 'Expected message or group');
-
-  return this.nativeType_.descriptor_;
+  return this.nativeType_.getDescriptor();
 };
 
 
@@ -3409,6 +4909,15 @@ goog.proto2.FieldDescriptor.prototype.getFieldMessageType = function() {
 goog.proto2.FieldDescriptor.prototype.isCompositeType = function() {
   return this.fieldType_ == goog.proto2.FieldDescriptor.FieldType.MESSAGE ||
       this.fieldType_ == goog.proto2.FieldDescriptor.FieldType.GROUP;
+};
+
+
+/**
+ * Returns whether the field described by this descriptor is packed.
+ * @return {boolean} Whether the field is packed.
+ */
+goog.proto2.FieldDescriptor.prototype.isPacked = function() {
+  return this.isPacked_;
 };
 
 
@@ -3437,6 +4946,7 @@ goog.proto2.FieldDescriptor.prototype.isRequired = function() {
 goog.proto2.FieldDescriptor.prototype.isOptional = function() {
   return !this.isRepeated_ && !this.isRequired_;
 };
+
 // Copyright 2006 The Closure Library Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -3453,6 +4963,7 @@ goog.proto2.FieldDescriptor.prototype.isOptional = function() {
 
 /**
  * @fileoverview Utilities for manipulating objects/maps/hashes.
+ * @author arv@google.com (Erik Arvidsson)
  */
 
 goog.provide('goog.object');
@@ -3461,11 +4972,12 @@ goog.provide('goog.object');
 /**
  * Calls a function for each element in an object/map/hash.
  *
- * @param {Object} obj The object over which to iterate.
- * @param {Function} f The function to call for every element. This function
- *     takes 3 arguments (the element, the index and the object)
- *     and the return value is irrelevant.
- * @param {Object=} opt_obj This is used as the 'this' object within f.
+ * @param {Object<K,V>} obj The object over which to iterate.
+ * @param {function(this:T,V,?,Object<K,V>):?} f The function to call
+ *     for every element. This function takes 3 arguments (the element, the
+ *     index and the object) and the return value is ignored.
+ * @param {T=} opt_obj This is used as the 'this' object within f.
+ * @template T,K,V
  */
 goog.object.forEach = function(obj, f, opt_obj) {
   for (var key in obj) {
@@ -3478,15 +4990,17 @@ goog.object.forEach = function(obj, f, opt_obj) {
  * Calls a function for each element in an object/map/hash. If that call returns
  * true, adds the element to a new object.
  *
- * @param {Object} obj The object over which to iterate.
- * @param {Function} f The function to call for every element. This
+ * @param {Object<K,V>} obj The object over which to iterate.
+ * @param {function(this:T,V,?,Object<K,V>):boolean} f The function to call
+ *     for every element. This
  *     function takes 3 arguments (the element, the index and the object)
  *     and should return a boolean. If the return value is true the
  *     element is added to the result object. If it is false the
  *     element is not included.
- * @param {Object=} opt_obj This is used as the 'this' object within f.
- * @return {!Object} a new object in which only elements that passed the test
- *     are present.
+ * @param {T=} opt_obj This is used as the 'this' object within f.
+ * @return {!Object<K,V>} a new object in which only elements that passed the
+ *     test are present.
+ * @template T,K,V
  */
 goog.object.filter = function(obj, f, opt_obj) {
   var res = {};
@@ -3503,13 +5017,15 @@ goog.object.filter = function(obj, f, opt_obj) {
  * For every element in an object/map/hash calls a function and inserts the
  * result into a new object.
  *
- * @param {Object} obj The object over which to iterate.
- * @param {Function} f The function to call for every element. This function
+ * @param {Object<K,V>} obj The object over which to iterate.
+ * @param {function(this:T,V,?,Object<K,V>):R} f The function to call
+ *     for every element. This function
  *     takes 3 arguments (the element, the index and the object)
  *     and should return something. The result will be inserted
  *     into a new object.
- * @param {Object=} opt_obj This is used as the 'this' object within f.
- * @return {!Object} a new object with the results from f.
+ * @param {T=} opt_obj This is used as the 'this' object within f.
+ * @return {!Object<K,R>} a new object with the results from f.
+ * @template T,K,V,R
  */
 goog.object.map = function(obj, f, opt_obj) {
   var res = {};
@@ -3525,12 +5041,14 @@ goog.object.map = function(obj, f, opt_obj) {
  * call returns true, returns true (without checking the rest). If
  * all calls return false, returns false.
  *
- * @param {Object} obj The object to check.
- * @param {Function} f The function to call for every element. This function
+ * @param {Object<K,V>} obj The object to check.
+ * @param {function(this:T,V,?,Object<K,V>):boolean} f The function to
+ *     call for every element. This function
  *     takes 3 arguments (the element, the index and the object) and should
  *     return a boolean.
- * @param {Object=} opt_obj This is used as the 'this' object within f.
+ * @param {T=} opt_obj This is used as the 'this' object within f.
  * @return {boolean} true if any element passes the test.
+ * @template T,K,V
  */
 goog.object.some = function(obj, f, opt_obj) {
   for (var key in obj) {
@@ -3547,12 +5065,14 @@ goog.object.some = function(obj, f, opt_obj) {
  * all calls return true, returns true. If any call returns false, returns
  * false at this point and does not continue to check the remaining elements.
  *
- * @param {Object} obj The object to check.
- * @param {Function} f The function to call for every element. This function
+ * @param {Object<K,V>} obj The object to check.
+ * @param {?function(this:T,V,?,Object<K,V>):boolean} f The function to
+ *     call for every element. This function
  *     takes 3 arguments (the element, the index and the object) and should
  *     return a boolean.
- * @param {Object=} opt_obj This is used as the 'this' object within f.
+ * @param {T=} opt_obj This is used as the 'this' object within f.
  * @return {boolean} false if any element fails the test.
+ * @template T,K,V
  */
 goog.object.every = function(obj, f, opt_obj) {
   for (var key in obj) {
@@ -3603,8 +5123,9 @@ goog.object.getAnyKey = function(obj) {
  * For map literals the returned value will be the first one in most of the
  * browsers (a know exception is Konqueror).
  *
- * @param {Object} obj The object to pick a value from.
- * @return {*} The value or undefined if the object is empty.
+ * @param {Object<K,V>} obj The object to pick a value from.
+ * @return {V|undefined} The value or undefined if the object is empty.
+ * @template K,V
  */
 goog.object.getAnyValue = function(obj) {
   for (var key in obj) {
@@ -3617,9 +5138,10 @@ goog.object.getAnyValue = function(obj) {
  * Whether the object/hash/map contains the given object as a value.
  * An alias for goog.object.containsValue(obj, val).
  *
- * @param {Object} obj The object in which to look for val.
- * @param {*} val The object for which to check.
+ * @param {Object<K,V>} obj The object in which to look for val.
+ * @param {V} val The object for which to check.
  * @return {boolean} true if val is present.
+ * @template K,V
  */
 goog.object.contains = function(obj, val) {
   return goog.object.containsValue(obj, val);
@@ -3629,8 +5151,9 @@ goog.object.contains = function(obj, val) {
 /**
  * Returns the values of the object/map/hash.
  *
- * @param {Object} obj The object from which to get the values.
- * @return {!Array} The values in the object/map/hash.
+ * @param {Object<K,V>} obj The object from which to get the values.
+ * @return {!Array<V>} The values in the object/map/hash.
+ * @template K,V
  */
 goog.object.getValues = function(obj) {
   var res = [];
@@ -3646,7 +5169,7 @@ goog.object.getValues = function(obj) {
  * Returns the keys of the object/map/hash.
  *
  * @param {Object} obj The object from which to get the keys.
- * @return {!Array.<string>} Array of property keys.
+ * @return {!Array<string>} Array of property keys.
  */
 goog.object.getKeys = function(obj) {
   var res = [];
@@ -3664,8 +5187,8 @@ goog.object.getKeys = function(obj) {
  * Example usage: getValueByKeys(jsonObj, 'foo', 'entries', 3)
  *
  * @param {!Object} obj An object to get the value from.  Can be array-like.
- * @param {...(string|number|!Array.<number|string>)} var_args A number of keys
- *     (as strings, or nubmers, for array-like objects).  Can also be
+ * @param {...(string|number|!Array<number|string>)} var_args A number of keys
+ *     (as strings, or numbers, for array-like objects).  Can also be
  *     specified as a single array of keys.
  * @return {*} The resulting value.  If, at any point, the value for a key
  *     is undefined, returns undefined.
@@ -3701,9 +5224,10 @@ goog.object.containsKey = function(obj, key) {
 /**
  * Whether the object/map/hash contains the given value. This is O(n).
  *
- * @param {Object} obj The object in which to look for val.
- * @param {*} val The value for which to check.
+ * @param {Object<K,V>} obj The object in which to look for val.
+ * @param {V} val The value for which to check.
  * @return {boolean} true If the map contains the value.
+ * @template K,V
  */
 goog.object.containsValue = function(obj, val) {
   for (var key in obj) {
@@ -3718,13 +5242,14 @@ goog.object.containsValue = function(obj, val) {
 /**
  * Searches an object for an element that satisfies the given condition and
  * returns its key.
- * @param {Object} obj The object to search in.
- * @param {function(*, string, Object): boolean} f The function to call for
- *     every element. Takes 3 arguments (the value, the key and the object) and
- *     should return a boolean.
- * @param {Object=} opt_this An optional "this" context for the function.
+ * @param {Object<K,V>} obj The object to search in.
+ * @param {function(this:T,V,string,Object<K,V>):boolean} f The
+ *      function to call for every element. Takes 3 arguments (the value,
+ *     the key and the object) and should return a boolean.
+ * @param {T=} opt_this An optional "this" context for the function.
  * @return {string|undefined} The key of an element for which the function
  *     returns true or undefined if no such element is found.
+ * @template T,K,V
  */
 goog.object.findKey = function(obj, f, opt_this) {
   for (var key in obj) {
@@ -3739,13 +5264,14 @@ goog.object.findKey = function(obj, f, opt_this) {
 /**
  * Searches an object for an element that satisfies the given condition and
  * returns its value.
- * @param {Object} obj The object to search in.
- * @param {function(*, string, Object): boolean} f The function to call for
- *     every element. Takes 3 arguments (the value, the key and the object) and
- *     should return a boolean.
- * @param {Object=} opt_this An optional "this" context for the function.
- * @return {*} The value of an element for which the function returns true or
+ * @param {Object<K,V>} obj The object to search in.
+ * @param {function(this:T,V,string,Object<K,V>):boolean} f The function
+ *     to call for every element. Takes 3 arguments (the value, the key
+ *     and the object) and should return a boolean.
+ * @param {T=} opt_this An optional "this" context for the function.
+ * @return {V} The value of an element for which the function returns true or
  *     undefined if no such element is found.
+ * @template T,K,V
  */
 goog.object.findValue = function(obj, f, opt_this) {
   var key = goog.object.findKey(obj, f, opt_this);
@@ -3799,9 +5325,10 @@ goog.object.remove = function(obj, key) {
  * Adds a key-value pair to the object. Throws an exception if the key is
  * already in use. Use set if you want to change an existing pair.
  *
- * @param {Object} obj The object to which to add the key-value pair.
+ * @param {Object<K,V>} obj The object to which to add the key-value pair.
  * @param {string} key The key to add.
- * @param {*} val The value to add.
+ * @param {V} val The value to add.
+ * @template K,V
  */
 goog.object.add = function(obj, key, val) {
   if (key in obj) {
@@ -3814,11 +5341,12 @@ goog.object.add = function(obj, key, val) {
 /**
  * Returns the value for the given key.
  *
- * @param {Object} obj The object from which to get the value.
+ * @param {Object<K,V>} obj The object from which to get the value.
  * @param {string} key The key for which to get the value.
- * @param {*=} opt_val The value to return if no item is found for the given
+ * @param {R=} opt_val The value to return if no item is found for the given
  *     key (default is undefined).
- * @return {*} The value for the given key.
+ * @return {V|R|undefined} The value for the given key.
+ * @template K,V,R
  */
 goog.object.get = function(obj, key, opt_val) {
   if (key in obj) {
@@ -3831,9 +5359,10 @@ goog.object.get = function(obj, key, opt_val) {
 /**
  * Adds a key-value pair to the object/map/hash.
  *
- * @param {Object} obj The object to which to add the key-value pair.
+ * @param {Object<K,V>} obj The object to which to add the key-value pair.
  * @param {string} key The key to add.
- * @param {*} value The value to add.
+ * @param {V} value The value to add.
+ * @template K,V
  */
 goog.object.set = function(obj, key, value) {
   obj[key] = value;
@@ -3843,10 +5372,11 @@ goog.object.set = function(obj, key, value) {
 /**
  * Adds a key-value pair to the object/map/hash if it doesn't exist yet.
  *
- * @param {Object} obj The object to which to add the key-value pair.
+ * @param {Object<K,V>} obj The object to which to add the key-value pair.
  * @param {string} key The key to add.
- * @param {*} value The value to add if the key wasn't present.
- * @return {*} The value of the entry at the end of the function.
+ * @param {V} value The value to add if the key wasn't present.
+ * @return {V} The value of the entry at the end of the function.
+ * @template K,V
  */
 goog.object.setIfUndefined = function(obj, key, value) {
   return key in obj ? obj[key] : (obj[key] = value);
@@ -3854,10 +5384,59 @@ goog.object.setIfUndefined = function(obj, key, value) {
 
 
 /**
+ * Sets a key and value to an object if the key is not set. The value will be
+ * the return value of the given function. If the key already exists, the
+ * object will not be changed and the function will not be called (the function
+ * will be lazily evaluated -- only called if necessary).
+ *
+ * This function is particularly useful for use with a map used a as a cache.
+ *
+ * @param {!Object<K,V>} obj The object to which to add the key-value pair.
+ * @param {string} key The key to add.
+ * @param {function():V} f The value to add if the key wasn't present.
+ * @return {V} The value of the entry at the end of the function.
+ * @template K,V
+ */
+goog.object.setWithReturnValueIfNotSet = function(obj, key, f) {
+  if (key in obj) {
+    return obj[key];
+  }
+
+  var val = f();
+  obj[key] = val;
+  return val;
+};
+
+
+/**
+ * Compares two objects for equality using === on the values.
+ *
+ * @param {!Object<K,V>} a
+ * @param {!Object<K,V>} b
+ * @return {boolean}
+ * @template K,V
+ */
+goog.object.equals = function(a, b) {
+  for (var k in a) {
+    if (!(k in b) || a[k] !== b[k]) {
+      return false;
+    }
+  }
+  for (var k in b) {
+    if (!(k in a)) {
+      return false;
+    }
+  }
+  return true;
+};
+
+
+/**
  * Does a flat clone of the object.
  *
- * @param {Object} obj Object to clone.
- * @return {!Object} Clone of the input object.
+ * @param {Object<K,V>} obj Object to clone.
+ * @return {!Object<K,V>} Clone of the input object.
+ * @template K,V
  */
 goog.object.clone = function(obj) {
   // We cannot use the prototype trick because a lot of methods depend on where
@@ -3922,7 +5501,7 @@ goog.object.transpose = function(obj) {
 
 /**
  * The names of the fields that are defined on Object.prototype.
- * @type {Array.<string>}
+ * @type {Array<string>}
  * @private
  */
 goog.object.PROTOTYPE_FIELDS_ = [
@@ -3944,10 +5523,12 @@ goog.object.PROTOTYPE_FIELDS_ = [
  * var o = {};
  * goog.object.extend(o, {a: 0, b: 1});
  * o; // {a: 0, b: 1}
- * goog.object.extend(o, {c: 2});
- * o; // {a: 0, b: 1, c: 2}
+ * goog.object.extend(o, {b: 2, c: 3});
+ * o; // {a: 0, b: 2, c: 3}
  *
- * @param {Object} target  The object to modify.
+ * @param {Object} target The object to modify. Existing properties will be
+ *     overwritten if they are also present in one of the objects in
+ *     {@code var_args}.
  * @param {...Object} var_args The objects from which values will be copied.
  */
 goog.object.extend = function(target, var_args) {
@@ -4021,6 +5602,38 @@ goog.object.createSet = function(var_args) {
   }
   return rv;
 };
+
+
+/**
+ * Creates an immutable view of the underlying object, if the browser
+ * supports immutable objects.
+ *
+ * In default mode, writes to this view will fail silently. In strict mode,
+ * they will throw an error.
+ *
+ * @param {!Object<K,V>} obj An object.
+ * @return {!Object<K,V>} An immutable view of that object, or the
+ *     original object if this browser does not support immutables.
+ * @template K,V
+ */
+goog.object.createImmutableView = function(obj) {
+  var result = obj;
+  if (Object.isFrozen && !Object.isFrozen(obj)) {
+    result = Object.create(obj);
+    Object.freeze(result);
+  }
+  return result;
+};
+
+
+/**
+ * @param {!Object} obj An object.
+ * @return {boolean} Whether this is an immutable view of the object.
+ */
+goog.object.isImmutableView = function(obj) {
+  return !!Object.isFrozen && Object.isFrozen(obj);
+};
+
 // Copyright 2006 The Closure Library Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -4038,6 +5651,7 @@ goog.object.createSet = function(var_args) {
 /**
  * @fileoverview Utilities for manipulating arrays.
  *
+ * @author arv@google.com (Erik Arvidsson)
  */
 
 
@@ -4058,8 +5672,19 @@ goog.require('goog.asserts');
  * If your javascript can be loaded by a third party site and you are wary about
  * relying on the prototype functions, specify
  * "--define goog.NATIVE_ARRAY_PROTOTYPES=false" to the JSCompiler.
+ *
+ * Setting goog.TRUSTED_SITE to false will automatically set
+ * NATIVE_ARRAY_PROTOTYPES to false.
  */
-goog.NATIVE_ARRAY_PROTOTYPES = true;
+goog.define('goog.NATIVE_ARRAY_PROTOTYPES', goog.TRUSTED_SITE);
+
+
+/**
+ * @define {boolean} If true, JSCompiler will use the native implementation of
+ * array functions where appropriate (e.g., {@code Array#filter}) and remove the
+ * unused pure JS implementation.
+ */
+goog.define('goog.array.ASSUME_NATIVE_FUNCTIONS', false);
 
 
 /**
@@ -4070,12 +5695,24 @@ goog.array.ArrayLike;
 
 /**
  * Returns the last element in an array without removing it.
- * @param {goog.array.ArrayLike} array The array.
- * @return {*} Last item in array.
+ * Same as goog.array.last.
+ * @param {Array<T>|goog.array.ArrayLike} array The array.
+ * @return {T} Last item in array.
+ * @template T
  */
 goog.array.peek = function(array) {
   return array[array.length - 1];
 };
+
+
+/**
+ * Returns the last element in an array without removing it.
+ * Same as goog.array.peek.
+ * @param {Array<T>|goog.array.ArrayLike} array The array.
+ * @return {T} Last item in array.
+ * @template T
+ */
+goog.array.last = goog.array.peek;
 
 
 /**
@@ -4085,7 +5722,7 @@ goog.array.peek = function(array) {
 goog.array.ARRAY_PROTOTYPE_ = Array.prototype;
 
 
-// NOTE(user): Since most of the array functions are generic it allows you to
+// NOTE(arv): Since most of the array functions are generic it allows you to
 // pass an array-like object. Strings have a length and are considered array-
 // like. However, the 'in' operator does not work on strings so we cannot just
 // use the array path even if the browser supports indexing into strings. We
@@ -4093,19 +5730,21 @@ goog.array.ARRAY_PROTOTYPE_ = Array.prototype;
 
 
 /**
- * Returns the index of the first element of an array with a specified
- * value, or -1 if the element is not present in the array.
+ * Returns the index of the first element of an array with a specified value, or
+ * -1 if the element is not present in the array.
  *
  * See {@link http://tinyurl.com/developer-mozilla-org-array-indexof}
  *
- * @param {goog.array.ArrayLike} arr The array to be searched.
- * @param {*} obj The object for which we are searching.
+ * @param {Array<T>|goog.array.ArrayLike} arr The array to be searched.
+ * @param {T} obj The object for which we are searching.
  * @param {number=} opt_fromIndex The index at which to start the search. If
  *     omitted the search starts at index 0.
  * @return {number} The index of the first matching array element.
+ * @template T
  */
 goog.array.indexOf = goog.NATIVE_ARRAY_PROTOTYPES &&
-                     goog.array.ARRAY_PROTOTYPE_.indexOf ?
+                     (goog.array.ASSUME_NATIVE_FUNCTIONS ||
+                      goog.array.ARRAY_PROTOTYPE_.indexOf) ?
     function(arr, obj, opt_fromIndex) {
       goog.asserts.assert(arr.length != null);
 
@@ -4138,14 +5777,16 @@ goog.array.indexOf = goog.NATIVE_ARRAY_PROTOTYPES &&
  *
  * See {@link http://tinyurl.com/developer-mozilla-org-array-lastindexof}
  *
- * @param {goog.array.ArrayLike} arr The array to be searched.
- * @param {*} obj The object for which we are searching.
+ * @param {!Array<T>|!goog.array.ArrayLike} arr The array to be searched.
+ * @param {T} obj The object for which we are searching.
  * @param {?number=} opt_fromIndex The index at which to start the search. If
  *     omitted the search starts at the end of the array.
  * @return {number} The index of the last matching array element.
+ * @template T
  */
 goog.array.lastIndexOf = goog.NATIVE_ARRAY_PROTOTYPES &&
-                         goog.array.ARRAY_PROTOTYPE_.lastIndexOf ?
+                         (goog.array.ASSUME_NATIVE_FUNCTIONS ||
+                          goog.array.ARRAY_PROTOTYPE_.lastIndexOf) ?
     function(arr, obj, opt_fromIndex) {
       goog.asserts.assert(arr.length != null);
 
@@ -4178,23 +5819,20 @@ goog.array.lastIndexOf = goog.NATIVE_ARRAY_PROTOTYPES &&
 
 
 /**
- * Calls a function for each element in an array.
- *
+ * Calls a function for each element in an array. Skips holes in the array.
  * See {@link http://tinyurl.com/developer-mozilla-org-array-foreach}
  *
- * @param {goog.array.ArrayLike} arr Array or array like object over
+ * @param {Array<T>|goog.array.ArrayLike} arr Array or array like object over
  *     which to iterate.
- * @param {?function(this: T, ...)} f The function to call for every element.
- *     This function takes 3 arguments (the element, the index and the array).
- *     The return value is ignored. The function is called only for indexes of
- *     the array which have assigned values; it is not called for indexes which
- *     have been deleted or which have never been assigned values.
- * @param {T=} opt_obj The object to be used as the value of 'this'
- *     within f.
- * @template T
+ * @param {?function(this: S, T, number, ?): ?} f The function to call for every
+ *     element. This function takes 3 arguments (the element, the index and the
+ *     array). The return value is ignored.
+ * @param {S=} opt_obj The object to be used as the value of 'this' within f.
+ * @template T,S
  */
 goog.array.forEach = goog.NATIVE_ARRAY_PROTOTYPES &&
-                     goog.array.ARRAY_PROTOTYPE_.forEach ?
+                     (goog.array.ASSUME_NATIVE_FUNCTIONS ||
+                      goog.array.ARRAY_PROTOTYPE_.forEach) ?
     function(arr, f, opt_obj) {
       goog.asserts.assert(arr.length != null);
 
@@ -4215,12 +5853,15 @@ goog.array.forEach = goog.NATIVE_ARRAY_PROTOTYPES &&
  * Calls a function for each element in an array, starting from the last
  * element rather than the first.
  *
- * @param {goog.array.ArrayLike} arr The array over which to iterate.
- * @param {Function} f The function to call for every element. This function
+ * @param {Array<T>|goog.array.ArrayLike} arr Array or array
+ *     like object over which to iterate.
+ * @param {?function(this: S, T, number, ?): ?} f The function to call for every
+ *     element. This function
  *     takes 3 arguments (the element, the index and the array). The return
  *     value is ignored.
- * @param {Object=} opt_obj The object to be used as the value of 'this'
+ * @param {S=} opt_obj The object to be used as the value of 'this'
  *     within f.
+ * @template T,S
  */
 goog.array.forEachRight = function(arr, f, opt_obj) {
   var l = arr.length;  // must be fixed during loop... see docs
@@ -4239,18 +5880,22 @@ goog.array.forEachRight = function(arr, f, opt_obj) {
  *
  * See {@link http://tinyurl.com/developer-mozilla-org-array-filter}
  *
- * @param {goog.array.ArrayLike} arr The array over which to iterate.
- * @param {Function} f The function to call for every element. This function
+ * @param {Array<T>|goog.array.ArrayLike} arr Array or array
+ *     like object over which to iterate.
+ * @param {?function(this:S, T, number, ?):boolean} f The function to call for
+ *     every element. This function
  *     takes 3 arguments (the element, the index and the array) and must
  *     return a Boolean. If the return value is true the element is added to the
  *     result array. If it is false the element is not included.
- * @param {Object=} opt_obj The object to be used as the value of 'this'
+ * @param {S=} opt_obj The object to be used as the value of 'this'
  *     within f.
- * @return {!Array} a new array in which only elements that passed the test are
- *     present.
+ * @return {!Array<T>} a new array in which only elements that passed the test
+ *     are present.
+ * @template T,S
  */
 goog.array.filter = goog.NATIVE_ARRAY_PROTOTYPES &&
-                    goog.array.ARRAY_PROTOTYPE_.filter ?
+                    (goog.array.ASSUME_NATIVE_FUNCTIONS ||
+                     goog.array.ARRAY_PROTOTYPE_.filter) ?
     function(arr, f, opt_obj) {
       goog.asserts.assert(arr.length != null);
 
@@ -4279,16 +5924,19 @@ goog.array.filter = goog.NATIVE_ARRAY_PROTOTYPES &&
  *
  * See {@link http://tinyurl.com/developer-mozilla-org-array-map}
  *
- * @param {goog.array.ArrayLike} arr The array over which to iterate.
- * @param {Function} f The function to call for every element. This function
- *     takes 3 arguments (the element, the index and the array) and should
- *     return something. The result will be inserted into a new array.
- * @param {Object=} opt_obj The object to be used as the value of 'this'
- *     within f.
- * @return {!Array} a new array with the results from f.
+ * @param {Array<VALUE>|goog.array.ArrayLike} arr Array or array like object
+ *     over which to iterate.
+ * @param {function(this:THIS, VALUE, number, ?): RESULT} f The function to call
+ *     for every element. This function takes 3 arguments (the element,
+ *     the index and the array) and should return something. The result will be
+ *     inserted into a new array.
+ * @param {THIS=} opt_obj The object to be used as the value of 'this' within f.
+ * @return {!Array<RESULT>} a new array with the results from f.
+ * @template THIS, VALUE, RESULT
  */
 goog.array.map = goog.NATIVE_ARRAY_PROTOTYPES &&
-                 goog.array.ARRAY_PROTOTYPE_.map ?
+                 (goog.array.ASSUME_NATIVE_FUNCTIONS ||
+                  goog.array.ARRAY_PROTOTYPE_.map) ?
     function(arr, f, opt_obj) {
       goog.asserts.assert(arr.length != null);
 
@@ -4317,31 +5965,37 @@ goog.array.map = goog.NATIVE_ARRAY_PROTOTYPES &&
  * goog.array.reduce(a, function(r, v, i, arr) {return r + v;}, 0);
  * returns 10
  *
- * @param {goog.array.ArrayLike} arr The array over which to iterate.
- * @param {Function} f The function to call for every element. This function
+ * @param {Array<T>|goog.array.ArrayLike} arr Array or array
+ *     like object over which to iterate.
+ * @param {function(this:S, R, T, number, ?) : R} f The function to call for
+ *     every element. This function
  *     takes 4 arguments (the function's previous result or the initial value,
  *     the value of the current array element, the current array index, and the
  *     array itself)
  *     function(previousValue, currentValue, index, array).
- * @param {*} val The initial value to pass into the function on the first call.
- * @param {Object=} opt_obj  The object to be used as the value of 'this'
+ * @param {?} val The initial value to pass into the function on the first call.
+ * @param {S=} opt_obj  The object to be used as the value of 'this'
  *     within f.
- * @return {*} Result of evaluating f repeatedly across the values of the array.
+ * @return {R} Result of evaluating f repeatedly across the values of the array.
+ * @template T,S,R
  */
-goog.array.reduce = function(arr, f, val, opt_obj) {
-  if (arr.reduce) {
-    if (opt_obj) {
-      return arr.reduce(goog.bind(f, opt_obj), val);
-    } else {
-      return arr.reduce(f, val);
-    }
-  }
-  var rval = val;
-  goog.array.forEach(arr, function(val, index) {
-    rval = f.call(opt_obj, rval, val, index, arr);
-  });
-  return rval;
-};
+goog.array.reduce = goog.NATIVE_ARRAY_PROTOTYPES &&
+                    (goog.array.ASSUME_NATIVE_FUNCTIONS ||
+                     goog.array.ARRAY_PROTOTYPE_.reduce) ?
+    function(arr, f, val, opt_obj) {
+      goog.asserts.assert(arr.length != null);
+      if (opt_obj) {
+        f = goog.bind(f, opt_obj);
+      }
+      return goog.array.ARRAY_PROTOTYPE_.reduce.call(arr, f, val);
+    } :
+    function(arr, f, val, opt_obj) {
+      var rval = val;
+      goog.array.forEach(arr, function(val, index) {
+        rval = f.call(opt_obj, rval, val, index, arr);
+      });
+      return rval;
+    };
 
 
 /**
@@ -4355,32 +6009,38 @@ goog.array.reduce = function(arr, f, val, opt_obj) {
  * goog.array.reduceRight(a, function(r, v, i, arr) {return r + v;}, '');
  * returns 'cba'
  *
- * @param {goog.array.ArrayLike} arr The array over which to iterate.
- * @param {Function} f The function to call for every element. This function
+ * @param {Array<T>|goog.array.ArrayLike} arr Array or array
+ *     like object over which to iterate.
+ * @param {?function(this:S, R, T, number, ?) : R} f The function to call for
+ *     every element. This function
  *     takes 4 arguments (the function's previous result or the initial value,
  *     the value of the current array element, the current array index, and the
  *     array itself)
  *     function(previousValue, currentValue, index, array).
- * @param {*} val The initial value to pass into the function on the first call.
- * @param {Object=} opt_obj The object to be used as the value of 'this'
+ * @param {?} val The initial value to pass into the function on the first call.
+ * @param {S=} opt_obj The object to be used as the value of 'this'
  *     within f.
- * @return {*} Object returned as a result of evaluating f repeatedly across the
+ * @return {R} Object returned as a result of evaluating f repeatedly across the
  *     values of the array.
+ * @template T,S,R
  */
-goog.array.reduceRight = function(arr, f, val, opt_obj) {
-  if (arr.reduceRight) {
-    if (opt_obj) {
-      return arr.reduceRight(goog.bind(f, opt_obj), val);
-    } else {
-      return arr.reduceRight(f, val);
-    }
-  }
-  var rval = val;
-  goog.array.forEachRight(arr, function(val, index) {
-    rval = f.call(opt_obj, rval, val, index, arr);
-  });
-  return rval;
-};
+goog.array.reduceRight = goog.NATIVE_ARRAY_PROTOTYPES &&
+                         (goog.array.ASSUME_NATIVE_FUNCTIONS ||
+                          goog.array.ARRAY_PROTOTYPE_.reduceRight) ?
+    function(arr, f, val, opt_obj) {
+      goog.asserts.assert(arr.length != null);
+      if (opt_obj) {
+        f = goog.bind(f, opt_obj);
+      }
+      return goog.array.ARRAY_PROTOTYPE_.reduceRight.call(arr, f, val);
+    } :
+    function(arr, f, val, opt_obj) {
+      var rval = val;
+      goog.array.forEachRight(arr, function(val, index) {
+        rval = f.call(opt_obj, rval, val, index, arr);
+      });
+      return rval;
+    };
 
 
 /**
@@ -4390,16 +6050,19 @@ goog.array.reduceRight = function(arr, f, val, opt_obj) {
  *
  * See {@link http://tinyurl.com/developer-mozilla-org-array-some}
  *
- * @param {goog.array.ArrayLike} arr The array to check.
- * @param {Function} f The function to call for every element. This function
- *     takes 3 arguments (the element, the index and the array) and must
- *     return a Boolean.
- * @param {Object=} opt_obj  The object to be used as the value of 'this'
+ * @param {Array<T>|goog.array.ArrayLike} arr Array or array
+ *     like object over which to iterate.
+ * @param {?function(this:S, T, number, ?) : boolean} f The function to call for
+ *     for every element. This function takes 3 arguments (the element, the
+ *     index and the array) and should return a boolean.
+ * @param {S=} opt_obj  The object to be used as the value of 'this'
  *     within f.
  * @return {boolean} true if any element passes the test.
+ * @template T,S
  */
 goog.array.some = goog.NATIVE_ARRAY_PROTOTYPES &&
-                  goog.array.ARRAY_PROTOTYPE_.some ?
+                  (goog.array.ASSUME_NATIVE_FUNCTIONS ||
+                   goog.array.ARRAY_PROTOTYPE_.some) ?
     function(arr, f, opt_obj) {
       goog.asserts.assert(arr.length != null);
 
@@ -4424,16 +6087,19 @@ goog.array.some = goog.NATIVE_ARRAY_PROTOTYPES &&
  *
  * See {@link http://tinyurl.com/developer-mozilla-org-array-every}
  *
- * @param {goog.array.ArrayLike} arr The array to check.
- * @param {Function} f The function to call for every element. This function
- *     takes 3 arguments (the element, the index and the array) and must
- *     return a Boolean.
- * @param {Object=} opt_obj The object to be used as the value of 'this'
+ * @param {Array<T>|goog.array.ArrayLike} arr Array or array
+ *     like object over which to iterate.
+ * @param {?function(this:S, T, number, ?) : boolean} f The function to call for
+ *     for every element. This function takes 3 arguments (the element, the
+ *     index and the array) and should return a boolean.
+ * @param {S=} opt_obj The object to be used as the value of 'this'
  *     within f.
  * @return {boolean} false if any element fails the test.
+ * @template T,S
  */
 goog.array.every = goog.NATIVE_ARRAY_PROTOTYPES &&
-                   goog.array.ARRAY_PROTOTYPE_.every ?
+                   (goog.array.ASSUME_NATIVE_FUNCTIONS ||
+                    goog.array.ARRAY_PROTOTYPE_.every) ?
     function(arr, f, opt_obj) {
       goog.asserts.assert(arr.length != null);
 
@@ -4452,15 +6118,40 @@ goog.array.every = goog.NATIVE_ARRAY_PROTOTYPES &&
 
 
 /**
+ * Counts the array elements that fulfill the predicate, i.e. for which the
+ * callback function returns true. Skips holes in the array.
+ *
+ * @param {!(Array<T>|goog.array.ArrayLike)} arr Array or array like object
+ *     over which to iterate.
+ * @param {function(this: S, T, number, ?): boolean} f The function to call for
+ *     every element. Takes 3 arguments (the element, the index and the array).
+ * @param {S=} opt_obj The object to be used as the value of 'this' within f.
+ * @return {number} The number of the matching elements.
+ * @template T,S
+ */
+goog.array.count = function(arr, f, opt_obj) {
+  var count = 0;
+  goog.array.forEach(arr, function(element, index, arr) {
+    if (f.call(opt_obj, element, index, arr)) {
+      ++count;
+    }
+  }, opt_obj);
+  return count;
+};
+
+
+/**
  * Search an array for the first element that satisfies a given condition and
  * return that element.
- * @param {goog.array.ArrayLike} arr The array to search.
- * @param {Function} f The function to call for every element. This function
- *     takes 3 arguments (the element, the index and the array) and should
- *     return a boolean.
- * @param {Object=} opt_obj An optional "this" context for the function.
- * @return {*} The first array element that passes the test, or null if no
+ * @param {Array<T>|goog.array.ArrayLike} arr Array or array
+ *     like object over which to iterate.
+ * @param {?function(this:S, T, number, ?) : boolean} f The function to call
+ *     for every element. This function takes 3 arguments (the element, the
+ *     index and the array) and should return a boolean.
+ * @param {S=} opt_obj An optional "this" context for the function.
+ * @return {T|null} The first array element that passes the test, or null if no
  *     element is found.
+ * @template T,S
  */
 goog.array.find = function(arr, f, opt_obj) {
   var i = goog.array.findIndex(arr, f, opt_obj);
@@ -4471,13 +6162,16 @@ goog.array.find = function(arr, f, opt_obj) {
 /**
  * Search an array for the first element that satisfies a given condition and
  * return its index.
- * @param {goog.array.ArrayLike} arr The array to search.
- * @param {Function} f The function to call for every element. This function
+ * @param {Array<T>|goog.array.ArrayLike} arr Array or array
+ *     like object over which to iterate.
+ * @param {?function(this:S, T, number, ?) : boolean} f The function to call for
+ *     every element. This function
  *     takes 3 arguments (the element, the index and the array) and should
  *     return a boolean.
- * @param {Object=} opt_obj An optional "this" context for the function.
+ * @param {S=} opt_obj An optional "this" context for the function.
  * @return {number} The index of the first array element that passes the test,
  *     or -1 if no element is found.
+ * @template T,S
  */
 goog.array.findIndex = function(arr, f, opt_obj) {
   var l = arr.length;  // must be fixed during loop... see docs
@@ -4494,13 +6188,16 @@ goog.array.findIndex = function(arr, f, opt_obj) {
 /**
  * Search an array (in reverse order) for the last element that satisfies a
  * given condition and return that element.
- * @param {goog.array.ArrayLike} arr The array to search.
- * @param {Function} f The function to call for every element. This function
+ * @param {Array<T>|goog.array.ArrayLike} arr Array or array
+ *     like object over which to iterate.
+ * @param {?function(this:S, T, number, ?) : boolean} f The function to call
+ *     for every element. This function
  *     takes 3 arguments (the element, the index and the array) and should
  *     return a boolean.
- * @param {Object=} opt_obj An optional "this" context for the function.
- * @return {*} The last array element that passes the test, or null if no
+ * @param {S=} opt_obj An optional "this" context for the function.
+ * @return {T|null} The last array element that passes the test, or null if no
  *     element is found.
+ * @template T,S
  */
 goog.array.findRight = function(arr, f, opt_obj) {
   var i = goog.array.findIndexRight(arr, f, opt_obj);
@@ -4511,13 +6208,16 @@ goog.array.findRight = function(arr, f, opt_obj) {
 /**
  * Search an array (in reverse order) for the last element that satisfies a
  * given condition and return its index.
- * @param {goog.array.ArrayLike} arr The array to search.
- * @param {Function} f The function to call for every element. This function
+ * @param {Array<T>|goog.array.ArrayLike} arr Array or array
+ *     like object over which to iterate.
+ * @param {?function(this:S, T, number, ?) : boolean} f The function to call
+ *     for every element. This function
  *     takes 3 arguments (the element, the index and the array) and should
  *     return a boolean.
- * @param {Object=} opt_obj An optional "this" context for the function.
+ * @param {S=} opt_obj An optional "this" context for the function.
  * @return {number} The index of the last array element that passes the test,
  *     or -1 if no element is found.
+ * @template T,S
  */
 goog.array.findIndexRight = function(arr, f, opt_obj) {
   var l = arr.length;  // must be fixed during loop... see docs
@@ -4571,8 +6271,9 @@ goog.array.clear = function(arr) {
 
 /**
  * Pushes an item into an array, if it's not already in the array.
- * @param {Array} arr Array into which to insert the item.
- * @param {*} obj Value to add.
+ * @param {Array<T>} arr Array into which to insert the item.
+ * @param {T} obj Value to add.
+ * @template T
  */
 goog.array.insert = function(arr, obj) {
   if (!goog.array.contains(arr, obj)) {
@@ -4607,10 +6308,11 @@ goog.array.insertArrayAt = function(arr, elementsToAdd, opt_i) {
 
 /**
  * Inserts an object into an array before a specified object.
- * @param {Array} arr The array to modify.
- * @param {*} obj The object to insert.
- * @param {*=} opt_obj2 The object before which obj should be inserted. If obj2
+ * @param {Array<T>} arr The array to modify.
+ * @param {T} obj The object to insert.
+ * @param {T=} opt_obj2 The object before which obj should be inserted. If obj2
  *     is omitted or not found, obj is inserted at the end of the array.
+ * @template T
  */
 goog.array.insertBefore = function(arr, obj, opt_obj2) {
   var i;
@@ -4624,9 +6326,11 @@ goog.array.insertBefore = function(arr, obj, opt_obj2) {
 
 /**
  * Removes the first occurrence of a particular value from an array.
- * @param {goog.array.ArrayLike} arr Array from which to remove value.
- * @param {*} obj Object to remove.
+ * @param {Array<T>|goog.array.ArrayLike} arr Array from which to remove
+ *     value.
+ * @param {T} obj Object to remove.
  * @return {boolean} True if an element was removed.
+ * @template T
  */
 goog.array.remove = function(arr, obj) {
   var i = goog.array.indexOf(arr, obj);
@@ -4657,12 +6361,15 @@ goog.array.removeAt = function(arr, i) {
 
 /**
  * Removes the first value that satisfies the given condition.
- * @param {goog.array.ArrayLike} arr Array from which to remove value.
- * @param {Function} f The function to call for every element. This function
+ * @param {Array<T>|goog.array.ArrayLike} arr Array or array
+ *     like object over which to iterate.
+ * @param {?function(this:S, T, number, ?) : boolean} f The function to call
+ *     for every element. This function
  *     takes 3 arguments (the element, the index and the array) and should
  *     return a boolean.
- * @param {Object=} opt_obj An optional "this" context for the function.
+ * @param {S=} opt_obj An optional "this" context for the function.
  * @return {boolean} True if an element was removed.
+ * @template T,S
  */
 goog.array.removeIf = function(arr, f, opt_obj) {
   var i = goog.array.findIndex(arr, f, opt_obj);
@@ -4671,6 +6378,31 @@ goog.array.removeIf = function(arr, f, opt_obj) {
     return true;
   }
   return false;
+};
+
+
+/**
+ * Removes all values that satisfy the given condition.
+ * @param {Array<T>|goog.array.ArrayLike} arr Array or array
+ *     like object over which to iterate.
+ * @param {?function(this:S, T, number, ?) : boolean} f The function to call
+ *     for every element. This function
+ *     takes 3 arguments (the element, the index and the array) and should
+ *     return a boolean.
+ * @param {S=} opt_obj An optional "this" context for the function.
+ * @return {number} The number of items removed
+ * @template T,S
+ */
+goog.array.removeAllIf = function(arr, f, opt_obj) {
+  var removedCount = 0;
+  goog.array.forEachRight(arr, function(val, index) {
+    if (f.call(opt_obj, val, index, arr)) {
+      if (goog.array.removeAt(arr, index)) {
+        removedCount++;
+      }
+    }
+  });
+  return removedCount;
 };
 
 
@@ -4699,7 +6431,7 @@ goog.array.removeIf = function(arr, f, opt_obj) {
  *
  * @param {...*} var_args Items to concatenate.  Arrays will have each item
  *     added, while primitives and objects will be added as is.
- * @return {!Array} The new resultant array.
+ * @return {!Array<?>} The new resultant array.
  */
 goog.array.concat = function(var_args) {
   return goog.array.ARRAY_PROTOTYPE_.concat.apply(
@@ -4708,42 +6440,52 @@ goog.array.concat = function(var_args) {
 
 
 /**
- * Does a shallow copy of an array.
- * @param {goog.array.ArrayLike} arr  Array or array-like object to clone.
- * @return {!Array} Clone of the input array.
+ * Returns a new array that contains the contents of all the arrays passed.
+ * @param {...!Array<T>} var_args
+ * @return {!Array<T>}
+ * @template T
  */
-goog.array.clone = function(arr) {
-  if (goog.isArray(arr)) {
-    return goog.array.concat(/** @type {!Array} */ (arr));
-  } else { // array like
-    // Concat does not work with non arrays.
-    var rv = [];
-    for (var i = 0, len = arr.length; i < len; i++) {
-      rv[i] = arr[i];
-    }
-    return rv;
-  }
+goog.array.join = function(var_args) {
+  return goog.array.ARRAY_PROTOTYPE_.concat.apply(
+      goog.array.ARRAY_PROTOTYPE_, arguments);
 };
 
 
 /**
  * Converts an object to an array.
- * @param {goog.array.ArrayLike} object  The object to convert to an array.
- * @return {!Array} The object converted into an array. If object has a
+ * @param {Array<T>|goog.array.ArrayLike} object  The object to convert to an
+ *     array.
+ * @return {!Array<T>} The object converted into an array. If object has a
  *     length property, every property indexed with a non-negative number
  *     less than length will be included in the result. If object does not
  *     have a length property, an empty array will be returned.
+ * @template T
  */
 goog.array.toArray = function(object) {
-  if (goog.isArray(object)) {
-    // This fixes the JS compiler warning and forces the Object to an Array type
-    return goog.array.concat(/** @type {!Array} */ (object));
+  var length = object.length;
+
+  // If length is not a number the following it false. This case is kept for
+  // backwards compatibility since there are callers that pass objects that are
+  // not array like.
+  if (length > 0) {
+    var rv = new Array(length);
+    for (var i = 0; i < length; i++) {
+      rv[i] = object[i];
+    }
+    return rv;
   }
-  // Clone what we hope to be an array-like object to an array.
-  // We could check isArrayLike() first, but no check we perform would be as
-  // reliable as simply making the call.
-  return goog.array.clone(/** @type {Array} */ (object));
+  return [];
 };
+
+
+/**
+ * Does a shallow copy of an array.
+ * @param {Array<T>|goog.array.ArrayLike} arr  Array or array-like object to
+ *     clone.
+ * @return {!Array<T>} Clone of the input array.
+ * @template T
+ */
+goog.array.clone = goog.array.toArray;
 
 
 /**
@@ -4757,29 +6499,18 @@ goog.array.toArray = function(object) {
  * goog.array.extend(a, 2);
  * a; // [0, 1, 2]
  *
- * @param {Array} arr1  The array to modify.
- * @param {...*} var_args The elements or arrays of elements to add to arr1.
+ * @param {Array<VALUE>} arr1  The array to modify.
+ * @param {...(Array<VALUE>|VALUE)} var_args The elements or arrays of elements
+ *     to add to arr1.
+ * @template VALUE
  */
 goog.array.extend = function(arr1, var_args) {
   for (var i = 1; i < arguments.length; i++) {
     var arr2 = arguments[i];
-    // If we have an Array or an Arguments object we can just call push
-    // directly.
-    var isArrayLike;
-    if (goog.isArray(arr2) ||
-        // Detect Arguments. ES5 says that the [[Class]] of an Arguments object
-        // is "Arguments" but only V8 and JSC/Safari gets this right. We instead
-        // detect Arguments by checking for array like and presence of "callee".
-        (isArrayLike = goog.isArrayLike(arr2)) &&
-            // The getter for callee throws an exception in strict mode
-            // according to section 10.6 in ES5 so check for presence instead.
-            arr2.hasOwnProperty('callee')) {
-      arr1.push.apply(arr1, arr2);
-
-    } else if (isArrayLike) {
-      // Otherwise loop over arr2 to prevent copying the object.
-      var len1 = arr1.length;
-      var len2 = arr2.length;
+    if (goog.isArrayLike(arr2)) {
+      var len1 = arr1.length || 0;
+      var len2 = arr2.length || 0;
+      arr1.length = len1 + len2;
       for (var j = 0; j < len2; j++) {
         arr1[len1 + j] = arr2[j];
       }
@@ -4795,15 +6526,16 @@ goog.array.extend = function(arr1, var_args) {
  * splice. This means that it might work on other objects similar to arrays,
  * such as the arguments object.
  *
- * @param {goog.array.ArrayLike} arr The array to modify.
+ * @param {Array<T>|goog.array.ArrayLike} arr The array to modify.
  * @param {number|undefined} index The index at which to start changing the
  *     array. If not defined, treated as 0.
  * @param {number} howMany How many elements to remove (0 means no removal. A
  *     value below 0 is treated as zero and so is any other non number. Numbers
  *     are floored).
- * @param {...*} var_args Optional, additional elements to insert into the
+ * @param {...T} var_args Optional, additional elements to insert into the
  *     array.
- * @return {!Array} the removed elements.
+ * @return {!Array<T>} the removed elements.
+ * @template T
  */
 goog.array.splice = function(arr, index, howMany, var_args) {
   goog.asserts.assert(arr.length != null);
@@ -4818,11 +6550,13 @@ goog.array.splice = function(arr, index, howMany, var_args) {
  * Array slice. This means that it might work on other objects similar to
  * arrays, such as the arguments object.
  *
- * @param {goog.array.ArrayLike} arr The array from which to copy a segment.
+ * @param {Array<T>|goog.array.ArrayLike} arr The array from
+ * which to copy a segment.
  * @param {number} start The index of the first element to copy.
  * @param {number=} opt_end The index after the last element to copy.
- * @return {!Array} A new array containing the specified segment of the original
- *     array.
+ * @return {!Array<T>} A new array containing the specified segment of the
+ *     original array.
+ * @template T
  */
 goog.array.slice = function(arr, start, opt_end) {
   goog.asserts.assert(arr.length != null);
@@ -4847,27 +6581,36 @@ goog.array.slice = function(arr, start, opt_end) {
  * For objects, duplicates are identified as having the same unique ID as
  * defined by {@link goog.getUid}.
  *
+ * Alternatively you can specify a custom hash function that returns a unique
+ * value for each item in the array it should consider unique.
+ *
  * Runtime: N,
  * Worstcase space: 2N (no dupes)
  *
- * @param {goog.array.ArrayLike} arr The array from which to remove duplicates.
+ * @param {Array<T>|goog.array.ArrayLike} arr The array from which to remove
+ *     duplicates.
  * @param {Array=} opt_rv An optional array in which to return the results,
  *     instead of performing the removal inplace.  If specified, the original
  *     array will remain unchanged.
+ * @param {function(T):string=} opt_hashFn An optional function to use to
+ *     apply to every item in the array. This function should return a unique
+ *     value for each item in the array it should consider unique.
+ * @template T
  */
-goog.array.removeDuplicates = function(arr, opt_rv) {
+goog.array.removeDuplicates = function(arr, opt_rv, opt_hashFn) {
   var returnArray = opt_rv || arr;
+  var defaultHashFn = function(item) {
+    // Prefix each type with a single character representing the type to
+    // prevent conflicting keys (e.g. true and 'true').
+    return goog.isObject(current) ? 'o' + goog.getUid(current) :
+        (typeof current).charAt(0) + current;
+  };
+  var hashFn = opt_hashFn || defaultHashFn;
 
   var seen = {}, cursorInsert = 0, cursorRead = 0;
   while (cursorRead < arr.length) {
     var current = arr[cursorRead++];
-
-    // Prefix each type with a single character representing the type to
-    // prevent conflicting keys (e.g. true and 'true').
-    var key = goog.isObject(current) ?
-        'o' + goog.getUid(current) :
-        (typeof current).charAt(0) + current;
-
+    var key = hashFn(current);
     if (!Object.prototype.hasOwnProperty.call(seen, key)) {
       seen[key] = true;
       returnArray[cursorInsert++] = current;
@@ -4890,16 +6633,18 @@ goog.array.removeDuplicates = function(arr, opt_rv) {
  *
  * Runtime: O(log n)
  *
- * @param {goog.array.ArrayLike} arr The array to be searched.
- * @param {*} target The sought value.
- * @param {Function=} opt_compareFn Optional comparison function by which the
- *     array is ordered. Should take 2 arguments to compare, and return a
- *     negative number, zero, or a positive number depending on whether the
- *     first argument is less than, equal to, or greater than the second.
+ * @param {Array<VALUE>|goog.array.ArrayLike} arr The array to be searched.
+ * @param {TARGET} target The sought value.
+ * @param {function(TARGET, VALUE): number=} opt_compareFn Optional comparison
+ *     function by which the array is ordered. Should take 2 arguments to
+ *     compare, and return a negative number, zero, or a positive number
+ *     depending on whether the first argument is less than, equal to, or
+ *     greater than the second.
  * @return {number} Lowest index of the target value if found, otherwise
  *     (-(insertion point) - 1). The insertion point is where the value should
  *     be inserted into arr to preserve the sorted property.  Return value >= 0
  *     iff target is found.
+ * @template TARGET, VALUE
  */
 goog.array.binarySearch = function(arr, target, opt_compareFn) {
   return goog.array.binarySearch_(arr,
@@ -4917,18 +6662,20 @@ goog.array.binarySearch = function(arr, target, opt_compareFn) {
  *
  * Runtime: O(log n)
  *
- * @param {goog.array.ArrayLike} arr The array to be searched.
- * @param {Function} evaluator Evaluator function that receives 3 arguments
- *     (the element, the index and the array). Should return a negative number,
- *     zero, or a positive number depending on whether the desired index is
- *     before, at, or after the element passed to it.
- * @param {Object=} opt_obj The object to be used as the value of 'this'
+ * @param {Array<VALUE>|goog.array.ArrayLike} arr The array to be searched.
+ * @param {function(this:THIS, VALUE, number, ?): number} evaluator
+ *     Evaluator function that receives 3 arguments (the element, the index and
+ *     the array). Should return a negative number, zero, or a positive number
+ *     depending on whether the desired index is before, at, or after the
+ *     element passed to it.
+ * @param {THIS=} opt_obj The object to be used as the value of 'this'
  *     within evaluator.
  * @return {number} Index of the leftmost element matched by the evaluator, if
  *     such exists; otherwise (-(insertion point) - 1). The insertion point is
  *     the index of the first element for which the evaluator returns negative,
  *     or arr.length if no such element exists. The return value is non-negative
  *     iff a match is found.
+ * @template THIS, VALUE
  */
 goog.array.binarySelect = function(arr, evaluator, opt_obj) {
   return goog.array.binarySearch_(arr, evaluator, true /* isEvaluator */,
@@ -4948,19 +6695,22 @@ goog.array.binarySelect = function(arr, evaluator, opt_obj) {
  *
  * Runtime: O(log n)
  *
- * @param {goog.array.ArrayLike} arr The array to be searched.
- * @param {Function} compareFn Either an evaluator or a comparison function,
- *     as defined by binarySearch and binarySelect above.
+ * @param {Array<VALUE>|goog.array.ArrayLike} arr The array to be searched.
+ * @param {function(TARGET, VALUE): number|
+ *         function(this:THIS, VALUE, number, ?): number} compareFn Either an
+ *     evaluator or a comparison function, as defined by binarySearch
+ *     and binarySelect above.
  * @param {boolean} isEvaluator Whether the function is an evaluator or a
  *     comparison function.
- * @param {*=} opt_target If the function is a comparison function, then this is
- *     the target to binary search for.
- * @param {Object=} opt_selfObj If the function is an evaluator, this is an
+ * @param {TARGET=} opt_target If the function is a comparison function, then
+ *     this is the target to binary search for.
+ * @param {THIS=} opt_selfObj If the function is an evaluator, this is an
   *    optional this object for the evaluator.
  * @return {number} Lowest index of the target value if found, otherwise
  *     (-(insertion point) - 1). The insertion point is where the value should
  *     be inserted into arr to preserve the sorted property.  Return value >= 0
  *     iff target is found.
+ * @template THIS, VALUE, TARGET
  * @private
  */
 goog.array.binarySearch_ = function(arr, compareFn, isEvaluator, opt_target,
@@ -5003,18 +6753,17 @@ goog.array.binarySearch_ = function(arr, compareFn, isEvaluator, opt_target,
  *
  * Runtime: Same as <code>Array.prototype.sort</code>
  *
- * @param {Array} arr The array to be sorted.
- * @param {Function=} opt_compareFn Optional comparison function by which the
+ * @param {Array<T>} arr The array to be sorted.
+ * @param {?function(T,T):number=} opt_compareFn Optional comparison
+ *     function by which the
  *     array is to be ordered. Should take 2 arguments to compare, and return a
  *     negative number, zero, or a positive number depending on whether the
  *     first argument is less than, equal to, or greater than the second.
+ * @template T
  */
 goog.array.sort = function(arr, opt_compareFn) {
-  // TODO(user): Update type annotation since null is not accepted.
-  goog.asserts.assert(arr.length != null);
-
-  goog.array.ARRAY_PROTOTYPE_.sort.call(
-      arr, opt_compareFn || goog.array.defaultCompare);
+  // TODO(arv): Update type annotation since null is not accepted.
+  arr.sort(opt_compareFn || goog.array.defaultCompare);
 };
 
 
@@ -5028,12 +6777,13 @@ goog.array.sort = function(arr, opt_compareFn) {
  * Runtime: Same as <code>Array.prototype.sort</code>, plus an additional
  * O(n) overhead of copying the array twice.
  *
- * @param {Array} arr The array to be sorted.
- * @param {function(*, *): number=} opt_compareFn Optional comparison function
+ * @param {Array<T>} arr The array to be sorted.
+ * @param {?function(T, T): number=} opt_compareFn Optional comparison function
  *     by which the array is to be ordered. Should take 2 arguments to compare,
  *     and return a negative number, zero, or a positive number depending on
  *     whether the first argument is less than, equal to, or greater than the
  *     second.
+ * @template T
  */
 goog.array.stableSort = function(arr, opt_compareFn) {
   for (var i = 0; i < arr.length; i++) {
@@ -5051,33 +6801,62 @@ goog.array.stableSort = function(arr, opt_compareFn) {
 
 
 /**
- * Sorts an array of objects by the specified object key and compare
- * function. If no compare function is provided, the key values are
- * compared in ascending order using <code>goog.array.defaultCompare</code>.
- * This won't work for keys that get renamed by the compiler. So use
- * {'foo': 1, 'bar': 2} rather than {foo: 1, bar: 2}.
- * @param {Array.<Object>} arr An array of objects to sort.
- * @param {string} key The object key to sort by.
- * @param {Function=} opt_compareFn The function to use to compare key
- *     values.
+ * Sort the specified array into ascending order based on item keys
+ * returned by the specified key function.
+ * If no opt_compareFn is specified, the keys are compared in ascending order
+ * using <code>goog.array.defaultCompare</code>.
+ *
+ * Runtime: O(S(f(n)), where S is runtime of <code>goog.array.sort</code>
+ * and f(n) is runtime of the key function.
+ *
+ * @param {Array<T>} arr The array to be sorted.
+ * @param {function(T): K} keyFn Function taking array element and returning
+ *     a key used for sorting this element.
+ * @param {?function(K, K): number=} opt_compareFn Optional comparison function
+ *     by which the keys are to be ordered. Should take 2 arguments to compare,
+ *     and return a negative number, zero, or a positive number depending on
+ *     whether the first argument is less than, equal to, or greater than the
+ *     second.
+ * @template T
+ * @template K
  */
-goog.array.sortObjectsByKey = function(arr, key, opt_compareFn) {
-  var compare = opt_compareFn || goog.array.defaultCompare;
+goog.array.sortByKey = function(arr, keyFn, opt_compareFn) {
+  var keyCompareFn = opt_compareFn || goog.array.defaultCompare;
   goog.array.sort(arr, function(a, b) {
-    return compare(a[key], b[key]);
+    return keyCompareFn(keyFn(a), keyFn(b));
   });
 };
 
 
 /**
+ * Sorts an array of objects by the specified object key and compare
+ * function. If no compare function is provided, the key values are
+ * compared in ascending order using <code>goog.array.defaultCompare</code>.
+ * This won't work for keys that get renamed by the compiler. So use
+ * {'foo': 1, 'bar': 2} rather than {foo: 1, bar: 2}.
+ * @param {Array<Object>} arr An array of objects to sort.
+ * @param {string} key The object key to sort by.
+ * @param {Function=} opt_compareFn The function to use to compare key
+ *     values.
+ */
+goog.array.sortObjectsByKey = function(arr, key, opt_compareFn) {
+  goog.array.sortByKey(arr,
+      function(obj) { return obj[key]; },
+      opt_compareFn);
+};
+
+
+/**
  * Tells if the array is sorted.
- * @param {!Array} arr The array.
- * @param {Function=} opt_compareFn Function to compare the array elements.
+ * @param {!Array<T>} arr The array.
+ * @param {?function(T,T):number=} opt_compareFn Function to compare the
+ *     array elements.
  *     Should take 2 arguments to compare, and return a negative number, zero,
  *     or a positive number depending on whether the first argument is less
  *     than, equal to, or greater than the second.
  * @param {boolean=} opt_strict If true no equal elements are allowed.
  * @return {boolean} Whether the array is sorted.
+ * @template T
  */
 goog.array.isSorted = function(arr, opt_compareFn, opt_strict) {
   var compare = opt_compareFn || goog.array.defaultCompare;
@@ -5121,29 +6900,20 @@ goog.array.equals = function(arr1, arr2, opt_equalsFn) {
 
 
 /**
- * @deprecated Use {@link goog.array.equals}.
- * @param {goog.array.ArrayLike} arr1 See {@link goog.array.equals}.
- * @param {goog.array.ArrayLike} arr2 See {@link goog.array.equals}.
- * @param {Function=} opt_equalsFn See {@link goog.array.equals}.
- * @return {boolean} See {@link goog.array.equals}.
- */
-goog.array.compare = function(arr1, arr2, opt_equalsFn) {
-  return goog.array.equals(arr1, arr2, opt_equalsFn);
-};
-
-
-/**
  * 3-way array compare function.
- * @param {!goog.array.ArrayLike} arr1 The first array to compare.
- * @param {!goog.array.ArrayLike} arr2 The second array to compare.
- * @param {(function(*, *): number)=} opt_compareFn Optional comparison function
- *     by which the array is to be ordered. Should take 2 arguments to compare,
- *     and return a negative number, zero, or a positive number depending on
- *     whether the first argument is less than, equal to, or greater than the
- *     second.
+ * @param {!Array<VALUE>|!goog.array.ArrayLike} arr1 The first array to
+ *     compare.
+ * @param {!Array<VALUE>|!goog.array.ArrayLike} arr2 The second array to
+ *     compare.
+ * @param {function(VALUE, VALUE): number=} opt_compareFn Optional comparison
+ *     function by which the array is to be ordered. Should take 2 arguments to
+ *     compare, and return a negative number, zero, or a positive number
+ *     depending on whether the first argument is less than, equal to, or
+ *     greater than the second.
  * @return {number} Negative number, zero, or a positive number depending on
  *     whether the first argument is less than, equal to, or greater than the
  *     second.
+ * @template VALUE
  */
 goog.array.compare3 = function(arr1, arr2, opt_compareFn) {
   var compare = opt_compareFn || goog.array.defaultCompare;
@@ -5161,13 +6931,30 @@ goog.array.compare3 = function(arr1, arr2, opt_compareFn) {
 /**
  * Compares its two arguments for order, using the built in < and >
  * operators.
- * @param {*} a The first object to be compared.
- * @param {*} b The second object to be compared.
+ * @param {VALUE} a The first object to be compared.
+ * @param {VALUE} b The second object to be compared.
  * @return {number} A negative number, zero, or a positive number as the first
- *     argument is less than, equal to, or greater than the second.
+ *     argument is less than, equal to, or greater than the second,
+ *     respectively.
+ * @template VALUE
  */
 goog.array.defaultCompare = function(a, b) {
   return a > b ? 1 : a < b ? -1 : 0;
+};
+
+
+/**
+ * Compares its two arguments for inverse order, using the built in < and >
+ * operators.
+ * @param {VALUE} a The first object to be compared.
+ * @param {VALUE} b The second object to be compared.
+ * @return {number} A negative number, zero, or a positive number as the first
+ *     argument is greater than, equal to, or less than the second,
+ *     respectively.
+ * @template VALUE
+ */
+goog.array.inverseDefaultCompare = function(a, b) {
+  return -goog.array.defaultCompare(a, b);
 };
 
 
@@ -5185,13 +6972,15 @@ goog.array.defaultCompareEquality = function(a, b) {
 /**
  * Inserts a value into a sorted array. The array is not modified if the
  * value is already present.
- * @param {Array} array The array to modify.
- * @param {*} value The object to insert.
- * @param {Function=} opt_compareFn Optional comparison function by which the
- *     array is ordered. Should take 2 arguments to compare, and return a
- *     negative number, zero, or a positive number depending on whether the
- *     first argument is less than, equal to, or greater than the second.
+ * @param {Array<VALUE>|goog.array.ArrayLike} array The array to modify.
+ * @param {VALUE} value The object to insert.
+ * @param {function(VALUE, VALUE): number=} opt_compareFn Optional comparison
+ *     function by which the array is ordered. Should take 2 arguments to
+ *     compare, and return a negative number, zero, or a positive number
+ *     depending on whether the first argument is less than, equal to, or
+ *     greater than the second.
  * @return {boolean} True if an element was inserted.
+ * @template VALUE
  */
 goog.array.binaryInsert = function(array, value, opt_compareFn) {
   var index = goog.array.binarySearch(array, value, opt_compareFn);
@@ -5205,13 +6994,15 @@ goog.array.binaryInsert = function(array, value, opt_compareFn) {
 
 /**
  * Removes a value from a sorted array.
- * @param {Array} array The array to modify.
- * @param {*} value The object to remove.
- * @param {Function=} opt_compareFn Optional comparison function by which the
- *     array is ordered. Should take 2 arguments to compare, and return a
- *     negative number, zero, or a positive number depending on whether the
- *     first argument is less than, equal to, or greater than the second.
+ * @param {!Array<VALUE>|!goog.array.ArrayLike} array The array to modify.
+ * @param {VALUE} value The object to remove.
+ * @param {function(VALUE, VALUE): number=} opt_compareFn Optional comparison
+ *     function by which the array is ordered. Should take 2 arguments to
+ *     compare, and return a negative number, zero, or a positive number
+ *     depending on whether the first argument is less than, equal to, or
+ *     greater than the second.
  * @return {boolean} True if an element was removed.
+ * @template VALUE
  */
 goog.array.binaryRemove = function(array, value, opt_compareFn) {
   var index = goog.array.binarySearch(array, value, opt_compareFn);
@@ -5221,21 +7012,24 @@ goog.array.binaryRemove = function(array, value, opt_compareFn) {
 
 /**
  * Splits an array into disjoint buckets according to a splitting function.
- * @param {Array} array The array.
- * @param {Function} sorter Function to call for every element.  This
- *     takes 3 arguments (the element, the index and the array) and must
- *     return a valid object key (a string, number, etc), or undefined, if
- *     that object should not be placed in a bucket.
+ * @param {Array<T>} array The array.
+ * @param {function(this:S, T,number,Array<T>):?} sorter Function to call for
+ *     every element.  This takes 3 arguments (the element, the index and the
+ *     array) and must return a valid object key (a string, number, etc), or
+ *     undefined, if that object should not be placed in a bucket.
+ * @param {S=} opt_obj The object to be used as the value of 'this' within
+ *     sorter.
  * @return {!Object} An object, with keys being all of the unique return values
  *     of sorter, and values being arrays containing the items for
  *     which the splitter returned that key.
+ * @template T,S
  */
-goog.array.bucket = function(array, sorter) {
+goog.array.bucket = function(array, sorter, opt_obj) {
   var buckets = {};
 
   for (var i = 0; i < array.length; i++) {
     var value = array[i];
-    var key = sorter(value, i, array);
+    var key = sorter.call(opt_obj, value, i, array);
     if (goog.isDef(key)) {
       // Push the value to the right bucket, creating it if necessary.
       var bucket = buckets[key] || (buckets[key] = []);
@@ -5248,11 +7042,85 @@ goog.array.bucket = function(array, sorter) {
 
 
 /**
+ * Creates a new object built from the provided array and the key-generation
+ * function.
+ * @param {Array<T>|goog.array.ArrayLike} arr Array or array like object over
+ *     which to iterate whose elements will be the values in the new object.
+ * @param {?function(this:S, T, number, ?) : string} keyFunc The function to
+ *     call for every element. This function takes 3 arguments (the element, the
+ *     index and the array) and should return a string that will be used as the
+ *     key for the element in the new object. If the function returns the same
+ *     key for more than one element, the value for that key is
+ *     implementation-defined.
+ * @param {S=} opt_obj The object to be used as the value of 'this'
+ *     within keyFunc.
+ * @return {!Object<T>} The new object.
+ * @template T,S
+ */
+goog.array.toObject = function(arr, keyFunc, opt_obj) {
+  var ret = {};
+  goog.array.forEach(arr, function(element, index) {
+    ret[keyFunc.call(opt_obj, element, index, arr)] = element;
+  });
+  return ret;
+};
+
+
+/**
+ * Creates a range of numbers in an arithmetic progression.
+ *
+ * Range takes 1, 2, or 3 arguments:
+ * <pre>
+ * range(5) is the same as range(0, 5, 1) and produces [0, 1, 2, 3, 4]
+ * range(2, 5) is the same as range(2, 5, 1) and produces [2, 3, 4]
+ * range(-2, -5, -1) produces [-2, -3, -4]
+ * range(-2, -5, 1) produces [], since stepping by 1 wouldn't ever reach -5.
+ * </pre>
+ *
+ * @param {number} startOrEnd The starting value of the range if an end argument
+ *     is provided. Otherwise, the start value is 0, and this is the end value.
+ * @param {number=} opt_end The optional end value of the range.
+ * @param {number=} opt_step The step size between range values. Defaults to 1
+ *     if opt_step is undefined or 0.
+ * @return {!Array<number>} An array of numbers for the requested range. May be
+ *     an empty array if adding the step would not converge toward the end
+ *     value.
+ */
+goog.array.range = function(startOrEnd, opt_end, opt_step) {
+  var array = [];
+  var start = 0;
+  var end = startOrEnd;
+  var step = opt_step || 1;
+  if (opt_end !== undefined) {
+    start = startOrEnd;
+    end = opt_end;
+  }
+
+  if (step * (end - start) < 0) {
+    // Sign mismatch: start + step will never reach the end value.
+    return [];
+  }
+
+  if (step > 0) {
+    for (var i = start; i < end; i += step) {
+      array.push(i);
+    }
+  } else {
+    for (var i = start; i > end; i += step) {
+      array.push(i);
+    }
+  }
+  return array;
+};
+
+
+/**
  * Returns an array consisting of the given value repeated N times.
  *
- * @param {*} value The value to repeat.
+ * @param {VALUE} value The value to repeat.
  * @param {number} n The repeat count.
- * @return {!Array.<*>} An array with the repeated value.
+ * @return {!Array<VALUE>} An array with the repeated value.
+ * @template VALUE
  */
 goog.array.repeat = function(value, n) {
   var array = [];
@@ -5268,14 +7136,22 @@ goog.array.repeat = function(value, n) {
  * expanded in-place recursively.
  *
  * @param {...*} var_args The values to flatten.
- * @return {!Array.<*>} An array containing the flattened values.
+ * @return {!Array<?>} An array containing the flattened values.
  */
 goog.array.flatten = function(var_args) {
+  var CHUNK_SIZE = 8192;
+
   var result = [];
   for (var i = 0; i < arguments.length; i++) {
     var element = arguments[i];
     if (goog.isArray(element)) {
-      result.push.apply(result, goog.array.flatten.apply(null, element));
+      for (var c = 0; c < element.length; c += CHUNK_SIZE) {
+        var chunk = goog.array.slice(element, c, c + CHUNK_SIZE);
+        var recurseResult = goog.array.flatten.apply(null, chunk);
+        for (var r = 0; r < recurseResult.length; r++) {
+          result.push(recurseResult[r]);
+        }
+      }
     } else {
       result.push(element);
     }
@@ -5293,9 +7169,10 @@ goog.array.flatten = function(var_args) {
  * For example, suppose list comprises [t, a, n, k, s]. After invoking
  * rotate(array, 1) (or rotate(array, -4)), array will comprise [s, t, a, n, k].
  *
- * @param {!Array.<*>} array The array to rotate.
+ * @param {!Array<T>} array The array to rotate.
  * @param {number} n The amount to rotate.
- * @return {!Array.<*>} The array.
+ * @return {!Array<T>} The array.
+ * @template T
  */
 goog.array.rotate = function(array, n) {
   goog.asserts.assert(array.length != null);
@@ -5313,6 +7190,28 @@ goog.array.rotate = function(array, n) {
 
 
 /**
+ * Moves one item of an array to a new position keeping the order of the rest
+ * of the items. Example use case: keeping a list of JavaScript objects
+ * synchronized with the corresponding list of DOM elements after one of the
+ * elements has been dragged to a new position.
+ * @param {!(Array|Arguments|{length:number})} arr The array to modify.
+ * @param {number} fromIndex Index of the item to move between 0 and
+ *     {@code arr.length - 1}.
+ * @param {number} toIndex Target index between 0 and {@code arr.length - 1}.
+ */
+goog.array.moveItem = function(arr, fromIndex, toIndex) {
+  goog.asserts.assert(fromIndex >= 0 && fromIndex < arr.length);
+  goog.asserts.assert(toIndex >= 0 && toIndex < arr.length);
+  // Remove 1 item at fromIndex.
+  var removedItems = goog.array.ARRAY_PROTOTYPE_.splice.call(arr, fromIndex, 1);
+  // Insert the removed item at toIndex.
+  goog.array.ARRAY_PROTOTYPE_.splice.call(arr, toIndex, 0, removedItems[0]);
+  // We don't use goog.array.insertAt and goog.array.removeAt, because they're
+  // significantly slower than splice.
+};
+
+
+/**
  * Creates a new array for which the element at position i is an array of the
  * ith element of the provided arrays.  The returned array will only be as long
  * as the shortest array provided; additional values are ignored.  For example,
@@ -5322,7 +7221,8 @@ goog.array.rotate = function(array, n) {
  * http://docs.python.org/library/functions.html#zip}
  *
  * @param {...!goog.array.ArrayLike} var_args Arrays to be combined.
- * @return {!Array.<!Array>} A new array of arrays created from provided arrays.
+ * @return {!Array<!Array<?>>} A new array of arrays created from
+ *     provided arrays.
  */
 goog.array.zip = function(var_args) {
   if (!arguments.length) {
@@ -5352,8 +7252,9 @@ goog.array.zip = function(var_args) {
  *
  * Runtime: O(n)
  *
- * @param {!Array} arr The array to be shuffled.
- * @param {Function=} opt_randFn Optional random function to use for shuffling.
+ * @param {!Array<?>} arr The array to be shuffled.
+ * @param {function():number=} opt_randFn Optional random function to use for
+ *     shuffling.
  *     Takes no arguments, and returns a random number on the interval [0, 1).
  *     Defaults to Math.random() using JavaScript's built-in Math library.
  */
@@ -5369,6 +7270,26 @@ goog.array.shuffle = function(arr, opt_randFn) {
     arr[j] = tmp;
   }
 };
+
+
+/**
+ * Returns a new array of elements from arr, based on the indexes of elements
+ * provided by index_arr. For example, the result of index copying
+ * ['a', 'b', 'c'] with index_arr [1,0,0,2] is ['b', 'a', 'a', 'c'].
+ *
+ * @param {!Array<T>} arr The array to get a indexed copy from.
+ * @param {!Array<number>} index_arr An array of indexes to get from arr.
+ * @return {!Array<T>} A new array of elements from arr in index_arr order.
+ * @template T
+ */
+goog.array.copyByIndex = function(arr, index_arr) {
+  var result = [];
+  goog.array.forEach(index_arr, function(index) {
+    result.push(arr[index]);
+  });
+  return result;
+};
+
 // Copyright 2008 The Closure Library Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -5391,8 +7312,9 @@ goog.provide('goog.proto2.Descriptor');
 goog.provide('goog.proto2.Metadata');
 
 goog.require('goog.array');
+goog.require('goog.asserts');
 goog.require('goog.object');
-goog.require('goog.proto2.Util');
+goog.require('goog.string');
 
 
 /**
@@ -5407,19 +7329,20 @@ goog.proto2.Metadata;
 /**
  * A class which describes a Protocol Buffer 2 Message.
  *
- * @param {Function} messageType Constructor for the message class that
- *      this descriptor describes.
+ * @param {function(new:goog.proto2.Message)} messageType Constructor for
+ *      the message class that this descriptor describes.
  * @param {!goog.proto2.Metadata} metadata The metadata about the message that
  *      will be used to construct this descriptor.
- * @param {Array.<!goog.proto2.FieldDescriptor>} fields The fields of the
+ * @param {Array<!goog.proto2.FieldDescriptor>} fields The fields of the
  *      message described by this descriptor.
  *
  * @constructor
+ * @final
  */
 goog.proto2.Descriptor = function(messageType, metadata, fields) {
 
   /**
-   * @type {Function}
+   * @type {function(new:goog.proto2.Message)}
    * @private
    */
   this.messageType_ = messageType;
@@ -5444,7 +7367,7 @@ goog.proto2.Descriptor = function(messageType, metadata, fields) {
 
   /**
    * The fields of the message described by this descriptor.
-   * @type {!Object.<number, !goog.proto2.FieldDescriptor>}
+   * @type {!Object<number, !goog.proto2.FieldDescriptor>}
    * @private
    */
   this.fields_ = {};
@@ -5494,7 +7417,7 @@ goog.proto2.Descriptor.prototype.getContainingType = function() {
  * Returns the fields in the message described by this descriptor ordered by
  * tag.
  *
- * @return {!Array.<!goog.proto2.FieldDescriptor>} The array of field
+ * @return {!Array<!goog.proto2.FieldDescriptor>} The array of field
  *     descriptors.
  */
 goog.proto2.Descriptor.prototype.getFields = function() {
@@ -5517,12 +7440,14 @@ goog.proto2.Descriptor.prototype.getFields = function() {
 
 /**
  * Returns the fields in the message as a key/value map, where the key is
- * the tag number of the field.
+ * the tag number of the field. DO NOT MODIFY THE RETURNED OBJECT. We return
+ * the actual, internal, fields map for performance reasons, and changing the
+ * map can result in undefined behavior of this library.
  *
- * @return {!Object.<number, !goog.proto2.FieldDescriptor>} The field map.
+ * @return {!Object<number, !goog.proto2.FieldDescriptor>} The field map.
  */
 goog.proto2.Descriptor.prototype.getFieldsMap = function() {
-  return goog.object.clone(this.fields_);
+  return this.fields_;
 };
 
 
@@ -5553,7 +7478,7 @@ goog.proto2.Descriptor.prototype.findFieldByName = function(name) {
  * @return {goog.proto2.FieldDescriptor} The field found, if any.
  */
 goog.proto2.Descriptor.prototype.findFieldByTag = function(tag) {
-  goog.proto2.Util.assert(goog.string.isNumeric(tag));
+  goog.asserts.assert(goog.string.isNumeric(tag));
   return this.fields_[parseInt(tag, 10)] || null;
 };
 
@@ -5562,11 +7487,12 @@ goog.proto2.Descriptor.prototype.findFieldByTag = function(tag) {
  * Creates an instance of the message type that this descriptor
  * describes.
  *
- * @return {goog.proto2.Message} The instance of the message.
+ * @return {!goog.proto2.Message} The instance of the message.
  */
 goog.proto2.Descriptor.prototype.createMessageInstance = function() {
   return new this.messageType_;
 };
+
 // Copyright 2008 The Closure Library Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -5587,10 +7513,9 @@ goog.proto2.Descriptor.prototype.createMessageInstance = function() {
 
 goog.provide('goog.proto2.Message');
 
+goog.require('goog.asserts');
 goog.require('goog.proto2.Descriptor');
 goog.require('goog.proto2.FieldDescriptor');
-goog.require('goog.proto2.Util');
-goog.require('goog.string');
 
 
 
@@ -5602,28 +7527,18 @@ goog.require('goog.string');
  */
 goog.proto2.Message = function() {
   /**
-   * Stores the field values in this message.
+   * Stores the field values in this message. Keyed by the tag of the fields.
    * @type {*}
    * @private
    */
   this.values_ = {};
 
-  // The descriptor_ is static to the message function that is being created.
-  // Therefore, we retrieve it via the constructor.
-
-  /**
-   * Stores the information (i.e. metadata) about this message.
-   * @type {!goog.proto2.Descriptor}
-   * @private
-   */
-  this.descriptor_ = this.constructor.descriptor_;
-
   /**
    * Stores the field information (i.e. metadata) about this message.
-   * @type {Object.<number, !goog.proto2.FieldDescriptor>}
+   * @type {Object<number, !goog.proto2.FieldDescriptor>}
    * @private
    */
-  this.fields_ = this.descriptor_.getFieldsMap();
+  this.fields_ = this.getDescriptor().getFieldsMap();
 
   /**
    * The lazy deserializer for this message instance, if any.
@@ -5633,7 +7548,8 @@ goog.proto2.Message = function() {
   this.lazyDeserializer_ = null;
 
   /**
-   * A map of those fields deserialized.
+   * A map of those fields deserialized, from tag number to their deserialized
+   * value.
    * @type {Object}
    * @private
    */
@@ -5677,6 +7593,36 @@ goog.proto2.Message.FieldType = {
 
 
 /**
+ * All instances of goog.proto2.Message should have a static descriptorObj_
+ * property. This is a JSON representation of a Descriptor. The real Descriptor
+ * will be deserialized lazily in the getDescriptor() method.
+ *
+ * This declaration is just here for documentation purposes.
+ * goog.proto2.Message does not have its own descriptor.
+ *
+ * TODO(user): Delete after components update for cl/76695317.
+ *
+ * @type {undefined}
+ * @private
+ */
+goog.proto2.Message.descriptorObj_;
+
+
+/**
+ * All instances of goog.proto2.Message should have a static descriptor_
+ * property. The Descriptor will be deserialized lazily in the getDescriptor()
+ * method.
+ *
+ * This declaration is just here for documentation purposes.
+ * goog.proto2.Message does not have its own descriptor.
+ *
+ * @type {undefined}
+ * @private
+ */
+goog.proto2.Message.descriptor_;
+
+
+/**
  * Initializes the message with a lazy deserializer and its associated data.
  * This method should be called by internal methods ONLY.
  *
@@ -5701,13 +7647,15 @@ goog.proto2.Message.prototype.initializeForLazyDeserializer = function(
  * @param {*} value The value for that unknown field.
  */
 goog.proto2.Message.prototype.setUnknown = function(tag, value) {
-  goog.proto2.Util.assert(!this.fields_[tag],
-                          'Field is not unknown in this message');
-
-  goog.proto2.Util.assert(tag >= 1, 'Tag is not valid');
-  goog.proto2.Util.assert(value !== null, 'Value cannot be null');
+  goog.asserts.assert(!this.fields_[tag],
+      'Field is not unknown in this message');
+  goog.asserts.assert(tag >= 1, 'Tag is not valid');
+  goog.asserts.assert(value !== null, 'Value cannot be null');
 
   this.values_[tag] = value;
+  if (this.deserializedFields_) {
+    delete this.deserializedFields_[tag];
+  }
 };
 
 
@@ -5722,8 +7670,9 @@ goog.proto2.Message.prototype.setUnknown = function(tag, value) {
 goog.proto2.Message.prototype.forEachUnknown = function(callback, opt_scope) {
   var scope = opt_scope || this;
   for (var key in this.values_) {
-    if (!this.fields_[/** @type {number} */ (key)]) {
-      callback.call(scope, Number(key), this.values_[key]);
+    var keyNum = Number(key);
+    if (!this.fields_[keyNum]) {
+      callback.call(scope, keyNum, this.values_[key]);
     }
   }
 };
@@ -5732,10 +7681,21 @@ goog.proto2.Message.prototype.forEachUnknown = function(callback, opt_scope) {
 /**
  * Returns the descriptor which describes the current message.
  *
- * @return {goog.proto2.Descriptor} The descriptor.
+ * This only works if we assume people never subclass protobufs.
+ *
+ * TODO(user): Replace with goog.abstractMethod after components update
+ *     with cl/76695317.
+ *
+ * @return {!goog.proto2.Descriptor} The descriptor.
  */
 goog.proto2.Message.prototype.getDescriptor = function() {
-  return this.descriptor_;
+  // NOTE(nicksantos): These sorts of indirect references to descriptor
+  // through this.constructor are fragile. See the comments
+  // in set$Metadata for more info.
+  var Ctor = this.constructor;
+  return Ctor.descriptor_ ||
+      (Ctor.descriptor_ = goog.proto2.Message.createDescriptor(
+          Ctor, Ctor.descriptorObj_));
 };
 
 
@@ -5749,8 +7709,8 @@ goog.proto2.Message.prototype.getDescriptor = function() {
  * @return {boolean} True if a value was found.
  */
 goog.proto2.Message.prototype.has = function(field) {
-  goog.proto2.Util.assert(
-      field.getContainingType() == this.descriptor_,
+  goog.asserts.assert(
+      field.getContainingType() == this.getDescriptor(),
       'The current message does not contain the given field');
 
   return this.has$Value(field.getTag());
@@ -5763,11 +7723,11 @@ goog.proto2.Message.prototype.has = function(field) {
  * @param {goog.proto2.FieldDescriptor} field The field for which to
  *     return the values.
  *
- * @return {!Array} The values found.
+ * @return {!Array<?>} The values found.
  */
 goog.proto2.Message.prototype.arrayOf = function(field) {
-  goog.proto2.Util.assert(
-      field.getContainingType() == this.descriptor_,
+  goog.asserts.assert(
+      field.getContainingType() == this.getDescriptor(),
       'The current message does not contain the given field');
 
   return this.array$Values(field.getTag());
@@ -5783,8 +7743,8 @@ goog.proto2.Message.prototype.arrayOf = function(field) {
  * @return {number} The count of the values in the given field.
  */
 goog.proto2.Message.prototype.countOf = function(field) {
-  goog.proto2.Util.assert(
-      field.getContainingType() == this.descriptor_,
+  goog.asserts.assert(
+      field.getContainingType() == this.getDescriptor(),
       'The current message does not contain the given field');
 
   return this.count$Values(field.getTag());
@@ -5803,8 +7763,8 @@ goog.proto2.Message.prototype.countOf = function(field) {
  * @return {*} The value found or null if none.
  */
 goog.proto2.Message.prototype.get = function(field, opt_index) {
-  goog.proto2.Util.assert(
-      field.getContainingType() == this.descriptor_,
+  goog.asserts.assert(
+      field.getContainingType() == this.getDescriptor(),
       'The current message does not contain the given field');
 
   return this.get$Value(field.getTag(), opt_index);
@@ -5823,8 +7783,8 @@ goog.proto2.Message.prototype.get = function(field, opt_index) {
  * @return {*} The value found or the default if none.
  */
 goog.proto2.Message.prototype.getOrDefault = function(field, opt_index) {
-  goog.proto2.Util.assert(
-      field.getContainingType() == this.descriptor_,
+  goog.asserts.assert(
+      field.getContainingType() == this.getDescriptor(),
       'The current message does not contain the given field');
 
   return this.get$ValueOrDefault(field.getTag(), opt_index);
@@ -5840,8 +7800,8 @@ goog.proto2.Message.prototype.getOrDefault = function(field, opt_index) {
  * @param {*} value The new value for the field.
  */
 goog.proto2.Message.prototype.set = function(field, value) {
-  goog.proto2.Util.assert(
-      field.getContainingType() == this.descriptor_,
+  goog.asserts.assert(
+      field.getContainingType() == this.getDescriptor(),
       'The current message does not contain the given field');
 
   this.set$Value(field.getTag(), value);
@@ -5857,8 +7817,8 @@ goog.proto2.Message.prototype.set = function(field, value) {
  * @param {*} value The new value to add to the field.
  */
 goog.proto2.Message.prototype.add = function(field, value) {
-  goog.proto2.Util.assert(
-      field.getContainingType() == this.descriptor_,
+  goog.asserts.assert(
+      field.getContainingType() == this.getDescriptor(),
       'The current message does not contain the given field');
 
   this.add$Value(field.getTag(), value);
@@ -5871,8 +7831,8 @@ goog.proto2.Message.prototype.add = function(field, value) {
  * @param {goog.proto2.FieldDescriptor} field The field to clear.
  */
 goog.proto2.Message.prototype.clear = function(field) {
-  goog.proto2.Util.assert(
-      field.getContainingType() == this.descriptor_,
+  goog.asserts.assert(
+      field.getContainingType() == this.getDescriptor(),
       'The current message does not contain the given field');
 
   this.clear$Field(field.getTag());
@@ -5893,20 +7853,20 @@ goog.proto2.Message.prototype.equals = function(other) {
   var fields = this.getDescriptor().getFields();
   for (var i = 0; i < fields.length; i++) {
     var field = fields[i];
-    if (this.has(field) != other.has(field)) {
+    var tag = field.getTag();
+    if (this.has$Value(tag) != other.has$Value(tag)) {
       return false;
     }
 
-    if (this.has(field)) {
+    if (this.has$Value(tag)) {
       var isComposite = field.isCompositeType();
 
-      function fieldsEqual(value1, value2) {
+      var fieldsEqual = function(value1, value2) {
         return isComposite ? value1.equals(value2) : value1 == value2;
-      }
+      };
 
-      var tag = field.getTag();
-      var thisValue = this.values_[tag];
-      var otherValue = other.values_[tag];
+      var thisValue = this.getValueForTag_(tag);
+      var otherValue = other.getValueForTag_(tag);
 
       if (field.isRepeated()) {
         // In this case thisValue and otherValue are arrays.
@@ -5934,24 +7894,57 @@ goog.proto2.Message.prototype.equals = function(other) {
  * @param {!goog.proto2.Message} message The source message.
  */
 goog.proto2.Message.prototype.copyFrom = function(message) {
-  goog.proto2.Util.assert(this.constructor == message.constructor,
+  goog.asserts.assert(this.constructor == message.constructor,
+      'The source message must have the same type.');
+
+  if (this != message) {
+    this.values_ = {};
+    if (this.deserializedFields_) {
+      this.deserializedFields_ = {};
+    }
+    this.mergeFrom(message);
+  }
+};
+
+
+/**
+ * Merges the given message into this message.
+ *
+ * Singular fields will be overwritten, except for embedded messages which will
+ * be merged. Repeated fields will be concatenated.
+ * @param {!goog.proto2.Message} message The source message.
+ */
+goog.proto2.Message.prototype.mergeFrom = function(message) {
+  goog.asserts.assert(this.constructor == message.constructor,
       'The source message must have the same type.');
   var fields = this.getDescriptor().getFields();
 
   for (var i = 0; i < fields.length; i++) {
     var field = fields[i];
-    delete this.values_[field.getTag()];
+    var tag = field.getTag();
+    if (message.has$Value(tag)) {
+      if (this.deserializedFields_) {
+        delete this.deserializedFields_[field.getTag()];
+      }
 
-    if (message.has(field)) {
       var isComposite = field.isCompositeType();
       if (field.isRepeated()) {
-        var values = message.arrayOf(field);
+        var values = message.array$Values(tag);
         for (var j = 0; j < values.length; j++) {
-          this.add(field, isComposite ? values[j].clone() : values[j]);
+          this.add$Value(tag, isComposite ? values[j].clone() : values[j]);
         }
       } else {
-        var value = message.get(field);
-        this.set(field, isComposite ? value.clone() : value);
+        var value = message.getValueForTag_(tag);
+        if (isComposite) {
+          var child = this.getValueForTag_(tag);
+          if (child) {
+            child.mergeFrom(value);
+          } else {
+            this.set$Value(tag, value.clone());
+          }
+        } else {
+          this.set$Value(tag, value);
+        }
       }
     }
   }
@@ -5963,6 +7956,7 @@ goog.proto2.Message.prototype.copyFrom = function(message) {
  *     the known fields.
  */
 goog.proto2.Message.prototype.clone = function() {
+  /** @type {!goog.proto2.Message} */
   var clone = new this.constructor;
   clone.copyFrom(this);
   return clone;
@@ -5983,7 +7977,7 @@ goog.proto2.Message.prototype.initDefaults = function(simpleFieldsToo) {
     var isComposite = field.isCompositeType();
 
     // Initialize missing fields.
-    if (!this.has(field) && !field.isRepeated()) {
+    if (!this.has$Value(tag) && !field.isRepeated()) {
       if (isComposite) {
         this.values_[tag] = new /** @type {Function} */ (field.getNativeType());
       } else if (simpleFieldsToo) {
@@ -6007,22 +8001,6 @@ goog.proto2.Message.prototype.initDefaults = function(simpleFieldsToo) {
 
 
 /**
- * Returns the field in this message by the given tag number. If no
- * such field exists, throws an exception.
- *
- * @param {number} tag The field's tag index.
- * @return {!goog.proto2.FieldDescriptor} The descriptor for the field.
- * @private
- */
-goog.proto2.Message.prototype.getFieldByTag_ = function(tag) {
-  goog.proto2.Util.assert(this.fields_[tag],
-                          'No field found for the given tag');
-
-  return this.fields_[tag];
-};
-
-
-/**
  * Returns the whether or not the field indicated by the given tag
  * has a value.
  *
@@ -6033,34 +8011,43 @@ goog.proto2.Message.prototype.getFieldByTag_ = function(tag) {
  * @return {boolean} Whether the message has a value for the field.
  */
 goog.proto2.Message.prototype.has$Value = function(tag) {
-  goog.proto2.Util.assert(this.fields_[tag],
-                          'No field found for the given tag');
-
-  return tag in this.values_ && goog.isDef(this.values_[tag]) &&
-      this.values_[tag] !== null;
+  return this.values_[tag] != null;
 };
 
 
 /**
- * If a lazy deserializer is instantiated, lazily deserializes the
- * field if required.
+ * Returns the value for the given tag number. If a lazy deserializer is
+ * instantiated, lazily deserializes the field if required before returning the
+ * value.
  *
- * @param {goog.proto2.FieldDescriptor} field The field.
+ * @param {number} tag The tag number.
+ * @return {*} The corresponding value, if any.
  * @private
  */
-goog.proto2.Message.prototype.lazyDeserialize_ = function(field) {
+goog.proto2.Message.prototype.getValueForTag_ = function(tag) {
+  // Retrieve the current value, which may still be serialized.
+  var value = this.values_[tag];
+  if (!goog.isDefAndNotNull(value)) {
+    return null;
+  }
+
   // If we have a lazy deserializer, then ensure that the field is
   // properly deserialized.
   if (this.lazyDeserializer_) {
-    var tag = field.getTag();
-
+    // If the tag is not deserialized, then we must do so now. Deserialize
+    // the field's value via the deserializer.
     if (!(tag in this.deserializedFields_)) {
-      this.values_[tag] = this.lazyDeserializer_.deserializeField(
-          this, field, this.values_[tag]);
-
-      this.deserializedFields_[tag] = true;
+      var deserializedValue = this.lazyDeserializer_.deserializeField(
+          this, this.fields_[tag], value);
+      this.deserializedFields_[tag] = deserializedValue;
+      return deserializedValue;
     }
+
+    return this.deserializedFields_[tag];
   }
+
+  // Otherwise, just return the value.
+  return value;
 };
 
 
@@ -6077,21 +8064,18 @@ goog.proto2.Message.prototype.lazyDeserialize_ = function(field) {
  * @protected
  */
 goog.proto2.Message.prototype.get$Value = function(tag, opt_index) {
-  var field = this.getFieldByTag_(tag);
+  var value = this.getValueForTag_(tag);
 
-  // Ensure that the field is deserialized.
-  this.lazyDeserialize_(field);
-
-  if (field.isRepeated()) {
+  if (this.fields_[tag].isRepeated()) {
     var index = opt_index || 0;
-    goog.proto2.Util.assert(index >= 0 && index < this.count$Values(tag),
-        'Given index is out of bounds');
-
-    return this.values_[tag][index];
-  } else {
-    goog.proto2.Util.assert(!goog.isArray(this.values_[tag]));
-    return tag in this.values_ ? this.values_[tag] : null;
+    goog.asserts.assert(
+        index >= 0 && index < value.length,
+        'Given index %s is out of bounds.  Repeated field length: %s',
+        index, value.length);
+    return value[index];
   }
+
+  return value;
 };
 
 
@@ -6109,10 +8093,9 @@ goog.proto2.Message.prototype.get$Value = function(tag, opt_index) {
  * @protected
  */
 goog.proto2.Message.prototype.get$ValueOrDefault = function(tag, opt_index) {
-
   if (!this.has$Value(tag)) {
     // Return the default value.
-    var field = this.getFieldByTag_(tag);
+    var field = this.fields_[tag];
     return field.getDefaultValue();
   }
 
@@ -6127,19 +8110,12 @@ goog.proto2.Message.prototype.get$ValueOrDefault = function(tag, opt_index) {
  *
  * @param {number} tag The field's tag index.
  *
- * @return {!Array} The values found. If none, returns an empty array.
+ * @return {!Array<*>} The values found. If none, returns an empty array.
  * @protected
  */
 goog.proto2.Message.prototype.array$Values = function(tag) {
-  goog.proto2.Util.assert(this.getFieldByTag_(tag).isRepeated(),
-                          'Cannot call fieldArray on a non-repeated field');
-
-  var field = this.getFieldByTag_(tag);
-
-  // Ensure that the field is deserialized.
-  this.lazyDeserialize_(field);
-
-  return this.values_[tag] || [];
+  var value = this.getValueForTag_(tag);
+  return /** @type {Array<*>} */ (value) || [];
 };
 
 
@@ -6154,13 +8130,8 @@ goog.proto2.Message.prototype.array$Values = function(tag) {
  * @protected
  */
 goog.proto2.Message.prototype.count$Values = function(tag) {
-  var field = this.getFieldByTag_(tag);
-
+  var field = this.fields_[tag];
   if (field.isRepeated()) {
-    if (this.has$Value(tag)) {
-      goog.proto2.Util.assert(goog.isArray(this.values_[tag]));
-    }
-
     return this.has$Value(tag) ? this.values_[tag].length : 0;
   } else {
     return this.has$Value(tag) ? 1 : 0;
@@ -6178,18 +8149,14 @@ goog.proto2.Message.prototype.count$Values = function(tag) {
  * @protected
  */
 goog.proto2.Message.prototype.set$Value = function(tag, value) {
-  if (goog.proto2.Util.conductChecks()) {
-    var field = this.getFieldByTag_(tag);
-
-    goog.proto2.Util.assert(!field.isRepeated(),
-                            'Cannot call set on a repeated field');
-
+  if (goog.asserts.ENABLE_ASSERTS) {
+    var field = this.fields_[tag];
     this.checkFieldType_(field, value);
   }
 
   this.values_[tag] = value;
   if (this.deserializedFields_) {
-    this.deserializedFields_[tag] = true;
+    this.deserializedFields_[tag] = value;
   }
 };
 
@@ -6204,12 +8171,8 @@ goog.proto2.Message.prototype.set$Value = function(tag, value) {
  * @protected
  */
 goog.proto2.Message.prototype.add$Value = function(tag, value) {
-  if (goog.proto2.Util.conductChecks()) {
-    var field = this.getFieldByTag_(tag);
-
-    goog.proto2.Util.assert(field.isRepeated(),
-                            'Cannot call add on a non-repeated field');
-
+  if (goog.asserts.ENABLE_ASSERTS) {
+    var field = this.fields_[tag];
     this.checkFieldType_(field, value);
   }
 
@@ -6218,6 +8181,9 @@ goog.proto2.Message.prototype.add$Value = function(tag, value) {
   }
 
   this.values_[tag].push(value);
+  if (this.deserializedFields_) {
+    delete this.deserializedFields_[tag];
+  }
 };
 
 
@@ -6230,25 +8196,10 @@ goog.proto2.Message.prototype.add$Value = function(tag, value) {
  * @private
  */
 goog.proto2.Message.prototype.checkFieldType_ = function(field, value) {
-  goog.proto2.Util.assert(value !== null);
-
-  var nativeType = field.getNativeType();
-  if (nativeType === String) {
-    goog.proto2.Util.assert(typeof value === 'string',
-                            'Expected value of type string');
-  } else if (nativeType === Boolean) {
-    goog.proto2.Util.assert(typeof value === 'boolean',
-                            'Expected value of type boolean');
-  } else if (nativeType === Number) {
-    goog.proto2.Util.assert(typeof value === 'number',
-                            'Expected value of type number');
-  } else if (field.getFieldType() ==
-             goog.proto2.FieldDescriptor.FieldType.ENUM) {
-    goog.proto2.Util.assert(typeof value === 'number',
-                            'Expected an enum value, which is a number');
+  if (field.getFieldType() == goog.proto2.FieldDescriptor.FieldType.ENUM) {
+    goog.asserts.assertNumber(value);
   } else {
-    goog.proto2.Util.assert(value instanceof nativeType,
-                            'Expected a matching message type');
+    goog.asserts.assert(value.constructor == field.getNativeType());
   }
 };
 
@@ -6262,8 +8213,34 @@ goog.proto2.Message.prototype.checkFieldType_ = function(field, value) {
  * @protected
  */
 goog.proto2.Message.prototype.clear$Field = function(tag) {
-  goog.proto2.Util.assert(this.getFieldByTag_(tag), 'Unknown field');
   delete this.values_[tag];
+  if (this.deserializedFields_) {
+    delete this.deserializedFields_[tag];
+  }
+};
+
+
+/**
+ * Creates the metadata descriptor representing the definition of this message.
+ *
+ * @param {function(new:goog.proto2.Message)} messageType Constructor for the
+ *     message type to which this metadata applies.
+ * @param {!Object} metadataObj The object containing the metadata.
+ * @return {!goog.proto2.Descriptor} The new descriptor.
+ */
+goog.proto2.Message.createDescriptor = function(messageType, metadataObj) {
+  var fields = [];
+  var descriptorInfo = metadataObj[0];
+
+  for (var key in metadataObj) {
+    if (key != 0) {
+      // Create the field descriptor.
+      fields.push(
+          new goog.proto2.FieldDescriptor(messageType, key, metadataObj[key]));
+    }
+  }
+
+  return new goog.proto2.Descriptor(messageType, descriptorInfo, fields);
 };
 
 
@@ -6272,41 +8249,25 @@ goog.proto2.Message.prototype.clear$Field = function(tag) {
  *
  * GENERATED CODE USE ONLY. Called when constructing message classes.
  *
- * @param {Function} messageType Constructor for the message type to
- *     which this metadata applies.
+ * TODO(user): Delete after components update with cl/76695317.
+ *
+ * @param {!Function} messageType Constructor for the
+ *     message type to which this metadata applies.
  * @param {Object} metadataObj The object containing the metadata.
  */
 goog.proto2.Message.set$Metadata = function(messageType, metadataObj) {
-  var fields = [];
-  var descriptorInfo;
-
-  for (var key in metadataObj) {
-    if (!metadataObj.hasOwnProperty(key)) {
-      continue;
-    }
-
-    goog.proto2.Util.assert(goog.string.isNumeric(key), 'Keys must be numeric');
-
-    if (key == 0) {
-      descriptorInfo = metadataObj[0];
-      continue;
-    }
-
-    // Create the field descriptor.
-    fields.push(
-        new goog.proto2.FieldDescriptor(messageType, key, metadataObj[key]));
-  }
-
-  goog.proto2.Util.assert(descriptorInfo);
-
-  // Create the descriptor.
-  messageType.descriptor_ =
-      new goog.proto2.Descriptor(messageType, descriptorInfo, fields);
-
+  // NOTE(nicksantos): JSCompiler's type-based optimizations really do not
+  // like indirectly defined methods (both prototype methods and
+  // static methods). This is very fragile in compiled code. I think it only
+  // really works by accident, and is highly likely to break in the future.
+  messageType.descriptorObj_ = metadataObj;
   messageType.getDescriptor = function() {
-    return messageType.descriptor_;
+    // The descriptor is created lazily when we instantiate a new instance.
+    return messageType.descriptor_ ||
+        (new messageType()).getDescriptor();
   };
 };
+
 /**
  * @license
  * Protocol Buffer 2 Copyright 2008 Google Inc.
@@ -6332,9 +8293,9 @@ goog.proto2.Message.set$Metadata = function(messageType, metadataObj) {
  */
 
 goog.provide('i18n.phonenumbers.NumberFormat');
-goog.provide('i18n.phonenumbers.PhoneNumberDesc');
 goog.provide('i18n.phonenumbers.PhoneMetadata');
 goog.provide('i18n.phonenumbers.PhoneMetadataCollection');
+goog.provide('i18n.phonenumbers.PhoneNumberDesc');
 
 goog.require('goog.proto2.Message');
 
@@ -6571,6 +8532,57 @@ i18n.phonenumbers.NumberFormat.prototype.nationalPrefixFormattingRuleCount = fun
  */
 i18n.phonenumbers.NumberFormat.prototype.clearNationalPrefixFormattingRule = function() {
   this.clear$Field(4);
+};
+
+
+/**
+ * Gets the value of the national_prefix_optional_when_formatting field.
+ * @return {?boolean} The value.
+ */
+i18n.phonenumbers.NumberFormat.prototype.getNationalPrefixOptionalWhenFormatting = function() {
+  return /** @type {?boolean} */ (this.get$Value(6));
+};
+
+
+/**
+ * Gets the value of the national_prefix_optional_when_formatting field or the default value if not set.
+ * @return {boolean} The value.
+ */
+i18n.phonenumbers.NumberFormat.prototype.getNationalPrefixOptionalWhenFormattingOrDefault = function() {
+  return /** @type {boolean} */ (this.get$ValueOrDefault(6));
+};
+
+
+/**
+ * Sets the value of the national_prefix_optional_when_formatting field.
+ * @param {boolean} value The value.
+ */
+i18n.phonenumbers.NumberFormat.prototype.setNationalPrefixOptionalWhenFormatting = function(value) {
+  this.set$Value(6, value);
+};
+
+
+/**
+ * @return {boolean} Whether the national_prefix_optional_when_formatting field has a value.
+ */
+i18n.phonenumbers.NumberFormat.prototype.hasNationalPrefixOptionalWhenFormatting = function() {
+  return this.has$Value(6);
+};
+
+
+/**
+ * @return {number} The number of values in the national_prefix_optional_when_formatting field.
+ */
+i18n.phonenumbers.NumberFormat.prototype.nationalPrefixOptionalWhenFormattingCount = function() {
+  return this.count$Values(6);
+};
+
+
+/**
+ * Clears the values in the national_prefix_optional_when_formatting field.
+ */
+i18n.phonenumbers.NumberFormat.prototype.clearNationalPrefixOptionalWhenFormatting = function() {
+  this.clear$Field(6);
 };
 
 
@@ -7376,6 +9388,57 @@ i18n.phonenumbers.PhoneMetadata.prototype.emergencyCount = function() {
  */
 i18n.phonenumbers.PhoneMetadata.prototype.clearEmergency = function() {
   this.clear$Field(27);
+};
+
+
+/**
+ * Gets the value of the voicemail field.
+ * @return {i18n.phonenumbers.PhoneNumberDesc} The value.
+ */
+i18n.phonenumbers.PhoneMetadata.prototype.getVoicemail = function() {
+  return /** @type {i18n.phonenumbers.PhoneNumberDesc} */ (this.get$Value(28));
+};
+
+
+/**
+ * Gets the value of the voicemail field or the default value if not set.
+ * @return {!i18n.phonenumbers.PhoneNumberDesc} The value.
+ */
+i18n.phonenumbers.PhoneMetadata.prototype.getVoicemailOrDefault = function() {
+  return /** @type {!i18n.phonenumbers.PhoneNumberDesc} */ (this.get$ValueOrDefault(28));
+};
+
+
+/**
+ * Sets the value of the voicemail field.
+ * @param {!i18n.phonenumbers.PhoneNumberDesc} value The value.
+ */
+i18n.phonenumbers.PhoneMetadata.prototype.setVoicemail = function(value) {
+  this.set$Value(28, value);
+};
+
+
+/**
+ * @return {boolean} Whether the voicemail field has a value.
+ */
+i18n.phonenumbers.PhoneMetadata.prototype.hasVoicemail = function() {
+  return this.has$Value(28);
+};
+
+
+/**
+ * @return {number} The number of values in the voicemail field.
+ */
+i18n.phonenumbers.PhoneMetadata.prototype.voicemailCount = function() {
+  return this.count$Values(28);
+};
+
+
+/**
+ * Clears the values in the voicemail field.
+ */
+i18n.phonenumbers.PhoneMetadata.prototype.clearVoicemail = function() {
+  this.clear$Field(28);
 };
 
 
@@ -8276,6 +10339,11 @@ goog.proto2.Message.set$Metadata(i18n.phonenumbers.NumberFormat, {
     fieldType: goog.proto2.Message.FieldType.STRING,
     type: String
   },
+  6: {
+    name: 'national_prefix_optional_when_formatting',
+    fieldType: goog.proto2.Message.FieldType.BOOL,
+    type: Boolean
+  },
   5: {
     name: 'domestic_carrier_code_formatting_rule',
     fieldType: goog.proto2.Message.FieldType.STRING,
@@ -8374,6 +10442,12 @@ goog.proto2.Message.set$Metadata(i18n.phonenumbers.PhoneMetadata, {
   },
   27: {
     name: 'emergency',
+    required: true,
+    fieldType: goog.proto2.Message.FieldType.MESSAGE,
+    type: i18n.phonenumbers.PhoneNumberDesc
+  },
+  28: {
+    name: 'voicemail',
     required: true,
     fieldType: goog.proto2.Message.FieldType.MESSAGE,
     type: i18n.phonenumbers.PhoneNumberDesc
@@ -8477,6 +10551,7 @@ goog.proto2.Message.set$Metadata(i18n.phonenumbers.PhoneMetadataCollection, {
     type: i18n.phonenumbers.PhoneMetadata
   }
 });
+
 /**
  * @license
  * Copyright (C) 2010 The Libphonenumber Authors
@@ -8496,7 +10571,7 @@ goog.proto2.Message.set$Metadata(i18n.phonenumbers.PhoneMetadataCollection, {
 
 /**
  * @fileoverview Generated metadata for file
- * ../resources/PhoneNumberMetaData.xml
+ * ../resources/PhoneNumberMetadata.xml
  * @author Nikolaos Trogkanis
  */
 
@@ -8507,10 +10582,10 @@ goog.provide('i18n.phonenumbers.metadata');
  * region represented by that country calling code. In the case of multiple
  * countries sharing a calling code, such as the NANPA regions, the one
  * indicated with "isMainCountryForCode" in the metadata should be first.
- * @type {Object.<number, Array.<string>>}
+ * @type {!Object.<number, Array.<string>>}
  */
 i18n.phonenumbers.metadata.countryCodeToRegionCodeMap = {
-1:["US","AG","AI","AS","BB","BM","BS","CA","DM","DO","GD","GU","JM","KN","KY","LC","MP","MS","PR","TC","TT","VC","VG","VI"]
+1:["US","AG","AI","AS","BB","BM","BS","CA","DM","DO","GD","GU","JM","KN","KY","LC","MP","MS","PR","SX","TC","TT","VC","VG","VI"]
 ,7:["RU","KZ"]
 ,20:["EG"]
 ,27:["ZA"]
@@ -8556,7 +10631,8 @@ i18n.phonenumbers.metadata.countryCodeToRegionCodeMap = {
 ,94:["LK"]
 ,95:["MM"]
 ,98:["IR"]
-,212:["MA"]
+,211:["SS"]
+,212:["MA","EH"]
 ,213:["DZ"]
 ,216:["TN"]
 ,218:["LY"]
@@ -8609,7 +10685,7 @@ i18n.phonenumbers.metadata.countryCodeToRegionCodeMap = {
 ,267:["BW"]
 ,268:["SZ"]
 ,269:["KM"]
-,290:["SH"]
+,290:["SH","TA"]
 ,291:["ER"]
 ,297:["AW"]
 ,298:["FO"]
@@ -8663,7 +10739,7 @@ i18n.phonenumbers.metadata.countryCodeToRegionCodeMap = {
 ,596:["MQ"]
 ,597:["SR"]
 ,598:["UY"]
-,599:["AN"]
+,599:["CW","BQ"]
 ,670:["TL"]
 ,672:["NF"]
 ,673:["BN"]
@@ -8685,13 +10761,21 @@ i18n.phonenumbers.metadata.countryCodeToRegionCodeMap = {
 ,690:["TK"]
 ,691:["FM"]
 ,692:["MH"]
+,800:["001"]
+,808:["001"]
 ,850:["KP"]
 ,852:["HK"]
 ,853:["MO"]
 ,855:["KH"]
 ,856:["LA"]
+,870:["001"]
+,878:["001"]
 ,880:["BD"]
+,881:["001"]
+,882:["001"]
+,883:["001"]
 ,886:["TW"]
+,888:["001"]
 ,960:["MV"]
 ,961:["LB"]
 ,962:["JO"]
@@ -8709,6 +10793,7 @@ i18n.phonenumbers.metadata.countryCodeToRegionCodeMap = {
 ,975:["BT"]
 ,976:["MN"]
 ,977:["NP"]
+,979:["001"]
 ,992:["TJ"]
 ,993:["TM"]
 ,994:["AZ"]
@@ -8719,12 +10804,12 @@ i18n.phonenumbers.metadata.countryCodeToRegionCodeMap = {
 
 /**
  * A mapping from a region code to the PhoneMetadata for that region.
- * @type {Object.<string, Array>}
+ * @type {!Object.<string, Array>}
  */
 i18n.phonenumbers.metadata.countryToMetadata = {
-"AC":[,[,,"[2-46]\\d{3}","\\d{4}"]
-,[,,"(?:3[0-5]|4[4-6]|[26]\\d)\\d{2}","\\d{4}",,,"6889"]
-,[,,"NA","NA"]
+"AC":[,[,,"[2-7]\\d{3,5}","\\d{4,6}"]
+,[,,"(?:[267]\\d|3[0-5]|4[4-69])\\d{2}","\\d{4}",,,"6889"]
+,[,,"5\\d{5}","\\d{6}",,,"501234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -8733,7 +10818,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"AC",247,"00",,,,,,,,,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"AD":[,[,,"(?:[346-9]|180)\\d{5}","\\d{6,8}"]
 ,[,,"[78]\\d{5}","\\d{6}",,,"712345"]
@@ -8744,77 +10829,80 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"AD",376,"00",,,,,,,,[[,"(\\d{3})(\\d{3})","$1 $2",["[346-9]"]
-,"",""]
+,"","",0]
 ,[,"(180[02])(\\d{4})","$1 $2",["1"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"AE":[,[,,"[2-79]\\d{7,8}|800\\d{2,9}","\\d{5,12}"]
-,[,,"(?:[2-4679][2-8]\\d|600[25])\\d{5}","\\d{7,9}",,,"22345678"]
-,[,,"5[056]\\d{7}","\\d{9}",,,"501234567"]
+,[,,"[2-4679][2-8]\\d{6}","\\d{7,8}",,,"22345678"]
+,[,,"5[0256]\\d{7}","\\d{9}",,,"501234567"]
 ,[,,"400\\d{6}|800\\d{2,9}","\\d{5,12}",,,"800123456"]
 ,[,,"900[02]\\d{5}","\\d{9}",,,"900234567"]
 ,[,,"700[05]\\d{5}","\\d{9}",,,"700012345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"AE",971,"00","0",,,"0",,,,[[,"([2-4679])(\\d{3})(\\d{4})","$1 $2 $3",["[2-4679][2-8]"]
-,"0$1",""]
-,[,"(5[056])(\\d{3})(\\d{4})","$1 $2 $3",["5"]
-,"0$1",""]
-,[,"([4679]00)(\\d)(\\d{5})","$1 $2 $3",["[4679]0"]
-,"$1",""]
-,[,"(800)(\\d{2,9})","$1 $2",["8"]
-,"$1",""]
+,"0$1","",0]
+,[,"(5[0256])(\\d{3})(\\d{4})","$1 $2 $3",["5"]
+,"0$1","",0]
+,[,"([479]00)(\\d)(\\d{5})","$1 $2 $3",["[479]0"]
+,"$1","",0]
+,[,"([68]00)(\\d{2,9})","$1 $2",["60|8"]
+,"$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"112|99[789]","\\d{3}",,,"112"]
+,[,,"600[25]\\d{5}","\\d{9}",,,"600212345"]
+,,,[,,"NA","NA"]
 ]
 ,"AF":[,[,,"[2-7]\\d{8}","\\d{7,9}"]
 ,[,,"(?:[25][0-8]|[34][0-4]|6[0-5])[2-9]\\d{6}","\\d{7,9}",,,"234567890"]
-,[,,"7[057-9]\\d{7}","\\d{9}",,,"701234567"]
+,[,,"7(?:[05-9]\\d{7}|29\\d{6})","\\d{9}",,,"701234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"AF",93,"00","0",,,"0",,,,[[,"([2-7]\\d)(\\d{3})(\\d{4})","$1 $2 $3",,"0$1",""]
+,"AF",93,"00","0",,,"0",,,,[[,"([2-7]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["[2-6]|7[013-9]"]
+,"0$1","",0]
+,[,"(729)(\\d{3})(\\d{3})","$1 $2 $3",["729"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:02|19)","\\d{3}",,,"119"]
+,,,[,,"NA","NA"]
 ]
 ,"AG":[,[,,"[2589]\\d{9}","\\d{7}(?:\\d{3})?"]
 ,[,,"268(?:4(?:6[0-38]|84)|56[0-2])\\d{4}","\\d{7}(?:\\d{3})?",,,"2684601234"]
 ,[,,"268(?:464|7(?:2[0-9]|64|7[0-689]|8[02-68]))\\d{4}","\\d{10}",,,"2684641234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"26848[01]\\d{4}","\\d{10}",,,"2684801234"]
 ,"AG",1,"011","1",,,"1",,,,,,[,,"26840[69]\\d{4}","\\d{10}",,,"2684061234"]
 ,,"268",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"AI":[,[,,"[2589]\\d{9}","\\d{7}(?:\\d{3})?"]
 ,[,,"2644(?:6[12]|9[78])\\d{4}","\\d{7}(?:\\d{3})?",,,"2644612345"]
 ,[,,"264(?:235|476|5(?:3[6-9]|8[1-4])|7(?:29|72))\\d{4}","\\d{10}",,,"2642351234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"AI",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"264",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"AL":[,[,,"[2-57]\\d{7}|6\\d{8}|8\\d{5,7}|9\\d{5}","\\d{5,9}"]
 ,[,,"(?:2(?:[168][1-9]|[247]\\d|9[1-7])|3(?:1[1-3]|[2-6]\\d|[79][1-8]|8[1-9])|4\\d{2}|5(?:1[1-4]|[2-578]\\d|6[1-5]|9[1-7])|8(?:[19][1-5]|[2-6]\\d|[78][1-7]))\\d{5}","\\d{5,8}",,,"22345678"]
@@ -8825,194 +10913,190 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"700\\d{5}","\\d{8}",,,"70012345"]
 ,[,,"NA","NA"]
 ,"AL",355,"00","0",,,"0",,,,[[,"(4)(\\d{3})(\\d{4})","$1 $2 $3",["4[0-6]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(6[6-9])(\\d{3})(\\d{4})","$1 $2 $3",["6"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["[2358][2-5]|4[7-9]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{3})(\\d{3,5})","$1 $2",["[235][16-9]|8[016-9]|[79]"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"12[789]","\\d{3}",,,"129"]
+,,,[,,"NA","NA"]
 ]
-,"AM":[,[,,"[1-35-9]\\d{7}","\\d{5,8}"]
-,[,,"(?:10\\d|2(?:2[2-46]|3[1-8]|4[2-69]|5[2-7]|6[1-9]|8[1-7])|3[12]2)\\d{5}","\\d{5,8}",,,"10123456"]
-,[,,"(?:55|77|9[1-9])\\d{6}","\\d{8}",,,"77123456"]
+,"AM":[,[,,"[1-9]\\d{7}","\\d{5,8}"]
+,[,,"(?:1[01]\\d|2(?:2[2-46]|3[1-8]|4[2-69]|5[2-7]|6[1-9]|8[1-7])|3[12]2|47\\d)\\d{5}","\\d{5,8}",,,"10123456"]
+,[,,"(?:4[139]|55|77|9[1-9])\\d{6}","\\d{8}",,,"77123456"]
 ,[,,"800\\d{5}","\\d{8}",,,"80012345"]
 ,[,,"90[016]\\d{5}","\\d{8}",,,"90012345"]
 ,[,,"80[1-4]\\d{5}","\\d{8}",,,"80112345"]
 ,[,,"NA","NA"]
-,[,,"6027\\d{4}","\\d{8}",,,"60271234"]
-,"AM",374,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{6})","$1 $2",["1"]
-,"(0$1)",""]
-,[,"(\\d{2})(\\d{6})","$1 $2",["[5-7]|9[1-9]"]
-,"0$1",""]
+,[,,"60[2-6]\\d{5}","\\d{8}",,,"60271234"]
+,"AM",374,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{6})","$1 $2",["1|47"]
+,"(0$1)","",0]
+,[,"(\\d{2})(\\d{6})","$1 $2",["4[139]|[5-7]|9[1-9]"]
+,"0$1","",0]
 ,[,"(\\d{3})(\\d{5})","$1 $2",["[23]"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"(\\d{3})(\\d{2})(\\d{3})","$1 $2 $3",["8|90"]
-,"0 $1",""]
+,"0 $1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"10[123]","\\d{3}",,,"102"]
-]
-,"AN":[,[,,"[13-79]\\d{6,7}","\\d{7,8}"]
-,[,,"(?:318|5(?:25|4\\d|8[239])|7(?:1[578]|50)|9(?:[48]\\d{2}|50\\d|7(?:2[0-2]|[34]\\d|6[35-7]|77)))\\d{4}|416[0239]\\d{3}","\\d{7,8}",,,"7151234"]
-,[,,"(?:318|5(?:1[01]|2[0-7]|5\\d|8[016-8])|7(?:0[01]|[89]\\d)|9(?:5(?:[1246]\\d|3[01])|6(?:[1679]\\d|3[01])))\\d{4}|416[15-8]\\d{3}","\\d{7,8}",,,"3181234"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"(?:10|69)\\d{5}","\\d{7,8}",,,"1011234"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"AN",599,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",["[13-7]"]
-,"",""]
-,[,"(9)(\\d{3})(\\d{4})","$1 $2 $3",["9"]
-,"",""]
-]
-,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"NA","NA"]
 ]
 ,"AO":[,[,,"[29]\\d{8}","\\d{9}"]
 ,[,,"2\\d(?:[26-9]\\d|\\d[26-9])\\d{5}","\\d{9}",,,"222123456"]
-,[,,"9[1-3]\\d{7}","\\d{9}",,,"923123456"]
+,[,,"9[1-49]\\d{7}","\\d{9}",,,"923123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"AO",244,"00",,,,,,,,[[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",,"",""]
+,"AO",244,"00",,,,,,,,[[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"AR":[,[,,"[1-8]\\d{9}|9\\d{10}","\\d{6,11}"]
-,[,,"11\\d{8}|(?:2(?:2(?:[0139]\\d|2[13-79]|4[1-6]|5[2457]|6[124-8]|7[1-4]|8[13-6])|3(?:1[467]|2[02-6]|3[13-8]|[49][2-6]|5[2-8]|[067]\\d)|47[3-8]|6(?:[01345]\\d|2[2-7])|9(?:[0124789]\\d|3[1-6]|5[234]|6[2-6]))|3(?:3(?:2[79]|8[2578])|4(?:[78]\\d|0[0124-9]|[1-356]\\d|4[24-7]|9[123678])|5(?:[138]\\d|2[1245]|4[1-9]|6[2-4]|7[1-6])|7(?:[12468]\\d|3[1245]|5[124-8]|7[2-57])|8(?:[123578]\\d|4[13-6]6[1-357-9]|9[124]))|670\\d)\\d{6}","\\d{6,10}",,,"1123456789"]
-,[,,"675\\d{7}|9(?:11[2-9]\\d{7}|(?:2(?:2[013]|37|6[14]|9[179])|3(?:4[1235]|5[138]|8[1578]))[2-9]\\d{6}|\\d{4}[2-9]\\d{5})","\\d{6,11}",,,"91123456789"]
+,"AR":[,[,,"11\\d{8}|[2368]\\d{9}|9\\d{10}","\\d{6,11}"]
+,[,,"11\\d{8}|(?:2(?:2(?:[013]\\d|2[13-79]|4[1-6]|5[2457]|6[124-8]|7[1-4]|8[13-6]|9[1267])|3(?:1[467]|2[03-6]|3[13-8]|[49][2-6]|5[2-8]|[067]\\d)|4(?:7[3-8]|9\\d)|6(?:[01346]\\d|2[24-6]|5[15-8])|80\\d|9(?:[0124789]\\d|3[1-6]|5[234]|6[2-46]))|3(?:3(?:2[79]|6\\d|8[2578])|4(?:[78]\\d|0[0124-9]|[1-35]\\d|4[24-7]|6[02-9]|9[123678])|5(?:[138]\\d|2[1245]|4[1-9]|6[2-4]|7[1-6])|6[24]\\d|7(?:[0469]\\d|1[1568]|2[013-9]|3[145]|5[14-8]|7[2-57]|8[0-24-9])|8(?:[013578]\\d|2[15-7]|4[13-6]|6[1-357-9]|9[124]))|670\\d)\\d{6}","\\d{6,10}",,,"1123456789"]
+,[,,"675\\d{7}|9(?:11[2-9]\\d{7}|(?:2(?:2[013]|3[067]|49|6[01346]|80|9[147-9])|3(?:36|4[12358]|5[138]|6[24]|7[069]|8[013578]))[2-9]\\d{6}|\\d{4}[2-9]\\d{5})","\\d{6,11}",,,"91123456789"]
 ,[,,"800\\d{7}","\\d{10}",,,"8001234567"]
 ,[,,"60[04579]\\d{7}","\\d{10}",,,"6001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"AR",54,"00","0",,,"0(?:(11|2(?:2(?:02?|[13]|2[13-79]|4[1-6]|5[2457]|6[124-8]|7[1-4]|8[13-6]|9[1-367])|3(?:[06]2|1[467]|2[02-6]|3[13-8]|[49][2-6]|5[2-8]|7)|47[3-578]|6(?:1|2[2-7]|4[6-8]?|5[125-8])|9(?:0[1-3]|[19]|2\\d|3[1-6]|4[0-24-68]|5[2-4]|6[2-6]|72?|8[23]?))|3(?:3(?:2[79]|8[2578])|4(?:0[124-9]|[12]|3[5-8]?|4[24-7]|5[4-68]?|6\\d|7[126]|8[237-9]|9[1-36-8])|5(?:1|2[1245]|3[2-4]?|4[1-46-9]|6[2-4]|7[1-6]|8[2-5]?)|7(?:1[15-8]|2[125]|3[1245]|4[13]|5[124-8]|7[2-57]|8[1-36])|8(?:1|2[125-7]|3[23578]|4[13-6]|5[4-8]?|6[1-357-9]|7[5-8]?|8[4-7]?|9[124])))15)?","9$1",,,[[,"([68]\\d{2})(\\d{3})(\\d{4})","$1-$2-$3",["[68]"]
-,"0$1",""]
+,"AR",54,"00","0",,,"0?(?:(11|2(?:2(?:02?|[13]|2[13-79]|4[1-6]|5[2457]|6[124-8]|7[1-4]|8[13-6]|9[1267])|3(?:02?|1[467]|2[03-6]|3[13-8]|[49][2-6]|5[2-8]|[67])|4(?:7[3-578]|9)|6(?:[0136]|2[24-6]|4[6-8]?|5[15-8])|80|9(?:0[1-3]|[19]|2\\d|3[1-6]|4[02568]?|5[2-4]|6[2-46]|72?|8[23]?))|3(?:3(?:2[79]|6|8[2578])|4(?:0[124-9]|[12]|3[5-8]?|4[24-7]|5[4-68]?|6[02-9]|7[126]|8[2379]?|9[1-36-8])|5(?:1|2[1245]|3[237]?|4[1-46-9]|6[2-4]|7[1-6]|8[2-5]?)|6[24]|7(?:1[1568]|2[15]|3[145]|4[13]|5[14-8]|[069]|7[2-57]|8[126])|8(?:[01]|2[15-7]|3[2578]?|4[13-6]|5[4-8]?|6[1-357-9]|7[36-8]?|8[5-8]?|9[124])))?15)?","9$1",,,[[,"([68]\\d{2})(\\d{3})(\\d{4})","$1-$2-$3",["[68]"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{4})","$1-$2",["[2-9]"]
+,"$1","",0]
+,[,"(\\d{3})(\\d{4})","$1-$2",["[2-9]"]
+,"$1","",0]
+,[,"(\\d{4})(\\d{4})","$1-$2",["[2-9]"]
+,"$1","",0]
 ,[,"(9)(11)(\\d{4})(\\d{4})","$2 15-$3-$4",["911"]
-,"0$1",""]
-,[,"(9)(\\d{3})(\\d{3})(\\d{4})","$2 15-$3-$4",["9(?:2[2369]|3[458])","9(?:2(?:2[013]|37|6[14]|9[179])|3(?:4[1235]|5[138]|8[1578]))"]
-,"0$1",""]
-,[,"(9)(\\d{4})(\\d{2})(\\d{4})","$2 15-$3-$4",["9(?:2[2-469]|3[3-578])","9(?:2(?:2[24-9]|3[0-69]|47|6[25]|9[02-68])|3(?:3[28]|4[046-9]|5[2467]|7[1-578]|8[23469]))"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(9)(\\d{3})(\\d{3})(\\d{4})","$2 15-$3-$4",["9(?:2[234689]|3[3-8])","9(?:2(?:2[013]|3[067]|49|6[01346]|80|9[147-9])|3(?:36|4[12358]|5[138]|6[24]|7[069]|8[013578]))","9(?:2(?:2[013]|3[067]|49|6[01346]|80|9(?:[179]|4[13479]|8[014-9]))|3(?:36|4[12358]|5(?:[18]|3[014-689])|6[24]|7[069]|8(?:[01]|3[013469]|5[0-39]|7[0-2459]|8[0-49])))"]
+,"0$1","",0]
+,[,"(9)(\\d{4})(\\d{2})(\\d{4})","$2 15-$3-$4",["9[23]"]
+,"0$1","",0]
 ,[,"(11)(\\d{4})(\\d{4})","$1 $2-$3",["1"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2-$3",["2(?:2[013]|37|6[14]|9[179])|3(?:4[1235]|5[138]|8[1578])"]
-,"0$1",""]
+,"0$1","",1]
+,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2-$3",["2(?:2[013]|3[067]|49|6[01346]|80|9[147-9])|3(?:36|4[12358]|5[138]|6[24]|7[069]|8[013578])","2(?:2[013]|3[067]|49|6[01346]|80|9(?:[179]|4[13479]|8[014-9]))|3(?:36|4[12358]|5(?:[18]|3[0-689])|6[24]|7[069]|8(?:[01]|3[013469]|5[0-39]|7[0-2459]|8[0-49]))"]
+,"0$1","",1]
 ,[,"(\\d{4})(\\d{2})(\\d{4})","$1 $2-$3",["[23]"]
-,"0$1",""]
+,"0$1","",1]
+,[,"(\\d{3})","$1",["1[012]|911"]
+,"$1","",0]
 ]
 ,[[,"([68]\\d{2})(\\d{3})(\\d{4})","$1-$2-$3",["[68]"]
-]
+,"0$1","",0]
 ,[,"(9)(11)(\\d{4})(\\d{4})","$1 $2 $3-$4",["911"]
 ]
-,[,"(9)(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3-$4",["9(?:2[2369]|3[458])","9(?:2(?:2[013]|37|6[14]|9[179])|3(?:4[1235]|5[138]|8[1578]))"]
+,[,"(9)(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3-$4",["9(?:2[234689]|3[3-8])","9(?:2(?:2[013]|3[067]|49|6[01346]|80|9[147-9])|3(?:36|4[12358]|5[138]|6[24]|7[069]|8[013578]))","9(?:2(?:2[013]|3[067]|49|6[01346]|80|9(?:[179]|4[13479]|8[014-9]))|3(?:36|4[12358]|5(?:[18]|3[014-689])|6[24]|7[069]|8(?:[01]|3[013469]|5[0-39]|7[0-2459]|8[0-49])))"]
 ]
-,[,"(9)(\\d{4})(\\d{2})(\\d{4})","$1 $2 $3-$4",["9(?:2[2-469]|3[3-578])","9(?:2(?:2[24-9]|3[0-69]|47|6[25]|9[02-68])|3(?:3[28]|4[046-9]|5[2467]|7[1-578]|8[23469]))"]
+,[,"(9)(\\d{4})(\\d{2})(\\d{4})","$1 $2 $3-$4",["9[23]"]
 ]
 ,[,"(11)(\\d{4})(\\d{4})","$1 $2-$3",["1"]
-]
-,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2-$3",["2(?:2[013]|37|6[14]|9[179])|3(?:4[1235]|5[138]|8[1578])"]
-]
+,"0$1","",1]
+,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2-$3",["2(?:2[013]|3[067]|49|6[01346]|80|9[147-9])|3(?:36|4[12358]|5[138]|6[24]|7[069]|8[013578])","2(?:2[013]|3[067]|49|6[01346]|80|9(?:[179]|4[13479]|8[014-9]))|3(?:36|4[12358]|5(?:[18]|3[0-689])|6[24]|7[069]|8(?:[01]|3[013469]|5[0-39]|7[0-2459]|8[0-49]))"]
+,"0$1","",1]
 ,[,"(\\d{4})(\\d{2})(\\d{4})","$1 $2-$3",["[23]"]
-]
+,"0$1","",1]
 ]
 ,[,,"NA","NA"]
 ,,,[,,"810\\d{7}","\\d{10}",,,"8101234567"]
 ,[,,"810\\d{7}","\\d{10}",,,"8101234567"]
-,,[,,"1(?:0[017]|28)","\\d{3}",,,"101"]
+,,,[,,"NA","NA"]
 ]
 ,"AS":[,[,,"[5689]\\d{9}","\\d{7}(?:\\d{3})?"]
 ,[,,"6846(?:22|33|44|55|77|88|9[19])\\d{4}","\\d{7}(?:\\d{3})?",,,"6846221234"]
-,[,,"684(?:733|258)\\d{4}","\\d{10}",,,"6847331234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"684(?:25[2468]|7(?:3[13]|70))\\d{4}","\\d{10}",,,"6847331234"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"AS",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"684",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"AT":[,[,,"[1-9]\\d{3,12}","\\d{3,13}"]
-,[,,"1\\d{3,12}|(?:2(?:1[467]|2[134-8]|5[2357]|6[1-46-8]|7[1-8]|8[124-7]|8[1458])|3(?:1[1-8]|3[23568]|4[5-7]|5[1378]|6[1-38]|8[3-68])|4(?:2[1-8]|35|63|7[1368]|8[2457])|5(?:12|2[1-8]|3[357]|4[147]|5[12578]|6[37])|6(?:13|2[1-47]|4[1-35-8]|5[468]|62)|7(?:2[1-8]|3[25]|4[13478]|5[68]|6[16-8]|7[1-6]|9[45]))\\d{3,10}","\\d{3,13}",,,"1234567890"]
+,[,,"1\\d{3,12}|(?:2(?:1[467]|2[13-8]|5[2357]|6[1-46-8]|7[1-8]|8[124-7]|9[1458])|3(?:1[1-8]|3[23568]|4[5-7]|5[1378]|6[1-38]|8[3-68])|4(?:2[1-8]|35|63|7[1368]|8[2457])|5(?:12|2[1-8]|3[357]|4[147]|5[12578]|6[37])|6(?:13|2[1-47]|4[1-35-8]|5[468]|62)|7(?:2[1-8]|3[25]|4[13478]|5[68]|6[16-8]|7[1-6]|9[45]))\\d{3,10}","\\d{3,13}",,,"1234567890"]
 ,[,,"6(?:44|5[0-3579]|6[013-9]|[7-9]\\d)\\d{4,10}","\\d{7,13}",,,"644123456"]
 ,[,,"80[02]\\d{6,10}","\\d{9,13}",,,"800123456"]
 ,[,,"(?:711|9(?:0[01]|3[019]))\\d{6,10}","\\d{9,13}",,,"900123456"]
 ,[,,"8(?:10|2[018])\\d{6,10}","\\d{9,13}",,,"810123456"]
 ,[,,"NA","NA"]
 ,[,,"780\\d{6,10}","\\d{9,13}",,,"780123456"]
-,"AT",43,"00","0",,,"0",,,,[[,"([15])(\\d{3,12})","$1 $2",["1|5[079]"]
-,"0$1",""]
+,"AT",43,"00","0",,,"0",,,,[[,"(1)(\\d{3,12})","$1 $2",["1"]
+,"0$1","",0]
+,[,"(5\\d)(\\d{3,5})","$1 $2",["5[079]"]
+,"0$1","",0]
+,[,"(5\\d)(\\d{3})(\\d{3,4})","$1 $2 $3",["5[079]"]
+,"0$1","",0]
+,[,"(5\\d)(\\d{4})(\\d{4,7})","$1 $2 $3",["5[079]"]
+,"0$1","",0]
 ,[,"(\\d{3})(\\d{3,10})","$1 $2",["316|46|51|732|6(?:44|5[0-3579]|[6-9])|7(?:1|[28]0)|[89]"]
-,"0$1",""]
-,[,"(\\d{4})(\\d{3,9})","$1 $2",["2|3(?:1[1-578]|[3-8])|4[2378]|5[2-6]|6(?:[12]|4[1-35-9]|5[468])|7(?:2[1-8]|35|4[1-8]|[57-9])"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(\\d{4})(\\d{3,9})","$1 $2",["2|3(?:1[1-578]|[3-8])|4[2378]|5[2-6]|6(?:[12]|4[1-35-9]|5[468])|7(?:2[1-8]|35|4[1-8]|[5-79])"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"5(?:(?:0[1-9]|17)\\d{2,10}|[79]\\d{3,11})|720\\d{6,10}","\\d{5,13}",,,"50123"]
-,,[,,"1(?:[12]2|33|44)","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"AU":[,[,,"[1-578]\\d{5,9}","\\d{6,10}"]
-,[,,"[237]\\d{8}|8(?:[68]\\d{3}|7[1-4]\\d{2}|9(?:[02-9]\\d{2}|1(?:[0-57-9]\\d|6[0135-9])))\\d{4}","\\d{8,9}",,,"212345678"]
-,[,,"14(?:5\\d|71)\\d{5}|4(?:[0-2]\\d|3[0-57-9]|4[47-9]|5[0-37-9]|6[6-9]|7[07-9]|8[7-9])\\d{6}","\\d{9}",,,"412345678"]
+,[,,"[237]\\d{8}|8(?:[68]\\d{3}|7[0-69]\\d{2}|9(?:[02-9]\\d{2}|1(?:[0-57-9]\\d|6[0135-9])))\\d{4}","\\d{8,9}",,,"212345678"]
+,[,,"14(?:5\\d|71)\\d{5}|4(?:[0-2]\\d|3[0-57-9]|4[47-9]|5[0-25-9]|6[6-9]|7[03-9]|8[17-9]|9[017-9])\\d{6}","\\d{9}",,,"412345678"]
 ,[,,"180(?:0\\d{3}|2)\\d{3}","\\d{7,10}",,,"1800123456"]
-,[,,"19(?:0[0126]\\d{6}|[13-5]\\d{3}|[679]\\d{5})","\\d{6,10}",,,"1900123456"]
+,[,,"190[0126]\\d{6}","\\d{10}",,,"1900123456"]
 ,[,,"13(?:00\\d{2})?\\d{4}","\\d{6,10}",,,"1300123456"]
 ,[,,"500\\d{6}","\\d{9}",,,"500123456"]
 ,[,,"550\\d{6}","\\d{9}",,,"550123456"]
 ,"AU",61,"(?:14(?:1[14]|34|4[17]|[56]6|7[47]|88))?001[14-689]","0",,,"0",,"0011",,[[,"([2378])(\\d{4})(\\d{4})","$1 $2 $3",["[2378]"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["[45]|14"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(16)(\\d{3})(\\d{2,4})","$1 $2 $3",["16"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(1[389]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["1(?:[38]0|90)","1(?:[38]00|90)"]
-,"$1",""]
+,"$1","",0]
 ,[,"(180)(2\\d{3})","$1 $2",["180","1802"]
-,"$1",""]
+,"$1","",0]
 ,[,"(19\\d)(\\d{3})","$1 $2",["19[13]"]
-,"$1",""]
+,"$1","",0]
 ,[,"(19\\d{2})(\\d{4})","$1 $2",["19[67]"]
-,"$1",""]
+,"$1","",0]
 ,[,"(13)(\\d{2})(\\d{2})","$1 $2 $3",["13[1-9]"]
-,"$1",""]
+,"$1","",0]
 ]
 ,,[,,"16\\d{3,7}","\\d{5,9}",,,"1612345"]
 ,1,,[,,"1(?:3(?:\\d{4}|00\\d{6})|80(?:0\\d{6}|2\\d{3}))","\\d{6,10}",,,"1300123456"]
 ,[,,"NA","NA"]
-,,[,,"000|112","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"AW":[,[,,"[25-9]\\d{6}","\\d{7}"]
 ,[,,"5(?:2\\d|8[1-9])\\d{4}","\\d{7}",,,"5212345"]
-,[,,"(?:5(?:6\\d|9[2-478])|6(?:[039]0|22|[46][01])|7[34]\\d|9(?:6[45]|9[4-8]))\\d{4}","\\d{7}",,,"5601234"]
+,[,,"(?:5(?:6\\d|9[2-478])|6(?:[039]0|22|4[01]|6[0-2])|7[34]\\d|9(?:6[45]|9[4-8]))\\d{4}","\\d{7}",,,"5601234"]
 ,[,,"800\\d{4}","\\d{7}",,,"8001234"]
 ,[,,"900\\d{4}","\\d{7}",,,"9001234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"28\\d{5}|501\\d{4}","\\d{7}",,,"5011234"]
-,"AW",297,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"",""]
+,"AW",297,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"AX":[,[,,"[135]\\d{5,9}|[27]\\d{4,9}|4\\d{5,10}|6\\d{7,8}|8\\d{6,9}","\\d{5,12}"]
 ,[,,"18[1-8]\\d{3,9}","\\d{6,12}",,,"1812345678"]
@@ -9023,122 +11107,121 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"AX",358,"00|99[049]","0",,,"0",,,,,,[,,"NA","NA"]
+,,,[,,"[13]00\\d{3,7}|2(?:0(?:0\\d{3,7}|2[023]\\d{1,6}|9[89]\\d{1,6}))|60(?:[12]\\d{5,6}|6\\d{7})|7(?:1\\d{7}|3\\d{8}|5[03-9]\\d{2,7})","\\d{5,10}",,,"100123"]
+,[,,"[13]0\\d{4,8}|2(?:0(?:[016-8]\\d{3,7}|[2-59]\\d{2,7})|9\\d{4,8})|60(?:[12]\\d{5,6}|6\\d{7})|7(?:1\\d{7}|3\\d{8}|5[03-9]\\d{2,7})","\\d{5,10}",,,"10112345"]
 ,,,[,,"NA","NA"]
-,[,,"10[1-9]\\d{3,7}|2(?:0(?:[16-8]\\d{3,7}|2[14-9]\\d{1,6}|[3-5]\\d{2,7}|9[0-7]\\d{1,6})|9\\d{4,8})|30[1-9]\\d{3,7}|7(?:1\\d{7}|3\\d{8}|5[03-9]\\d{2,7})","\\d{5,10}",,,"10112345"]
-,,[,,"NA","NA"]
 ]
-,"AZ":[,[,,"[1-9]\\d{7,8}","\\d{5,9}"]
-,[,,"(?:1(?:(?:[28]\\d|9)\\d|02|1[0-589]|3[358]|4[013-79]|5[0-479]|6[02346-9]|7[0-24-8])|2(?:02\\d|1(?:2[0-8]|42|6)|2(?:2[0-79]|3[0-35]|42|[1-35-9]|)|3(?:3[0-58]|[0-24])|4(?:2[0124579]|[1468])|5(?:2[0124579]|5)|6(?:2\\d|3[0128]|[56])|79)|365?\\d|44\\d{2})\\d{5}","\\d{5,9}",,,"123123456"]
-,[,,"(?:[46]0|5[015]|7[07])\\d{7}","\\d{9}",,,"401234567"]
+,"AZ":[,[,,"[1-9]\\d{8}","\\d{7,9}"]
+,[,,"(?:1[28]\\d|2(?:02|1[24]|2[2-4]|33|[45]2|6[23])|365)\\d{6}","\\d{7,9}",,,"123123456"]
+,[,,"(?:4[04]|5[015]|60|7[07])\\d{7}","\\d{9}",,,"401234567"]
 ,[,,"88\\d{7}","\\d{9}",,,"881234567"]
 ,[,,"900200\\d{3}","\\d{9}",,,"900200123"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"AZ",994,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4",["(?:1[28]|2(?:[45]2|[0-36])|365)"]
-,"(0$1)",""]
-,[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["22"]
-,"(0$1)",""]
-,[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["36[0-46-9]"]
-,"(0$1)",""]
-,[,"(\\d{3})(\\d)(\\d{2})(\\d{2})","$1 $2 $3 $4",["1[013-79]|2(?:[45][13-9]|[7-9])"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"(\\d{2})(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[4-8]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{3})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["9"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"BA":[,[,,"[3-689]\\d{7}","\\d{6,8}"]
+,"BA":[,[,,"[3-9]\\d{7,8}","\\d{6,9}"]
 ,[,,"(?:[35]\\d|49)\\d{6}","\\d{6,8}",,,"30123456"]
-,[,,"6[1-356]\\d{6}","\\d{8}",,,"61123456"]
+,[,,"6(?:03|44|71|[1-356])\\d{6}","\\d{8,9}",,,"61123456"]
 ,[,,"8[08]\\d{6}","\\d{8}",,,"80123456"]
 ,[,,"9[0246]\\d{6}","\\d{8}",,,"90123456"]
-,[,,"82\\d{6}","\\d{8}",,,"82123456"]
+,[,,"8[12]\\d{6}","\\d{8}",,,"82123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"BA",387,"00","0",,,"0",,,,[[,"([3-689]\\d)(\\d{3})(\\d{3})","$1 $2-$3",,"0$1",""]
+,"BA",387,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{3})(\\d{3})","$1 $2-$3",["[3-5]"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["6[1-356]|[7-9]"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{2})(\\d{2})(\\d{3})","$1 $2 $3 $4",["6[047]"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"81\\d{6}","\\d{8}",,,"81123456"]
-,,[,,"12[234]","\\d{3}",,,"122"]
+,[,,"70[23]\\d{5}","\\d{8}",,,"70223456"]
+,,,[,,"NA","NA"]
 ]
 ,"BB":[,[,,"[2589]\\d{9}","\\d{7}(?:\\d{3})?"]
 ,[,,"246[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"2462345678"]
 ,[,,"246(?:(?:2[346]|45|82)\\d|25[0-4])\\d{4}","\\d{10}",,,"2462501234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"BB",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"246",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"[235]11","\\d{3}",,,"211"]
+,,,[,,"NA","NA"]
 ]
 ,"BD":[,[,,"[2-79]\\d{5,9}|1\\d{9}|8[0-7]\\d{4,8}","\\d{6,10}"]
-,[,,"2(?:7\\d1|8(?:[026]1|[1379][1-5]|8[1-8])|9(?:0[0-2]|1[1-4]|3[3-5]|5[56]|6[67]|71|8[078]))\\d{4}|3(?:[6-8]1|(?:0[23]|[25][12]|82|416)\\d|(?:31|12?[5-7])\\d{2})\\d{3}|4(?:(?:02|[49]6|[68]1)|(?:0[13]|21\\d?|[23]2|[457][12]|6[28])\\d|(?:23|[39]1)\\d{2}|1\\d{3})\\d{3}|5(?:(?:[457-9]1|62)|(?:1\\d?|2[12]|3[1-3]|52)\\d|61{2})|6(?:[45]1|(?:11|2[15]|[39]1)\\d|(?:[06-8]1|62)\\d{2})|7(?:(?:32|91)|(?:02|31|[67][12])\\d|[458]1\\d{2}|21\\d{3})\\d{3}|8(?:(?:4[12]|[5-7]2|1\\d?)|(?:0|3[12]|[5-7]1|217)\\d)\\d{4}|9(?:[35]1|(?:[024]2|81)\\d|(?:1|[24]1)\\d{2})\\d{3}","\\d{6,9}",,,"27111234"]
+,[,,"2(?:7(?:1[0-267]|2[0-289]|3[0-29]|[46][01]|5[1-3]|7[017]|91)|8(?:0[125]|[139][1-6]|2[0157-9]|6[1-35]|7[1-5]|8[1-8])|9(?:0[0-2]|1[1-4]|2[568]|3[3-6]|5[5-7]|6[0167]|7[15]|8[0146-8]))\\d{4}|3(?:12?[5-7]\\d{2}|0(?:2(?:[025-79]\\d|[348]\\d{1,2})|3(?:[2-4]\\d|[56]\\d?))|2(?:1\\d{2}|2(?:[12]\\d|[35]\\d{1,2}|4\\d?))|3(?:1\\d{2}|2(?:[2356]\\d|4\\d{1,2}))|4(?:1\\d{2}|2(?:2\\d{1,2}|[47]|5\\d{2}))|5(?:1\\d{2}|29)|[67]1\\d{2}|8(?:1\\d{2}|2(?:2\\d{2}|3|4\\d)))\\d{3}|4(?:0(?:2(?:[09]\\d|7)|33\\d{2})|1\\d{3}|2(?:1\\d{2}|2(?:[25]\\d?|[348]\\d|[67]\\d{1,2}))|3(?:1\\d{2}(?:\\d{2})?|2(?:[045]\\d|[236-9]\\d{1,2})|32\\d{2})|4(?:[18]\\d{2}|2(?:[2-46]\\d{2}|3)|5[25]\\d{2})|5(?:1\\d{2}|2(?:3\\d|5))|6(?:[18]\\d{2}|2(?:3(?:\\d{2})?|[46]\\d{1,2}|5\\d{2}|7\\d)|5(?:3\\d?|4\\d|[57]\\d{1,2}|6\\d{2}|8))|71\\d{2}|8(?:[18]\\d{2}|23\\d{2}|54\\d{2})|9(?:[18]\\d{2}|2[2-5]\\d{2}|53\\d{1,2}))\\d{3}|5(?:02[03489]\\d{2}|1\\d{2}|2(?:1\\d{2}|2(?:2(?:\\d{2})?|[457]\\d{2}))|3(?:1\\d{2}|2(?:[37](?:\\d{2})?|[569]\\d{2}))|4(?:1\\d{2}|2[46]\\d{2})|5(?:1\\d{2}|26\\d{1,2})|6(?:[18]\\d{2}|2|53\\d{2})|7(?:1|24)\\d{2}|8(?:1|26)\\d{2}|91\\d{2})\\d{3}|6(?:0(?:1\\d{2}|2(?:3\\d{2}|4\\d{1,2}))|2(?:2[2-5]\\d{2}|5(?:[3-5]\\d{2}|7)|8\\d{2})|3(?:1|2[3478])\\d{2}|4(?:1|2[34])\\d{2}|5(?:1|2[47])\\d{2}|6(?:[18]\\d{2}|6(?:2(?:2\\d|[34]\\d{2})|5(?:[24]\\d{2}|3\\d|5\\d{1,2})))|72[2-5]\\d{2}|8(?:1\\d{2}|2[2-5]\\d{2})|9(?:1\\d{2}|2[2-6]\\d{2}))\\d{3}|7(?:(?:02|[3-589]1|6[12]|72[24])\\d{2}|21\\d{3}|32)\\d{3}|8(?:(?:4[12]|[5-7]2|1\\d?)|(?:0|3[12]|[5-7]1|217)\\d)\\d{4}|9(?:[35]1|(?:[024]2|81)\\d|(?:1|[24]1)\\d{2})\\d{3}","\\d{6,9}",,,"27111234"]
 ,[,,"(?:1[13-9]\\d|(?:3[78]|44)[02-9]|6(?:44|6[02-9]))\\d{7}","\\d{10}",,,"1812345678"]
 ,[,,"80[03]\\d{7}","\\d{10}",,,"8001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"BD",880,"00[12]?","0",,,"0",,"00",,[[,"(2)(\\d{7})","$1 $2",["2"]
-,"0$1",""]
-,[,"(\\d{2})(\\d{4,6})","$1 $2",["[3-79]1"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{3,7})","$1 $2",["[3-79][2-9]|8"]
-,"0$1",""]
-,[,"(\\d{4})(\\d{6})","$1 $2",["1"]
-,"0$1",""]
+,[,,"96(?:0[49]|1[0-4]|6[69])\\d{6}","\\d{10}",,,"9604123456"]
+,"BD",880,"00[12]?","0",,,"0",,"00",,[[,"(2)(\\d{7})","$1-$2",["2"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{4,6})","$1-$2",["[3-79]1"]
+,"0$1","",0]
+,[,"(\\d{4})(\\d{3,6})","$1-$2",["1|3(?:0|[2-58]2)|4(?:0|[25]2|3[23]|[4689][25])|5(?:[02-578]2|6[25])|6(?:[0347-9]2|[26][25])|7[02-9]2|8(?:[023][23]|[4-7]2)|9(?:[02][23]|[458]2|6[016])"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{3,7})","$1-$2",["[3-79][2-9]|8"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"999","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
 ]
 ,"BE":[,[,,"[1-9]\\d{7,8}","\\d{8,9}"]
-,[,,"(?:1[0-69]|[23][2-8]|[49][23]|5\\d|6[013-57-9]|7[18])\\d{6}|8(?:0[1-9]|[1-69]\\d)\\d{5}","\\d{8}",,,"12345678"]
-,[,,"4(?:[67]\\d|8[3-9]|9[1-9])\\d{6}","\\d{9}",,,"470123456"]
+,[,,"(?:1[0-69]|[49][23]|5\\d|6[013-57-9]|71|8[0-79])[1-9]\\d{5}|[23][2-8]\\d{6}","\\d{8}",,,"12345678"]
+,[,,"4(?:[679]\\d|8[03-9])\\d{6}","\\d{9}",,,"470123456"]
 ,[,,"800\\d{5}","\\d{8}",,,"80012345"]
-,[,,"(?:90|7[07])\\d{6}","\\d{8}",,,"90123456"]
-,[,,"87\\d{6}","\\d{8}",,,"87123456"]
+,[,,"(?:70[2-7]|90\\d)\\d{5}","\\d{8}",,,"90123456"]
+,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"BE",32,"00","0",,,"0",,,,[[,"(4[6-9]\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["4[6-9]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([2-49])(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[23]|[49][23]"]
-,"0$1",""]
-,[,"([15-8]\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[156]|7[0178]|8(?:0[1-9]|[1-79])"]
-,"0$1",""]
+,"0$1","",0]
+,[,"([15-8]\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[156]|7[018]|8(?:0[1-9]|[1-79])"]
+,"0$1","",0]
 ,[,"([89]\\d{2})(\\d{2})(\\d{3})","$1 $2 $3",["(?:80|9)0"]
-,"0$1",""]
+,"0$1","",0]
+]
+,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"78\\d{6}","\\d{8}",,,"78123456"]
+,,,[,,"NA","NA"]
+]
+,"BF":[,[,,"[24-7]\\d{7}","\\d{8}"]
+,[,,"(?:20(?:49|5[23]|9[016-9])|40(?:4[569]|5[4-6]|7[0179])|50(?:[34]\\d|50))\\d{4}","\\d{8}",,,"20491234"]
+,[,,"6(?:[0-689]\\d|7[0-5])\\d{5}|7\\d{7}","\\d{8}",,,"70123456"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"BF",226,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:0[01]|12)","\\d{3}",,,"112"]
-]
-,"BF":[,[,,"[2457]\\d{7}","\\d{8}"]
-,[,,"(?:20(?:49|5[23]|9[016-9])|40(?:4[569]|55|7[0179])|50[34]\\d)\\d{4}","\\d{8}",,,"20491234"]
-,[,,"7(?:[02-68]\\d|1[0-4689]|7[0-6]|9[0-689])\\d{5}","\\d{8}",,,"70123456"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"BF",226,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"",""]
-]
-,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"NA","NA"]
 ]
 ,"BG":[,[,,"[23567]\\d{5,7}|[489]\\d{6,8}","\\d{5,9}"]
 ,[,,"2(?:[0-8]\\d{5,6}|9\\d{4,6})|(?:[36]\\d|5[1-9]|8[1-6]|9[1-7])\\d{5,6}|(?:4(?:[124-7]\\d|3[1-6])|7(?:0[1-9]|[1-9]\\d))\\d{4,5}","\\d{5,8}",,,"2123456"]
@@ -9148,74 +11231,74 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"700\\d{5}","\\d{5,9}",,,"70012345"]
 ,[,,"NA","NA"]
-,"BG",359,"00","0",,,"0",,,,[[,"(2)(\\d{5})","$1/$2",["29"]
-,"0$1",""]
-,[,"(2)(\\d{3})(\\d{3,4})","$1/$2 $3",["2"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{4})","$1/$2",["43[124-7]|70[1-9]"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{3})(\\d{2})","$1/$2 $3",["43[124-7]|70[1-9]"]
-,"0$1",""]
+,"BG",359,"00","0",,,"0",,,,[[,"(2)(\\d{5})","$1 $2",["29"]
+,"0$1","",0]
+,[,"(2)(\\d{3})(\\d{3,4})","$1 $2 $3",["2"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{4})","$1 $2",["43[124-7]|70[1-9]"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{3})(\\d{2})","$1 $2 $3",["43[124-7]|70[1-9]"]
+,"0$1","",0]
 ,[,"(\\d{3})(\\d{2})(\\d{3})","$1 $2 $3",["[78]00"]
-,"0$1",""]
-,[,"(\\d{2})(\\d{3})(\\d{2,3})","$1/$2 $3",["[356]|7[1-9]|8[1-6]|9[1-7]"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{3})(\\d{2,3})","$1 $2 $3",["[356]|4[124-7]|7[1-9]|8[1-6]|9[1-7]"]
+,"0$1","",0]
 ,[,"(\\d{2})(\\d{3})(\\d{3,4})","$1 $2 $3",["48|8[7-9]|9[08]"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:12|50|6[06])","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"BH":[,[,,"[136-9]\\d{7}","\\d{8}"]
-,[,,"(?:1(?:3[3-6]|6[0156]|7\\d)|6(?:1[16]|6[03469]|9[69])|77\\d)\\d{5}","\\d{8}",,,"17001234"]
-,[,,"(?:3(?:[23469]\\d|77|8[348])|6(?:1[16]|6[03469]|9[69])|77\\d)\\d{5}","\\d{8}",,,"36001234"]
+,[,,"(?:1(?:3[13-6]|6[0156]|7\\d)\\d|6(?:1[16]\\d|500|6(?:0\\d|3[12]|44|88)|9[69][69])|7(?:7\\d{2}|178))\\d{4}","\\d{8}",,,"17001234"]
+,[,,"(?:3(?:[1-4679]\\d|5[01356]|8[0-48])\\d|6(?:3(?:00|33|6[16])|6(?:[69]\\d|3[03-9])))\\d{4}","\\d{8}",,,"36001234"]
 ,[,,"80\\d{6}","\\d{8}",,,"80123456"]
 ,[,,"(?:87|9[014578])\\d{6}","\\d{8}",,,"90123456"]
 ,[,,"84\\d{6}","\\d{8}",,,"84123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"BH",973,"00",,,,,,,,[[,"(\\d{4})(\\d{4})","$1 $2",,"",""]
+,"BH",973,"00",,,,,,,,[[,"(\\d{4})(\\d{4})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"999","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
 ]
-,"BI":[,[,,"[27]\\d{7}","\\d{8}"]
+,"BI":[,[,,"[267]\\d{7}","\\d{8}"]
 ,[,,"22(?:2[0-7]|[3-5]0)\\d{4}","\\d{8}",,,"22201234"]
-,[,,"(?:29\\d|7(?:1[1-3]|[4-9]\\d))\\d{5}","\\d{8}",,,"79561234"]
+,[,,"(?:[26]9|7[14-9])\\d{6}","\\d{8}",,,"79561234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"BI",257,"00",,,,,,,,[[,"([27]\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"",""]
+,"BI",257,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"BJ":[,[,,"[2689]\\d{7}|7\\d{3}","\\d{4,8}"]
 ,[,,"2(?:02|1[037]|2[45]|3[68])\\d{5}","\\d{8}",,,"20211234"]
-,[,,"(?:6[46]|9[03-8])\\d{6}","\\d{8}",,,"90011234"]
+,[,,"(?:6[146-8]|9[03-9])\\d{6}","\\d{8}",,,"90011234"]
 ,[,,"7[3-5]\\d{2}","\\d{4}",,,"7312"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"857[58]\\d{4}","\\d{8}",,,"85751234"]
-,"BJ",229,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"",""]
+,"BJ",229,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,[,,"81\\d{6}","\\d{8}",,,"81123456"]
+,,,[,,"NA","NA"]
 ]
 ,"BL":[,[,,"[56]\\d{8}","\\d{9}"]
 ,[,,"590(?:2[7-9]|5[12]|87)\\d{4}","\\d{9}",,,"590271234"]
-,[,,"690(?:10|2[27]|66|77|8[78])\\d{4}","\\d{9}",,,"690221234"]
+,[,,"690(?:0[0-7]|[1-9]\\d)\\d{4}","\\d{9}",,,"690301234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -9224,35 +11307,35 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"BL",590,"00","0",,,"0",,,,,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"BM":[,[,,"[4589]\\d{9}","\\d{7}(?:\\d{3})?"]
 ,[,,"441(?:2(?:02|23|61|[3479]\\d)|[46]\\d{2}|5(?:4\\d|60|89)|824)\\d{4}","\\d{7}(?:\\d{3})?",,,"4412345678"]
 ,[,,"441(?:[37]\\d|5[0-39])\\d{5}","\\d{10}",,,"4413701234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"BM",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"441",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"BN":[,[,,"[2-578]\\d{6}","\\d{7}"]
-,[,,"[2-5]\\d{6}","\\d{7}",,,"2345678"]
-,[,,"[78]\\d{6}","\\d{7}",,,"7123456"]
+,[,,"2(?:[013-9]\\d|2[0-7])\\d{4}|[3-5]\\d{6}","\\d{7}",,,"2345678"]
+,[,,"22[89]\\d{4}|[78]\\d{6}","\\d{7}",,,"7123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"BN",673,"00",,,,,,,,[[,"([2-578]\\d{2})(\\d{4})","$1 $2",,"",""]
+,"BN",673,"00",,,,,,,,[[,"([2-578]\\d{2})(\\d{4})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"BO":[,[,,"[23467]\\d{7}","\\d{7,8}"]
 ,[,,"(?:2(?:2\\d{2}|5(?:11|[258]\\d|9[67])|6(?:12|2\\d|9[34])|8(?:2[34]|39|62))|3(?:3\\d{2}|4(?:6\\d|8[24])|8(?:25|42|5[257]|86|9[25])|9(?:2\\d|3[234]|4[248]|5[24]|6[2-6]|7\\d))|4(?:4\\d{2}|6(?:11|[24689]\\d|72)))\\d{4}","\\d{7,8}",,,"22123456"]
@@ -9263,47 +11346,77 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"BO",591,"00(1\\d)?","0",,,"0(1\\d)?",,,,[[,"([234])(\\d{7})","$1 $2",["[234]"]
-,"","0$CC $1"]
+,"","0$CC $1",0]
 ,[,"([67]\\d{7})","$1",["[67]"]
-,"","0$CC $1"]
+,"","0$CC $1",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"11[089]","\\d{3}",,,"110"]
+,,,[,,"NA","NA"]
 ]
-,"BR":[,[,,"[1-9]\\d{7,9}","\\d{8,10}"]
-,[,,"1[1-9][2-5]\\d{7}|(?:[4689][1-9]|2[12478]|3[1-578]|5[13-5]|7[13-579])[2-5]\\d{7}","\\d{8,10}",,,"1123456789"]
-,[,,"1(?:1(?:[6-9]\\d|5[347])|[2-9][6-9]\\d)\\d{6}|(?:[4689][1-9]|2[12478]|3[1-578]|5[13-5]|7[13-579])[6-9]\\d{7}","\\d{10}",,,"1161234567"]
-,[,,"800\\d{6,7}","\\d{8,10}",,,"800123456"]
-,[,,"[359]00\\d{6,7}","\\d{8,10}",,,"300123456"]
-,[,,"(?:400\\d|3003)\\d{4}","\\d{8}",,,"40041234"]
+,"BQ":[,[,,"[347]\\d{6}","\\d{7}"]
+,[,,"(?:318[023]|416[023]|7(?:1[578]|50)\\d)\\d{3}","\\d{7}",,,"7151234"]
+,[,,"(?:318[14-68]|416[15-9]|7(?:0[01]|7[07]|[89]\\d)\\d)\\d{3}","\\d{7}",,,"3181234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"BR",55,"00(?:1[45]|2[135]|[34]1|43)","0",,,"0(?:(1[245]|2[135]|[34]1)(\\d{10}))?","$2",,,[[,"(\\d{2})(\\d{4})(\\d{4})","$1 $2-$3",["[1-9][1-9]"]
-,"($1)","0 $CC ($1)"]
-,[,"([34]00\\d)(\\d{4})","$1-$2",["[34]00","400|3003"]
-,"",""]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"BQ",599,"00",,,,,,,,,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+]
+,"BR":[,[,,"[1-46-9]\\d{7,10}|5\\d{8,9}","\\d{8,11}"]
+,[,,"1[1-9][2-5]\\d{7}|(?:[4689][1-9]|2[12478]|3[1-578]|5[13-5]|7[13-579])[2-5]\\d{7}","\\d{8,11}",,,"1123456789"]
+,[,,"1[1-9](?:7|9\\d)\\d{7}|(?:2[12478]|9[1-9])9?[6-9]\\d{7}|(?:3[1-578]|[468][1-9]|5[13-5]|7[13-579])[6-9]\\d{7}","\\d{10,11}",,,"11961234567"]
+,[,,"800\\d{6,7}","\\d{8,11}",,,"800123456"]
+,[,,"[359]00\\d{6,7}","\\d{8,11}",,,"300123456"]
+,[,,"[34]00\\d{5}","\\d{8}",,,"40041234"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"BR",55,"00(?:1[45]|2[135]|31|4[13])","0",,,"0(?:(1[245]|2[135]|31|4[13])(\\d{10,11}))?","$2",,,[[,"(\\d{4})(\\d{4})","$1-$2",["[2-9](?:[1-9]|0[1-9])"]
+,"$1","",0]
+,[,"(\\d{5})(\\d{4})","$1-$2",["9(?:[1-9]|0[1-9])"]
+,"$1","",0]
+,[,"(\\d{3,5})","$1",["1[125689]"]
+,"$1","",0]
+,[,"(\\d{2})(\\d{5})(\\d{4})","$1 $2-$3",["(?:1[1-9]|2[12478]|9[1-9])9"]
+,"($1)","0 $CC ($1)",0]
+,[,"(\\d{2})(\\d{4})(\\d{4})","$1 $2-$3",["[1-9][1-9]"]
+,"($1)","0 $CC ($1)",0]
+,[,"([34]00\\d)(\\d{4})","$1-$2",["[34]00"]
+,"","",0]
 ,[,"([3589]00)(\\d{2,3})(\\d{4})","$1 $2 $3",["[3589]00"]
-,"0$1",""]
+,"0$1","",0]
 ]
-,,[,,"NA","NA"]
-,,,[,,"(?:400\\d|3003)\\d{4}","\\d{8}",,,"40041234"]
+,[[,"(\\d{2})(\\d{5})(\\d{4})","$1 $2-$3",["(?:1[1-9]|2[12478]|9[1-9])9"]
+,"($1)","0 $CC ($1)",0]
+,[,"(\\d{2})(\\d{4})(\\d{4})","$1 $2-$3",["[1-9][1-9]"]
+,"($1)","0 $CC ($1)",0]
+,[,"([34]00\\d)(\\d{4})","$1-$2",["[34]00"]
+,"","",0]
+,[,"([3589]00)(\\d{2,3})(\\d{4})","$1 $2 $3",["[3589]00"]
+,"0$1","",0]
+]
 ,[,,"NA","NA"]
-,,[,,"1(?:12|28|9[023])|911","\\d{3}",,,"190"]
+,,,[,,"[34]00\\d{5}","\\d{8}",,,"40041234"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"BS":[,[,,"[2589]\\d{9}","\\d{7}(?:\\d{3})?"]
-,[,,"242(?:3(?:02|[236][1-9]|4[0-24-9]|5[0-68]|7[3467]|8[0-4]|9[2-467])|461|502|6(?:12|7[67]|8[78]|9[89])|702)\\d{4}","\\d{7}(?:\\d{3})?",,,"2423456789"]
-,[,,"242(?:3(?:5[79]|[79]5)|4(?:[2-4][1-9]|5[1-8]|6[2-8]|7\\d|81)|5(?:2[34]|3[35]|44|5[1-9]|65|77)|6[34]6|727)\\d{4}","\\d{10}",,,"2423591234"]
-,[,,"242300\\d{4}|8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"242(?:3(?:02|[236][1-9]|4[0-24-9]|5[0-68]|7[3467]|8[0-4]|9[2-467])|461|502|6(?:0[12]|12|7[67]|8[78]|9[89])|702)\\d{4}","\\d{7}(?:\\d{3})?",,,"2423456789"]
+,[,,"242(?:3(?:5[79]|[79]5)|4(?:[2-4][1-9]|5[1-8]|6[2-8]|7\\d|81)|5(?:2[45]|3[35]|44|5[1-9]|65|77)|6[34]6|727)\\d{4}","\\d{10}",,,"2423591234"]
+,[,,"242300\\d{4}|8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"BS",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"242",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"BT":[,[,,"[1-8]\\d{6,7}","\\d{6,8}"]
 ,[,,"(?:2[3-6]|[34][5-7]|5[236]|6[2-46]|7[246]|8[2-4])\\d{5}","\\d{6,7}",,,"2345678"]
@@ -9314,89 +11427,93 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"BT",975,"00",,,,,,,,[[,"([17]7)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["1|77"]
-,"",""]
+,"","",0]
 ,[,"([2-8])(\\d{3})(\\d{3})","$1 $2 $3",["[2-68]|7[246]"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"BW":[,[,,"[2-79]\\d{6,7}","\\d{7,8}"]
 ,[,,"(?:2(?:4[0-48]|6[0-24]|9[0578])|3(?:1[0235-9]|55|6\\d|7[01]|9[0-57])|4(?:6[03]|7[1267]|9[0-5])|5(?:3[0389]|4[0489]|7[1-47]|88|9[0-49])|6(?:2[1-35]|5[149]|8[067]))\\d{4}","\\d{7}",,,"2401234"]
-,[,,"7(?:[1-35]\\d{6}|[46][0-7]\\d{5})","\\d{8}",,,"71123456"]
+,[,,"7(?:[1-356]\\d|4[0-7]|7[014-7])\\d{5}","\\d{8}",,,"71123456"]
 ,[,,"NA","NA"]
 ,[,,"90\\d{5}","\\d{7}",,,"9012345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"79[12][01]\\d{4}","\\d{8}",,,"79101234"]
 ,"BW",267,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",["[2-6]"]
-,"",""]
+,"","",0]
 ,[,"(7\\d)(\\d{3})(\\d{3})","$1 $2 $3",["7"]
-,"",""]
+,"","",0]
 ,[,"(90)(\\d{5})","$1 $2",["9"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"BY":[,[,,"[12-4]\\d{8}|[89]\\d{9,10}","\\d{7,11}"]
-,[,,"(?:1(?:5(?:1[1-5]|2\\d|6[1-4]|9[1-7])|6(?:[235]\\d|4[1-7])|7\\d{2})|2(?:1(?:[246]\\d|3[0-35-9]|5[1-9])|2(?:[235]\\d|4[0-8])|3(?:2\\d|3[02-79]|4[024-7]|5[0-7])))\\d{5}","\\d{7,9}",,,"152450911"]
+,"BY":[,[,,"[1-4]\\d{8}|[89]\\d{9,10}","\\d{7,11}"]
+,[,,"(?:1(?:5(?:1[1-5]|[24]\\d|6[2-4]|9[1-7])|6(?:[235]\\d|4[1-7])|7\\d{2})|2(?:1(?:[246]\\d|3[0-35-9]|5[1-9])|2(?:[235]\\d|4[0-8])|3(?:[26]\\d|3[02-79]|4[024-7]|5[03-7])))\\d{5}","\\d{7,9}",,,"152450911"]
 ,[,,"(?:2(?:5[5679]|9[1-9])|33\\d|44\\d)\\d{6}","\\d{9}",,,"294911911"]
 ,[,,"8(?:0[13]|20\\d)\\d{7}","\\d{10,11}",,,"8011234567"]
 ,[,,"(?:810|902)\\d{7}","\\d{10}",,,"9021234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"BY",375,"810","8",,,"80?",,"8~10",,[[,"([1-4]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["[1-4]"]
-,"8 0$1",""]
+,"BY",375,"810","8",,,"8?0?",,"8~10",,[[,"(\\d{2})(\\d{3})(\\d{2})(\\d{2})","$1 $2-$3-$4",["17[0-3589]|2[4-9]|[34]","17(?:[02358]|1[0-2]|9[0189])|2[4-9]|[34]"]
+,"8 0$1","",0]
+,[,"(\\d{3})(\\d{2})(\\d{2})(\\d{2})","$1 $2-$3-$4",["1(?:5[24]|6[235]|7[467])|2(?:1[246]|2[25]|3[26])","1(?:5[24]|6(?:2|3[04-9]|5[0346-9])|7(?:[46]|7[37-9]))|2(?:1[246]|2[25]|3[26])"]
+,"8 0$1","",0]
+,[,"(\\d{4})(\\d{2})(\\d{3})","$1 $2-$3",["1(?:5[169]|6[3-5]|7[179])|2(?:1[35]|2[34]|3[3-5])","1(?:5[169]|6(?:3[1-3]|4|5[125])|7(?:1[3-9]|7[0-24-6]|9[2-7]))|2(?:1[35]|2[34]|3[3-5])"]
+,"8 0$1","",0]
 ,[,"([89]\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["8[01]|9"]
-,"8 $1",""]
+,"8 $1","",0]
 ,[,"(8\\d{2})(\\d{4})(\\d{4})","$1 $2 $3",["82"]
-,"8 $1",""]
+,"8 $1","",0]
 ]
 ,,[,,"NA","NA"]
-,,,[,,"8(?:[01]|20)\\d{8}|902\\d{7}","\\d{10,11}",,,"82012345678"]
+,,,[,,"8(?:[013]|[12]0)\\d{8}|902\\d{7}","\\d{10,11}",,,"82012345678"]
 ,[,,"NA","NA"]
-,,[,,"1(?:0[123]|12)","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"BZ":[,[,,"[2-8]\\d{6}|0\\d{10}","\\d{7}(?:\\d{4})?"]
 ,[,,"[234578][02]\\d{5}","\\d{7}",,,"2221234"]
-,[,,"6(?:[0-3]\\d|[67][01])\\d{4}","\\d{7}",,,"6221234"]
+,[,,"6[0-367]\\d{5}","\\d{7}",,,"6221234"]
 ,[,,"0800\\d{7}","\\d{11}",,,"08001234123"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"BZ",501,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1-$2",["[2-8]"]
-,"",""]
+,"","",0]
 ,[,"(0)(800)(\\d{4})(\\d{3})","$1-$2-$3-$4",["0"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,1,[,,"NA","NA"]
+,1,,[,,"NA","NA"]
 ]
 ,"CA":[,[,,"[2-9]\\d{9}|3\\d{6}","\\d{7}(?:\\d{3})?"]
-,[,,"(?:2(?:04|26|[48]9|50)|3(?:06|43)|4(?:03|1[68]|38|5[06])|5(?:0[06]|1[49]|79|8[17])|6(?:0[04]|13|47)|7(?:0[059]|80|78)|8(?:[06]7|19|)|90[25])[2-9]\\d{6}|310\\d{4}","\\d{7}(?:\\d{3})?",,,"2042345678"]
-,[,,"(?:2(?:04|26|[48]9|50)|3(?:06|43)|4(?:03|1[68]|38|5[06])|5(?:0[06]|1[49]|79|8[17])|6(?:0[04]|13|47)|7(?:0[059]|80|78)|8(?:[06]7|19|)|90[25])[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"2042345678"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}|310\\d{4}","\\d{7}(?:\\d{3})?",,,"8002123456"]
+,[,,"(?:2(?:04|[23]6|[48]9|50)|3(?:06|43|65)|4(?:03|1[68]|3[178]|50)|5(?:06|1[49]|79|8[17])|6(?:0[04]|13|39|47)|7(?:0[59]|78|8[02])|8(?:[06]7|19|73)|90[25])[2-9]\\d{6}|310\\d{4}","\\d{7}(?:\\d{3})?",,,"2042345678"]
+,[,,"(?:2(?:04|[23]6|[48]9|50)|3(?:06|43|65)|4(?:03|1[68]|3[178]|50)|5(?:06|1[49]|79|8[17])|6(?:0[04]|13|39|47)|7(?:0[59]|78|8[02])|8(?:[06]7|19|73)|90[25])[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"2042345678"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}|310\\d{4}","\\d{7}(?:\\d{3})?",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"CA",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"112|911","\\d{3}",,,"911"]
+,,,[,,"NA","NA"]
 ]
 ,"CC":[,[,,"[1458]\\d{5,9}","\\d{6,10}"]
 ,[,,"89162\\d{4}","\\d{8,9}",,,"891621234"]
-,[,,"4(?:[0-2]\\d|3[0-57-9]|4[47-9]|5[0-37-9]|6[6-9]|7[07-9]|8[7-9])\\d{6}","\\d{9}",,,"412345678"]
+,[,,"14(?:5\\d|71)\\d{5}|4(?:[0-2]\\d|3[0-57-9]|4[47-9]|5[0-25-9]|6[6-9]|7[03-9]|8[17-9]|9[017-9])\\d{6}","\\d{9}",,,"412345678"]
 ,[,,"1(?:80(?:0\\d{2})?|3(?:00\\d{2})?)\\d{4}","\\d{6,10}",,,"1800123456"]
 ,[,,"190[0126]\\d{6}","\\d{10}",,,"1900123456"]
 ,[,,"NA","NA"]
@@ -9405,25 +11522,29 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"CC",61,"(?:14(?:1[14]|34|4[17]|[56]6|7[47]|88))?001[14-689]","0",,,"0",,"0011",,,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"CD":[,[,,"[89]\\d{8}|[1-6]\\d{6}","\\d{7,9}"]
-,[,,"[1-6]\\d{6}","\\d{7}",,,"1234567"]
-,[,,"(?:8[0-2489]|9[7-9])\\d{7}","\\d{9}",,,"991234567"]
+,"CD":[,[,,"[2-6]\\d{6}|[18]\\d{6,8}|9\\d{8}","\\d{7,9}"]
+,[,,"1(?:2\\d{7}|\\d{6})|[2-6]\\d{6}","\\d{7,9}",,,"1234567"]
+,[,,"8(?:[0-2459]\\d{2}|8)\\d{5}|9[7-9]\\d{7}","\\d{7,9}",,,"991234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"CD",243,"00","0",,,"0",,,,[[,"([89]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["[89]"]
-,"0$1",""]
-,[,"([1-6]\\d)(\\d{5})","$1 $2",["[1-6]"]
-,"0$1",""]
+,"CD",243,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["12"]
+,"0$1","",0]
+,[,"([89]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["8[0-2459]|9"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{2})(\\d{3})","$1 $2 $3",["88"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{5})","$1 $2",["[1-6]"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"CF":[,[,,"[278]\\d{7}","\\d{8}"]
 ,[,,"2[12]\\d{6}","\\d{8}",,,"21612345"]
@@ -9433,12 +11554,12 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"CF",236,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"",""]
+,"CF",236,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"CG":[,[,,"[028]\\d{8}","\\d{9}"]
 ,[,,"222[1-589]\\d{5}","\\d{9}",,,"222123456"]
@@ -9449,47 +11570,49 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"CG",242,"00",,,,,,,,[[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["[02]"]
-,"",""]
+,"","",0]
 ,[,"(\\d)(\\d{4})(\\d{4})","$1 $2 $3",["8"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,1,[,,"NA","NA"]
+,1,,[,,"NA","NA"]
 ]
-,"CH":[,[,,"[2-9]\\d{8}","\\d{9}"]
-,[,,"(?:2[12467]|3[1-4]|4[134]|5[12568]|6[12]|[7-9]1)\\d{7}","\\d{9}",,,"212345678"]
-,[,,"7[46-9]\\d{7}","\\d{9}",,,"741234567"]
+,"CH":[,[,,"[2-9]\\d{8}|860\\d{9}","\\d{9}(?:\\d{3})?"]
+,[,,"(?:2[12467]|3[1-4]|4[134]|5[256]|6[12]|[7-9]1)\\d{7}","\\d{9}",,,"212345678"]
+,[,,"7[5-9]\\d{7}","\\d{9}",,,"781234567"]
 ,[,,"800\\d{6}","\\d{9}",,,"800123456"]
 ,[,,"90[016]\\d{6}","\\d{9}",,,"900123456"]
 ,[,,"84[0248]\\d{6}","\\d{9}",,,"840123456"]
 ,[,,"878\\d{6}","\\d{9}",,,"878123456"]
 ,[,,"NA","NA"]
 ,"CH",41,"00","0",,,"0",,,,[[,"([2-9]\\d)(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[2-7]|[89]1"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([89]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["8[047]|90"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{2})(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4 $5",["860"]
+,"0$1","",0]
 ]
-,,[,,"NA","NA"]
+,,[,,"74[0248]\\d{6}","\\d{9}",,,"740123456"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"1(?:1[278]|44)","\\d{3}",,,"112"]
+,[,,"5[18]\\d{7}","\\d{9}",,,"581234567"]
+,,,[,,"860\\d{9}","\\d{12}",,,"860123456789"]
 ]
-,"CI":[,[,,"[02-6]\\d{7}","\\d{8}"]
+,"CI":[,[,,"[02-7]\\d{7}","\\d{8}"]
 ,[,,"(?:2(?:0[023]|1[02357]|[23][045]|4[03-5])|3(?:0[06]|1[069]|[2-4][07]|5[09]|6[08]))\\d{5}","\\d{8}",,,"21234567"]
-,[,,"(?:0[1-9]|4[04-9]|5[07]|6[0567])\\d{6}","\\d{8}",,,"01234567"]
+,[,,"(?:0[1-9]|4[0-24-9]|5[4-9]|6[015-79]|7[57])\\d{6}","\\d{8}",,,"01234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"CI",225,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"",""]
+,"CI",225,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,1,[,,"NA","NA"]
+,1,,[,,"NA","NA"]
 ]
 ,"CK":[,[,,"[2-57]\\d{4}","\\d{5}"]
 ,[,,"(?:2\\d|3[13-7]|4[1-5])\\d{3}","\\d{5}",,,"21234"]
@@ -9499,152 +11622,185 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"CK",682,"00",,,,,,,,[[,"(\\d{2})(\\d{3})","$1 $2",,"",""]
+,"CK",682,"00",,,,,,,,[[,"(\\d{2})(\\d{3})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"CL":[,[,,"(?:[2-9]|600|123)\\d{7,8}","\\d{6,11}"]
-,[,,"(?:2|32|41)\\d{7}|(?:3[3-5]|4[235]|5[1-3578]|6[13-57]|7[1-35])\\d{6,7}","\\d{6,9}",,,"21234567"]
-,[,,"9[6-9]\\d{7}","\\d{8,9}",,,"961234567"]
+,"CL":[,[,,"(?:[2-9]|600|123)\\d{7,8}","\\d{7,11}"]
+,[,,"2(?:2\\d{7}|1962\\d{4})|(?:3[2-5]|[47][1-35]|5[1-3578]|6[13-57])\\d{7}","\\d{7,9}",,,"221234567"]
+,[,,"9[4-9]\\d{7}","\\d{8,9}",,,"961234567"]
 ,[,,"800\\d{6}|1230\\d{7}","\\d{9,11}",,,"800123456"]
 ,[,,"NA","NA"]
 ,[,,"600\\d{7,8}","\\d{10,11}",,,"6001234567"]
 ,[,,"NA","NA"]
 ,[,,"44\\d{7}","\\d{9}",,,"441234567"]
-,"CL",56,"(?:0|1(?:1[0-69]|2[0-57]|5[13-58]|69|7[0167]|8[018]))0","0",,,"0|(1(?:1[0-69]|2[0-57]|5[13-58]|69|7[0167]|8[018]))",,,,[[,"(2)(\\d{3})(\\d{4})","$1 $2 $3",["2"]
-,"($1)","$CC ($1)"]
-,[,"(\\d{2})(\\d{2,3})(\\d{4})","$1 $2 $3",["[357]|4[1-35]|6[13-57]"]
-,"($1)","$CC ($1)"]
-,[,"(9)([6-9]\\d{3})(\\d{4})","$1 $2 $3",["9"]
-,"0$1",""]
+,"CL",56,"(?:0|1(?:1[0-69]|2[0-57]|5[13-58]|69|7[0167]|8[018]))0","0",,,"0|(1(?:1[0-69]|2[0-57]|5[13-58]|69|7[0167]|8[018]))",,,,[[,"(\\d)(\\d{4})(\\d{4})","$1 $2 $3",["22"]
+,"($1)","$CC ($1)",0]
+,[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["[357]|4[1-35]|6[13-57]"]
+,"($1)","$CC ($1)",0]
+,[,"(9)(\\d{4})(\\d{4})","$1 $2 $3",["9"]
+,"0$1","",0]
 ,[,"(44)(\\d{3})(\\d{4})","$1 $2 $3",["44"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([68]00)(\\d{3})(\\d{3,4})","$1 $2 $3",["60|8"]
-,"$1",""]
+,"$1","",0]
 ,[,"(600)(\\d{3})(\\d{2})(\\d{3})","$1 $2 $3 $4",["60"]
-,"$1",""]
+,"$1","",0]
 ,[,"(1230)(\\d{3})(\\d{4})","$1 $2 $3",["1"]
-,"$1",""]
+,"$1","",0]
+,[,"(\\d{5})(\\d{4})","$1 $2",["219"]
+,"($1)","$CC ($1)",0]
+,[,"(\\d{4,5})","$1",["[1-9]"]
+,"$1","",0]
 ]
-,,[,,"NA","NA"]
+,[[,"(\\d)(\\d{4})(\\d{4})","$1 $2 $3",["22"]
+,"($1)","$CC ($1)",0]
+,[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["[357]|4[1-35]|6[13-57]"]
+,"($1)","$CC ($1)",0]
+,[,"(9)(\\d{4})(\\d{4})","$1 $2 $3",["9"]
+,"0$1","",0]
+,[,"(44)(\\d{3})(\\d{4})","$1 $2 $3",["44"]
+,"0$1","",0]
+,[,"([68]00)(\\d{3})(\\d{3,4})","$1 $2 $3",["60|8"]
+,"$1","",0]
+,[,"(600)(\\d{3})(\\d{2})(\\d{3})","$1 $2 $3 $4",["60"]
+,"$1","",0]
+,[,"(1230)(\\d{3})(\\d{4})","$1 $2 $3",["1"]
+,"$1","",0]
+,[,"(\\d{5})(\\d{4})","$1 $2",["219"]
+,"($1)","$CC ($1)",0]
+]
+,[,,"NA","NA"]
 ,,,[,,"600\\d{7,8}","\\d{10,11}",,,"6001234567"]
 ,[,,"NA","NA"]
-,,[,,"13[123]","\\d{3}",,,"133"]
+,,,[,,"NA","NA"]
 ]
-,"CM":[,[,,"[237-9]\\d{7}","\\d{8}"]
-,[,,"(?:22|33)\\d{6}","\\d{8}",,,"22123456"]
-,[,,"[79]\\d{7}","\\d{8}",,,"71234567"]
+,"CM":[,[,,"[235-9]\\d{7,8}","\\d{8,9}"]
+,[,,"2(?:22|33|4[23])\\d{6}|(?:22|33)\\d{6}","\\d{8,9}",,,"222123456"]
+,[,,"6[5-79]\\d{7}|[579]\\d{7}","\\d{8,9}",,,"671234567"]
 ,[,,"800\\d{5}","\\d{8}",,,"80012345"]
 ,[,,"88\\d{6}","\\d{8}",,,"88012345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"CM",237,"00",,,,,,,,[[,"([237-9]\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[2379]|88"]
-,"",""]
+,"CM",237,"00",,,,,,,,[[,"([26])(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4 $5",["[26]"]
+,"","",0]
+,[,"([2357-9]\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[23579]|88"]
+,"","",0]
 ,[,"(800)(\\d{2})(\\d{3})","$1 $2 $3",["80"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"CN":[,[,,"[1-79]\\d{7,11}|8[0-357-9]\\d{6,9}","\\d{4,12}"]
-,[,,"21\\d{8,10}|(?:10|2[02-57-9]|3(?:11|7[179])|4(?:[15]1|3[12])|5(?:1\\d|2[37]|3[12]|7[13-79]|9[15])|7(?:31|5[457]|6[09]|91)|898)\\d{8}|(?:3(?:1[02-9]|35|49|5\\d|7[02-68]|9[1-68])|4(?:1[02-9]|2[179]|3[3-9]|5[2-9]|6[4789]|7\\d|8[23])|5(?:3[03-9]|4[36]|5\\d|6[1-6]|7[028]|80|9[2-46-9])|6(?:3[1-5]|6[0238]|9[12])|7(?:01|[17]\\d|2[248]|3[04-9]|4[3-6]|5[0-3689]|6[2368]|9[02-9])|8(?:1[236-8]|2[5-7]|[37]\\d|5[1-9]|8[3678]|9[1-7])|9(?:0[1-3689]|1[1-79]|[379]\\d|4[13]|5[1-5]))\\d{7}|80(?:29|6[03578]|7[018]|81)\\d{4}","\\d{4,12}",,,"1012345678"]
-,[,,"1(?:3\\d|4[57]|5[0-35-9]|8[0235-9])\\d{8}","\\d{11}",,,"13123456789"]
+,"CN":[,[,,"[1-7]\\d{6,11}|8[0-357-9]\\d{6,9}|9\\d{7,9}","\\d{4,12}"]
+,[,,"21(?:100\\d{2}|95\\d{3,4}|\\d{8,10})|(?:10|2[02-57-9]|3(?:11|7[179])|4(?:[15]1|3[12])|5(?:1\\d|2[37]|3[12]|51|7[13-79]|9[15])|7(?:31|5[457]|6[09]|91)|8(?:71|98))(?:100\\d{2}|95\\d{3,4}|\\d{8})|(?:3(?:1[02-9]|35|49|5\\d|7[02-68]|9[1-68])|4(?:1[02-9]|2[179]|3[3-9]|5[2-9]|6[4789]|7\\d|8[23])|5(?:3[03-9]|4[36]|5[02-9]|6[1-46]|7[028]|80|9[2-46-9])|6(?:3[1-5]|6[0238]|9[12])|7(?:01|[17]\\d|2[248]|3[04-9]|4[3-6]|5[0-3689]|6[2368]|9[02-9])|8(?:1[236-8]|2[5-7]|3\\d|5[1-9]|7[02-9]|8[3678]|9[1-7])|9(?:0[1-3689]|1[1-79]|[379]\\d|4[13]|5[1-5]))(?:100\\d{2}|95\\d{3,4}|\\d{7})|80(?:29|6[03578]|7[018]|81)\\d{4}","\\d{4,12}",,,"1012345678"]
+,[,,"1(?:[38]\\d|4[57]|5[0-35-9]|7[06-8])\\d{8}","\\d{11}",,,"13123456789"]
 ,[,,"(?:10)?800\\d{7}","\\d{10,12}",,,"8001234567"]
 ,[,,"16[08]\\d{5}","\\d{8}",,,"16812345"]
+,[,,"400\\d{7}|(?:10|2[0-57-9]|3(?:[157]\\d|35|49|9[1-68])|4(?:[17]\\d|2[179]|[35][1-9]|6[4789]|8[23])|5(?:[1357]\\d|2[37]|4[36]|6[1-46]|80|9[1-9])|6(?:3[1-5]|6[0238]|9[12])|7(?:01|[1579]\\d|2[248]|3[014-9]|4[3-6]|6[023689])|8(?:1[236-8]|2[5-7]|[37]\\d|5[1-9]|8[3678]|9[1-8])|9(?:0[1-3689]|1[1-79]|[379]\\d|4[13]|5[1-5]))96\\d{3,4}","\\d{7,10}",,,"4001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"400\\d{7}","\\d{10}",,,"4001234567"]
-,"CN",86,"00","0",,,"0",,,,[[,"(80\\d{2})(\\d{4})","$1 $2",["80[2678]"]
-,"0$1",""]
+,"CN",86,"(1[1279]\\d{3})?00","0",,,"(1[1279]\\d{3})|0",,"00",,[[,"(80\\d{2})(\\d{4})","$1 $2",["80[2678]"]
+,"0$1","$CC $1",1]
 ,[,"([48]00)(\\d{3})(\\d{4})","$1 $2 $3",["[48]00"]
-,"",""]
+,"","",0]
+,[,"(\\d{5,6})","$1",["100|95"]
+,"","",0]
+,[,"(\\d{2})(\\d{5,6})","$1 $2",["(?:10|2\\d)[19]","(?:10|2\\d)(?:10|9[56])","(?:10|2\\d)(?:100|9[56])"]
+,"0$1","$CC $1",0]
+,[,"(\\d{3})(\\d{5,6})","$1 $2",["[3-9]","[3-9]\\d{2}[19]","[3-9]\\d{2}(?:10|9[56])"]
+,"0$1","$CC $1",0]
 ,[,"(\\d{3,4})(\\d{4})","$1 $2",["[2-9]"]
-,"",""]
+,"","",0]
 ,[,"(21)(\\d{4})(\\d{4,6})","$1 $2 $3",["21"]
-,"0$1",""]
+,"0$1","$CC $1",1]
 ,[,"([12]\\d)(\\d{4})(\\d{4})","$1 $2 $3",["10[1-9]|2[02-9]","10[1-9]|2[02-9]","10(?:[1-79]|8(?:[1-9]|0[1-9]))|2[02-9]"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{4})(\\d{4})","$1 $2 $3",["3(?:11|7[179])|4(?:[15]1|3[12])|5(?:1|2[37]|3[12]|7[13-79]|9[15])|7(?:31|5[457]|6[09]|91)|898"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["3(?:1[02-9]|35|49|5|7[02-68]|9[1-68])|4(?:1[02-9]|2[179]|[35][2-9]|6[4789]|7\\d|8[23])|5(?:3[03-9]|4[36]|5|6[1-6]|7[028]|80|9[2-46-9])|6(?:3[1-5]|6[0238]|9[12])|7(?:01|[1579]|2[248]|3[04-9]|4[3-6]|6[2368])|8(?:1[236-8]|2[5-7]|[37]|5[1-9]|8[3678]|9[1-7])|9(?:0[1-3689]|1[1-79]|[379]|4[13]|5[1-5])"]
-,"0$1",""]
-,[,"(1[3-58]\\d)(\\d{4})(\\d{4})","$1 $2 $3",["1[3-58]"]
-,"",""]
+,"0$1","$CC $1",1]
+,[,"(\\d{3})(\\d{4})(\\d{4})","$1 $2 $3",["3(?:11|7[179])|4(?:[15]1|3[12])|5(?:1|2[37]|3[12]|51|7[13-79]|9[15])|7(?:31|5[457]|6[09]|91)|8(?:71|98)"]
+,"0$1","$CC $1",1]
+,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["3(?:1[02-9]|35|49|5|7[02-68]|9[1-68])|4(?:1[02-9]|2[179]|[35][2-9]|6[4789]|7\\d|8[23])|5(?:3[03-9]|4[36]|5[02-9]|6[1-46]|7[028]|80|9[2-46-9])|6(?:3[1-5]|6[0238]|9[12])|7(?:01|[1579]|2[248]|3[04-9]|4[3-6]|6[2368])|8(?:1[236-8]|2[5-7]|3|5[1-9]|7[02-9]|8[3678]|9[1-7])|9(?:0[1-3689]|1[1-79]|[379]|4[13]|5[1-5])"]
+,"0$1","$CC $1",1]
+,[,"(\\d{3})(\\d{4})(\\d{4})","$1 $2 $3",["1[3-578]"]
+,"","$CC $1",0]
 ,[,"(10800)(\\d{3})(\\d{4})","$1 $2 $3",["108","1080","10800"]
-,"",""]
+,"","",0]
 ]
 ,[[,"(80\\d{2})(\\d{4})","$1 $2",["80[2678]"]
-]
+,"0$1","$CC $1",1]
 ,[,"([48]00)(\\d{3})(\\d{4})","$1 $2 $3",["[48]00"]
-]
+,"","",0]
+,[,"(\\d{2})(\\d{5,6})","$1 $2",["(?:10|2\\d)[19]","(?:10|2\\d)(?:10|9[56])","(?:10|2\\d)(?:100|9[56])"]
+,"0$1","$CC $1",0]
+,[,"(\\d{3})(\\d{5,6})","$1 $2",["[3-9]","[3-9]\\d{2}[19]","[3-9]\\d{2}(?:10|9[56])"]
+,"0$1","$CC $1",0]
 ,[,"(21)(\\d{4})(\\d{4,6})","$1 $2 $3",["21"]
-]
+,"0$1","$CC $1",1]
 ,[,"([12]\\d)(\\d{4})(\\d{4})","$1 $2 $3",["10[1-9]|2[02-9]","10[1-9]|2[02-9]","10(?:[1-79]|8(?:[1-9]|0[1-9]))|2[02-9]"]
-]
-,[,"(\\d{3})(\\d{4})(\\d{4})","$1 $2 $3",["3(?:11|7[179])|4(?:[15]1|3[12])|5(?:1|2[37]|3[12]|7[13-79]|9[15])|7(?:31|5[457]|6[09]|91)|898"]
-]
-,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["3(?:1[02-9]|35|49|5|7[02-68]|9[1-68])|4(?:1[02-9]|2[179]|[35][2-9]|6[4789]|7\\d|8[23])|5(?:3[03-9]|4[36]|5|6[1-6]|7[028]|80|9[2-46-9])|6(?:3[1-5]|6[0238]|9[12])|7(?:01|[1579]|2[248]|3[04-9]|4[3-6]|6[2368])|8(?:1[236-8]|2[5-7]|[37]|5[1-9]|8[3678]|9[1-7])|9(?:0[1-3689]|1[1-79]|[379]|4[13]|5[1-5])"]
-]
-,[,"(1[3-58]\\d)(\\d{4})(\\d{4})","$1 $2 $3",["1[3-58]"]
-]
+,"0$1","$CC $1",1]
+,[,"(\\d{3})(\\d{4})(\\d{4})","$1 $2 $3",["3(?:11|7[179])|4(?:[15]1|3[12])|5(?:1|2[37]|3[12]|51|7[13-79]|9[15])|7(?:31|5[457]|6[09]|91)|8(?:71|98)"]
+,"0$1","$CC $1",1]
+,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["3(?:1[02-9]|35|49|5|7[02-68]|9[1-68])|4(?:1[02-9]|2[179]|[35][2-9]|6[4789]|7\\d|8[23])|5(?:3[03-9]|4[36]|5[02-9]|6[1-46]|7[028]|80|9[2-46-9])|6(?:3[1-5]|6[0238]|9[12])|7(?:01|[1579]|2[248]|3[04-9]|4[3-6]|6[2368])|8(?:1[236-8]|2[5-7]|3|5[1-9]|7[02-9]|8[3678]|9[1-7])|9(?:0[1-3689]|1[1-79]|[379]|4[13]|5[1-5])"]
+,"0$1","$CC $1",1]
+,[,"(\\d{3})(\\d{4})(\\d{4})","$1 $2 $3",["1[3-578]"]
+,"","$CC $1",0]
 ,[,"(10800)(\\d{3})(\\d{4})","$1 $2 $3",["108","1080","10800"]
-]
+,"","",0]
 ]
 ,[,,"NA","NA"]
 ,,,[,,"(?:4|(?:10)?8)00\\d{7}","\\d{10,12}",,,"4001234567"]
 ,[,,"NA","NA"]
-,,[,,"1(?:1[09]|20)","\\d{3}",,,"119"]
+,,,[,,"NA","NA"]
 ]
 ,"CO":[,[,,"(?:[13]\\d{0,3}|[24-8])\\d{7}","\\d{7,11}"]
 ,[,,"[124-8][2-9]\\d{6}","\\d{8}",,,"12345678"]
-,[,,"3(?:0[0-24]|1[0-8]|2[01])\\d{7}","\\d{10}",,,"3211234567"]
+,[,,"3(?:0[0-5]|1\\d|2[0-2]|5[01])\\d{7}","\\d{10}",,,"3211234567"]
 ,[,,"1800\\d{7}","\\d{11}",,,"18001234567"]
 ,[,,"19(?:0[01]|4[78])\\d{7}","\\d{11}",,,"19001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"CO",57,"00[579]|#555|#999","0",,,"0([3579]|4(?:44|56))?",,,,[[,"(\\d)(\\d{7})","$1 $2",["1(?:8[2-9]|9[0-3]|[2-7])|[24-8]","1(?:8[2-9]|9(?:09|[1-3])|[2-7])|[24-8]"]
-,"($1)","0$CC $1"]
+,"CO",57,"00(?:4(?:[14]4|56)|[579])","0",,,"0([3579]|4(?:44|56))?",,,,[[,"(\\d)(\\d{7})","$1 $2",["1(?:8[2-9]|9[0-3]|[2-7])|[24-8]","1(?:8[2-9]|9(?:09|[1-3])|[2-7])|[24-8]"]
+,"($1)","0$CC $1",0]
 ,[,"(\\d{3})(\\d{7})","$1 $2",["3"]
-,"","0$CC $1"]
+,"","0$CC $1",0]
 ,[,"(1)(\\d{3})(\\d{7})","$1-$2-$3",["1(?:80|9[04])","1(?:800|9(?:0[01]|4[78]))"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,[[,"(\\d)(\\d{7})","$1 $2",["1(?:8[2-9]|9[0-3]|[2-7])|[24-8]","1(?:8[2-9]|9(?:09|[1-3])|[2-7])|[24-8]"]
-]
+,"($1)","0$CC $1",0]
 ,[,"(\\d{3})(\\d{7})","$1 $2",["3"]
-]
+,"","0$CC $1",0]
 ,[,"(1)(\\d{3})(\\d{7})","$1 $2 $3",["1(?:80|9[04])","1(?:800|9(?:0[01]|4[78]))"]
 ]
 ]
 ,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:1[29]|23|32|56)","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
-,"CR":[,[,,"[24589]\\d{7,9}","\\d{8,10}"]
+,"CR":[,[,,"[24-9]\\d{7,9}","\\d{8,10}"]
 ,[,,"2[24-7]\\d{6}","\\d{8}",,,"22123456"]
-,[,,"57[01]\\d[01]\\d{3}|8[36789]\\d{6}","\\d{8}",,,"83123456"]
+,[,,"5(?:0[01]|7[0-3])\\d{5}|6(?:[0-2]\\d|30)\\d{5}|7[0-3]\\d{6}|8[3-9]\\d{6}","\\d{8}",,,"83123456"]
 ,[,,"800\\d{7}","\\d{10}",,,"8001234567"]
 ,[,,"90[059]\\d{7}","\\d{10}",,,"9001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"40(?:00\\d{4}|10[0-3]\\d{3}|2(?:00\\d|900)\\d{2})","\\d{8}",,,"40001234"]
-,"CR",506,"00",,,,"(1900)",,,,[[,"(\\d{4})(\\d{4})","$1 $2",["[245]|8[3-9]"]
-,"","$CC $1"]
+,[,,"210[0-6]\\d{4}|4(?:0(?:0[01]\\d{4}|10[0-3]\\d{3}|2(?:00\\d{3}|900\\d{2})|3[01]\\d{4}|40\\d{4}|5\\d{5}|60\\d{4}|70[01]\\d{3}|8[0-2]\\d{4})|1[01]\\d{5}|20[0-3]\\d{4}|400\\d{4}|70[0-2]\\d{4})|5100\\d{4}","\\d{8}",,,"40001234"]
+,"CR",506,"00",,,,"(19(?:0[012468]|1[09]|20|66|77|99))",,,,[[,"(\\d{4})(\\d{4})","$1 $2",["[24-7]|8[3-9]"]
+,"","$CC $1",0]
 ,[,"(\\d{3})(\\d{3})(\\d{4})","$1-$2-$3",["[89]0"]
-,"","$CC $1"]
+,"","$CC $1",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"112|911","\\d{3}",,,"911"]
+,,,[,,"NA","NA"]
 ]
 ,"CU":[,[,,"[2-57]\\d{5,7}","\\d{4,8}"]
 ,[,,"2[1-4]\\d{5,6}|3(?:1\\d{6}|[23]\\d{4,6})|4(?:[125]\\d{5,6}|[36]\\d{6}|[78]\\d{4,6})|7\\d{6,7}","\\d{4,8}",,,"71234567"]
@@ -9655,16 +11811,16 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"CU",53,"119","0",,,"0",,,,[[,"(\\d)(\\d{6,7})","$1 $2",["7"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"(\\d{2})(\\d{4,6})","$1 $2",["[2-4]"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"(\\d)(\\d{7})","$1 $2",["5"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"CV":[,[,,"[259]\\d{6}","\\d{7}"]
 ,[,,"2(?:2[1-7]|3[0-8]|4[12]|5[1256]|6\\d|7[1-3]|8[1-5])\\d{4}","\\d{7}",,,"2211234"]
@@ -9674,12 +11830,43 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"CV",238,"0",,,,,,,,[[,"(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3",,"",""]
+,"CV",238,"0",,,,,,,,[[,"(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+]
+,"CW":[,[,,"[169]\\d{6,7}","\\d{7,8}"]
+,[,,"9(?:[48]\\d{2}|50\\d|7(?:2[0-24]|[34]\\d|6[35-7]|77|8[7-9]))\\d{4}","\\d{7,8}",,,"94151234"]
+,[,,"9(?:5(?:[1246]\\d|3[01])|6(?:[16-9]\\d|3[01]))\\d{4}","\\d{7,8}",,,"95181234"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"(?:10|69)\\d{5}","\\d{7}",,,"1011234"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"CW",599,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",["[13-7]"]
+,"","",0]
+,[,"(9)(\\d{3})(\\d{4})","$1 $2 $3",["9"]
+,"","",0]
+]
+,,[,,"955\\d{5}","\\d{7,8}",,,"95581234"]
+,1,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+]
+,"CX":[,[,,"[1458]\\d{5,9}","\\d{6,10}"]
+,[,,"89164\\d{4}","\\d{8,9}",,,"891641234"]
+,[,,"14(?:5\\d|71)\\d{5}|4(?:[0-2]\\d|3[0-57-9]|4[47-9]|5[0-25-9]|6[6-9]|7[03-9]|8[17-9]|9[017-9])\\d{6}","\\d{9}",,,"412345678"]
+,[,,"1(?:80(?:0\\d{2})?|3(?:00\\d{2})?)\\d{4}","\\d{6,10}",,,"1800123456"]
+,[,,"190[0126]\\d{6}","\\d{10}",,,"1900123456"]
+,[,,"NA","NA"]
+,[,,"500\\d{6}","\\d{9}",,,"500123456"]
+,[,,"550\\d{6}","\\d{9}",,,"550123456"]
+,"CX",61,"(?:14(?:1[14]|34|4[17]|[56]6|7[47]|88))?001[14-689]","0",,,"0",,"0011",,,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"CY":[,[,,"[257-9]\\d{7}","\\d{8}"]
 ,[,,"2[2-6]\\d{6}","\\d{8}",,,"22345678"]
@@ -9689,215 +11876,234 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"80[1-9]\\d{5}","\\d{8}",,,"80112345"]
 ,[,,"700\\d{5}","\\d{8}",,,"70012345"]
 ,[,,"NA","NA"]
-,"CY",357,"00",,,,,,,,[[,"(\\d{2})(\\d{6})","$1 $2",,"",""]
+,"CY",357,"00",,,,,,,,[[,"(\\d{2})(\\d{6})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"(?:50|77)\\d{6}","\\d{8}",,,"77123456"]
-,,[,,"1(?:12|99)","\\d{3}",,,"112"]
-]
-,"CX":[,[,,"[1458]\\d{5,9}","\\d{6,10}"]
-,[,,"89164\\d{4}","\\d{8,9}",,,"891641234"]
-,[,,"4(?:[0-2]\\d|3[0-57-9]|4[47-9]|5[0-37-9]|6[6-9]|7[07-9]|8[7-9])\\d{6}","\\d{9}",,,"412345678"]
-,[,,"1(?:80(?:0\\d{2})?|3(?:00\\d{2})?)\\d{4}","\\d{6,10}",,,"1800123456"]
-,[,,"190[0126]\\d{6}","\\d{10}",,,"1900123456"]
-,[,,"NA","NA"]
-,[,,"500\\d{6}","\\d{9}",,,"500123456"]
-,[,,"550\\d{6}","\\d{9}",,,"550123456"]
-,"CX",61,"(?:14(?:1[14]|34|4[17]|[56]6|7[47]|88))?001[14-689]","0",,,"0",,"0011",,,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"NA","NA"]
 ]
-,"CZ":[,[,,"[2-9]\\d{8}","\\d{9}"]
-,[,,"2\\d{8}|(?:3[1257-9]|4[16-9]|5[13-9])\\d{7}|97[234]\\d{6}","\\d{9}",,,"212345678"]
-,[,,"(?:60[1-8]|7(?:0[25]|[2379]\\d))\\d{6}","\\d{9}",,,"601123456"]
-,[,,"800\\d{6}","\\d{9}",,,"800123456"]
-,[,,"9(?:0[05689]|76)\\d{6}","\\d{9}",,,"900123456"]
-,[,,"8[134]\\d{7}","\\d{9}",,,"811234567"]
-,[,,"70[01]\\d{6}","\\d{9}",,,"700123456"]
-,[,,"9[17]0\\d{6}","\\d{9}",,,"910123456"]
-,"CZ",420,"00",,,,,,,,[[,"([2-9]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",,"",""]
+,"CZ":[,[,,"[2-8]\\d{8}|9\\d{8,11}","\\d{9,12}"]
+,[,,"2\\d{8}|(?:3[1257-9]|4[16-9]|5[13-9])\\d{7}","\\d{9,12}",,,"212345678"]
+,[,,"(?:60[1-8]|7(?:0[2-5]|[2379]\\d))\\d{6}","\\d{9,12}",,,"601123456"]
+,[,,"800\\d{6}","\\d{9,12}",,,"800123456"]
+,[,,"9(?:0[05689]|76)\\d{6}","\\d{9,12}",,,"900123456"]
+,[,,"8[134]\\d{7}","\\d{9,12}",,,"811234567"]
+,[,,"70[01]\\d{6}","\\d{9,12}",,,"700123456"]
+,[,,"9[17]0\\d{6}","\\d{9,12}",,,"910123456"]
+,"CZ",420,"00",,,,,,,,[[,"([2-9]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["[2-8]|9[015-7]"]
+,"","",0]
+,[,"(96\\d)(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3 $4",["96"]
+,"","",0]
+,[,"(9\\d)(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3 $4",["9[36]"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"1(?:12|5[058])","\\d{3}",,,"112"]
+,[,,"9(?:5\\d|7[234])\\d{6}","\\d{9,12}",,,"972123456"]
+,,,[,,"9(?:3\\d{9}|6\\d{7,10})","\\d{9,12}",,,"93123456789"]
 ]
-,"DE":[,[,,"[1-35-9]\\d{3,14}|4(?:[0-8]\\d{4,12}|9(?:4[1-8]|[0-35-7]\\d)\\d{2,7})","\\d{2,15}"]
-,[,,"[246]\\d{5,13}|3(?:[03-9]\\d{4,13}|2\\d{9})|5(?:0[2-8]|[1256]\\d|[38][0-8]|4\\d{0,2}|[79][0-7])\\d{3,11}|7(?:0[2-8]|[1-9]\\d)\\d{3,10}|8(?:0[2-9]|[1-9]\\d)\\d{3,10}|9(?:0[6-9]|[1-9]\\d)\\d{3,10}","\\d{2,15}",,,"30123456"]
-,[,,"1(?:5\\d{9}|7(?:[0-57-9]|6\\d)\\d{7}|6(?:[02]\\d{7,8}|3\\d{7}))","\\d{10,11}",,,"15123456789"]
-,[,,"800\\d{7,9}","\\d{10,12}",,,"8001234567"]
-,[,,"900(?:[135]\\d{6}|9\\d{7})","\\d{10,11}",,,"9001234567"]
-,[,,"180\\d{5,11}","\\d{8,14}",,,"18012345"]
+,"DE":[,[,,"[1-35-9]\\d{3,14}|4(?:[0-8]\\d{4,12}|9(?:[0-37]\\d|4(?:[1-35-8]|4\\d?)|5\\d{1,2}|6[1-8]\\d?)\\d{2,8})","\\d{2,15}"]
+,[,,"[246]\\d{5,13}|3(?:0\\d{3,13}|2\\d{9}|[3-9]\\d{4,13})|5(?:0[2-8]|[1256]\\d|[38][0-8]|4\\d{0,2}|[79][0-7])\\d{3,11}|7(?:0[2-8]|[1-9]\\d)\\d{3,10}|8(?:0[2-9]|[1-9]\\d)\\d{3,10}|9(?:0[6-9]\\d{3,10}|1\\d{4,12}|[2-9]\\d{4,11})","\\d{2,15}",,,"30123456"]
+,[,,"1(?:5[0-2579]\\d{8}|6[023]\\d{7,8}|7(?:[0-57-9]\\d?|6\\d)\\d{7})","\\d{10,11}",,,"15123456789"]
+,[,,"800\\d{7,12}","\\d{10,15}",,,"8001234567890"]
+,[,,"137[7-9]\\d{6}|900(?:[135]\\d{6}|9\\d{7})","\\d{10,11}",,,"9001234567"]
+,[,,"1(?:3(?:7[1-6]\\d{6}|8\\d{4})|80\\d{5,11})","\\d{7,14}",,,"18012345"]
 ,[,,"700\\d{8}","\\d{11}",,,"70012345678"]
 ,[,,"NA","NA"]
-,"DE",49,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{4,11})","$1/$2",["3[02]|40|[68]9"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{3,11})","$1/$2",["2(?:\\d1|0[2389]|1[24]|28|34)|3(?:[3-9][15]|40)|[4-8][1-9]1|9(?:06|[1-9]1)"]
-,"0$1",""]
-,[,"(\\d{4})(\\d{2,11})","$1/$2",["[24-6]|[7-9](?:\\d[1-9]|[1-9]\\d)|3(?:[3569][02-46-9]|4[2-4679]|7[2-467]|8[2-46-8])","[24-6]|[7-9](?:\\d[1-9]|[1-9]\\d)|3(?:3(?:0[1-467]|2[127-9]|3[124578]|[46][1246]|7[1257-9]|8[1256]|9[145])|4(?:2[135]|3[1357]|4[13578]|6[1246]|7[1356]|9[1346])|5(?:0[14]|2[1-3589]|3[1357]|4[1246]|6[1-4]|7[1346]|8[13568]|9[1246])|6(?:0[356]|2[1-489]|3[124-6]|4[1347]|6[13]|7[12579]|8[1-356]|9[135])|7(?:2[1-7]|3[1357]|4[145]|6[1-5]|7[1-4])|8(?:21|3[1468]|4[1347]|6[0135-9]|7[1467]|8[136])|9(?:0[12479]|2[1358]|3[1357]|4[134679]|6[1-9]|7[136]|8[147]|9[1468]))"]
-,"0$1",""]
-,[,"(\\d{5})(\\d{1,10})","$1/$2",["3"]
-,"0$1",""]
-,[,"([18]\\d{2})(\\d{7,9})","$1 $2",["1[5-7]|800"]
-,"0$1",""]
-,[,"(\\d{3})(\\d)(\\d{4,10})","$1 $2 $3",["(?:18|90)0","180|900[1359]"]
-,"0$1",""]
+,"DE",49,"00","0",,,"0",,,,[[,"(1\\d{2})(\\d{7,8})","$1 $2",["1[67]"]
+,"0$1","",0]
+,[,"(1\\d{3})(\\d{7})","$1 $2",["15"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{3,11})","$1 $2",["3[02]|40|[68]9"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{3,11})","$1 $2",["2(?:\\d1|0[2389]|1[24]|28|34)|3(?:[3-9][15]|40)|[4-8][1-9]1|9(?:06|[1-9]1)"]
+,"0$1","",0]
+,[,"(\\d{4})(\\d{2,11})","$1 $2",["[24-6]|[7-9](?:\\d[1-9]|[1-9]\\d)|3(?:[3569][02-46-9]|4[2-4679]|7[2-467]|8[2-46-8])","[24-6]|[7-9](?:\\d[1-9]|[1-9]\\d)|3(?:3(?:0[1-467]|2[127-9]|3[124578]|[46][1246]|7[1257-9]|8[1256]|9[145])|4(?:2[135]|3[1357]|4[13578]|6[1246]|7[1356]|9[1346])|5(?:0[14]|2[1-3589]|3[1357]|4[1246]|6[1-4]|7[1346]|8[13568]|9[1246])|6(?:0[356]|2[1-489]|3[124-6]|4[1347]|6[13]|7[12579]|8[1-356]|9[135])|7(?:2[1-7]|3[1357]|4[145]|6[1-5]|7[1-4])|8(?:21|3[1468]|4[1347]|6[0135-9]|7[1467]|8[136])|9(?:0[12479]|2[1358]|3[1357]|4[134679]|6[1-9]|7[136]|8[147]|9[1468]))"]
+,"0$1","",0]
+,[,"(3\\d{4})(\\d{1,10})","$1 $2",["3"]
+,"0$1","",0]
+,[,"(800)(\\d{7,12})","$1 $2",["800"]
+,"0$1","",0]
+,[,"(177)(99)(\\d{7,8})","$1 $2 $3",["177","1779","17799"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d)(\\d{4,10})","$1 $2 $3",["(?:18|90)0|137","1(?:37|80)|900[1359]"]
+,"0$1","",0]
+,[,"(1\\d{2})(\\d{5,11})","$1 $2",["181"]
+,"0$1","",0]
+,[,"(18\\d{3})(\\d{6})","$1 $2",["185","1850","18500"]
+,"0$1","",0]
+,[,"(18\\d{2})(\\d{7})","$1 $2",["18[68]"]
+,"0$1","",0]
+,[,"(18\\d)(\\d{8})","$1 $2",["18[2-579]"]
+,"0$1","",0]
 ,[,"(700)(\\d{4})(\\d{4})","$1 $2 $3",["700"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(138)(\\d{4})","$1 $2",["138"]
+,"0$1","",0]
 ]
 ,,[,,"16(?:4\\d{1,10}|[89]\\d{1,11})","\\d{4,14}",,,"16412345"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"11[02]","\\d{3}",,,"112"]
+,[,,"18(?:1\\d{5,11}|[2-9]\\d{8})","\\d{8,14}",,,"18500123456"]
+,,,[,,"17799\\d{7,8}","\\d{12,13}",,,"177991234567"]
 ]
-,"DJ":[,[,,"[1-8]\\d{5}","\\d{6}"]
-,[,,"(?:1[05]|[2-5]\\d)\\d{4}","\\d{6}",,,"251234"]
-,[,,"[6-8]\\d{5}","\\d{6}",,,"601234"]
+,"DJ":[,[,,"[27]\\d{7}","\\d{8}"]
+,[,,"2(?:1[2-5]|7[45])\\d{5}","\\d{8}",,,"21360003"]
+,[,,"77[6-8]\\d{5}","\\d{8}",,,"77831001"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"DJ",253,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3",,"",""]
+,"DJ",253,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1[78]","\\d{2}",,,"17"]
+,,,[,,"NA","NA"]
 ]
 ,"DK":[,[,,"[2-9]\\d{7}","\\d{8}"]
-,[,,"(?:[2-7]\\d|8[126-9]|9[6-9])\\d{6}","\\d{8}",,,"32123456"]
-,[,,"(?:[2-7]\\d|8[126-9]|9[6-9])\\d{6}","\\d{8}",,,"20123456"]
+,[,,"(?:[2-7]\\d|8[126-9]|9[1-36-9])\\d{6}","\\d{8}",,,"32123456"]
+,[,,"(?:[2-7]\\d|8[126-9]|9[1-36-9])\\d{6}","\\d{8}",,,"20123456"]
 ,[,,"80\\d{6}","\\d{8}",,,"80123456"]
 ,[,,"90\\d{6}","\\d{8}",,,"90123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"DK",45,"00",,,,,,,1,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"",""]
+,"DK",45,"00",,,,,,,1,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"112","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"DM":[,[,,"[57-9]\\d{9}","\\d{7}(?:\\d{3})?"]
-,[,,"767(?:2(?:55|66)|4(?:2[01]|4[0-25-9])|50[0-4])\\d{4}","\\d{7}(?:\\d{3})?",,,"7674201234"]
+,[,,"767(?:2(?:55|66)|4(?:2[01]|4[0-25-9])|50[0-4]|70[1-3])\\d{4}","\\d{7}(?:\\d{3})?",,,"7674201234"]
 ,[,,"767(?:2(?:[234689]5|7[5-7])|31[5-7]|61[2-7])\\d{4}","\\d{10}",,,"7672251234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"DM",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"767",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"DO":[,[,,"[589]\\d{9}","\\d{7}(?:\\d{3})?"]
 ,[,,"8(?:[04]9[2-9]\\d{6}|29(?:2(?:[0-59]\\d|6[04-9]|7[0-27]|8[0237-9])|3(?:[0-35-9]\\d|4[7-9])|[45]\\d{2}|6(?:[0-27-9]\\d|[3-5][1-9]|6[0135-8])|7(?:0[013-9]|[1-37]\\d|4[1-35689]|5[1-4689]|6[1-57-9]|8[1-79]|9[1-8])|8(?:0[146-9]|1[0-48]|[248]\\d|3[1-79]|5[01589]|6[013-68]|7[124-8]|9[0-8])|9(?:[0-24]\\d|3[02-46-9]|5[0-79]|60|7[0169]|8[57-9]|9[02-9]))\\d{4})","\\d{7}(?:\\d{3})?",,,"8092345678"]
 ,[,,"8[024]9[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"8092345678"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"DO",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"8[024]9",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"112|911","\\d{3}",,,"911"]
+,,,[,,"NA","NA"]
 ]
 ,"DZ":[,[,,"(?:[1-4]|[5-9]\\d)\\d{7}","\\d{8,9}"]
 ,[,,"(?:1\\d|2[014-79]|3[0-8]|4[0135689])\\d{6}|9619\\d{5}","\\d{8,9}",,,"12345678"]
-,[,,"(?:5[56]|6[569]|7[7-9])\\d{7}","\\d{9}",,,"551234567"]
+,[,,"(?:5[4-6]|7[7-9])\\d{7}|6(?:[569]\\d|7[0-4])\\d{6}","\\d{9}",,,"551234567"]
 ,[,,"800\\d{6}","\\d{9}",,,"800123456"]
 ,[,,"80[3-689]1\\d{5}","\\d{9}",,,"808123456"]
 ,[,,"80[12]1\\d{5}","\\d{9}",,,"801123456"]
 ,[,,"NA","NA"]
 ,[,,"98[23]\\d{6}","\\d{9}",,,"983123456"]
 ,"DZ",213,"00","0",,,"0",,,,[[,"([1-4]\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[1-4]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([5-8]\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[5-8]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(9\\d)(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4",["9"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1[47]","\\d{2}",,,"17"]
+,,,[,,"NA","NA"]
 ]
-,"EC":[,[,,"[2-9]\\d{7}|1\\d{9,10}","\\d{7,11}"]
+,"EC":[,[,,"1\\d{9,10}|[2-8]\\d{7}|9\\d{8}","\\d{7,11}"]
 ,[,,"[2-7][2-7]\\d{6}","\\d{7,8}",,,"22123456"]
-,[,,"(?:69|[89]\\d)\\d{6}","\\d{8}",,,"99123456"]
+,[,,"9(?:39|[45][89]|[67][7-9]|[89]\\d)\\d{6}","\\d{9}",,,"991234567"]
 ,[,,"1800\\d{6,7}","\\d{10,11}",,,"18001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"EC",593,"00","0",,,"0",,,,[[,"(\\d)(\\d{3})(\\d{4})","$1 $2-$3",["[2-57]|6[2-7]"]
-,"(0$1)",""]
-,[,"(\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["69|[89]"]
-,"0$1",""]
+,[,,"[2-7]890\\d{4}","\\d{8}",,,"28901234"]
+,"EC",593,"00","0",,,"0",,,,[[,"(\\d)(\\d{3})(\\d{4})","$1 $2-$3",["[247]|[356][2-8]"]
+,"(0$1)","",0]
+,[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["9"]
+,"0$1","",0]
 ,[,"(1800)(\\d{3})(\\d{3,4})","$1 $2 $3",["1"]
-,"$1",""]
+,"$1","",0]
 ]
-,[[,"(\\d)(\\d{3})(\\d{4})","$1-$2-$3",["[2-57]|6[2-7]"]
+,[[,"(\\d)(\\d{3})(\\d{4})","$1-$2-$3",["[247]|[356][2-8]"]
 ]
-,[,"(\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["69|[89]"]
-]
+,[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["9"]
+,"0$1","",0]
 ,[,"(1800)(\\d{3})(\\d{3,4})","$1 $2 $3",["1"]
-]
+,"$1","",0]
 ]
 ,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:0[12]|12)|911","\\d{3}",,,"911"]
+,,,[,,"NA","NA"]
 ]
-,"EE":[,[,,"[3-9]\\d{6,7}|800\\d{6,7}","\\d{7,10}"]
-,[,,"(?:3[23589]|4(?:0\\d|[3-8])|6\\d|7[1-9]|88)\\d{5}","\\d{7,8}",,,"3212345"]
+,"EE":[,[,,"1\\d{3,4}|[3-9]\\d{6,7}|800\\d{6,7}","\\d{4,10}"]
+,[,,"(?:3[23589]|4[3-8]|6\\d|7[1-9]|88)\\d{5}","\\d{7}",,,"3212345"]
 ,[,,"(?:5\\d|8[1-5])\\d{6}|5(?:[02]\\d{2}|1(?:[0-8]\\d|95)|5[0-478]\\d|64[0-4]|65[1-589])\\d{3}","\\d{7,8}",,,"51234567"]
 ,[,,"800(?:0\\d{3}|1\\d|[2-9])\\d{3}","\\d{7,10}",,,"80012345"]
-,[,,"900\\d{4}","\\d{7}",,,"9001234"]
+,[,,"(?:40\\d{2}|900)\\d{4}","\\d{7,8}",,,"9001234"]
 ,[,,"NA","NA"]
 ,[,,"70[0-2]\\d{5}","\\d{8}",,,"70012345"]
 ,[,,"NA","NA"]
-,"EE",372,"00",,,,,,,,[[,"([34-79]\\d{2})(\\d{4})","$1 $2",["[369]|4[3-8]|5(?:[0-2]|5[0-478]|6[45])|7[1-9]","[369]|4[3-8]|5(?:[02]|1(?:[0-8]|95)|5[0-478]|6(?:4[0-4]|5[1-589]))|7[1-9]"]
-,"",""]
+,"EE",372,"00",,,,,,,,[[,"([3-79]\\d{2})(\\d{4})","$1 $2",["[369]|4[3-8]|5(?:[0-2]|5[0-478]|6[45])|7[1-9]","[369]|4[3-8]|5(?:[02]|1(?:[0-8]|95)|5[0-478]|6(?:4[0-4]|5[1-589]))|7[1-9]"]
+,"","",0]
 ,[,"(70)(\\d{2})(\\d{4})","$1 $2 $3",["70"]
-,"",""]
+,"","",0]
 ,[,"(8000)(\\d{3})(\\d{3})","$1 $2 $3",["800","8000"]
-,"",""]
+,"","",0]
 ,[,"([458]\\d{3})(\\d{3,4})","$1 $2",["40|5|8(?:00|[1-5])","40|5|8(?:00[1-9]|[1-5])"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
-,,,[,,"800[2-9]\\d{3}","\\d{7}",,,"8002123"]
-,[,,"NA","NA"]
-,,[,,"11[02]","\\d{3}",,,"112"]
+,,,[,,"1\\d{3,4}|800[2-9]\\d{3}","\\d{4,7}",,,"8002123"]
+,[,,"1(?:2[01245]|3[0-6]|4[1-489]|5[0-59]|6[1-46-9]|7[0-27-9]|8[189]|9[012])\\d{1,2}","\\d{4,5}",,,"12123"]
+,,,[,,"NA","NA"]
 ]
 ,"EG":[,[,,"1\\d{4,9}|[2456]\\d{8}|3\\d{7}|[89]\\d{8,9}","\\d{5,10}"]
-,[,,"(?:1[35][23]|2[23]\\d|3\\d|4(?:0[2-4]|[578][23]|64)|5(?:0[234]|[57][23])|6[24-689]3|8(?:[28][2-4]|42|6[23])|9(?:[25]2|3[24]|6[23]|7[2-4]))\\d{6}|1[69]\\d{3}","\\d{5,9}",,,"234567890"]
-,[,,"1(?:[0-246-9]|5[0-2])\\d{7}|1(?:0[0169]|1[124]|2[0278])\\d{7}","\\d{9,10}",,,"1001234567"]
+,[,,"(?:1(?:3[23]\\d|5(?:[23]|9\\d))|2[2-4]\\d{2}|3\\d{2}|4(?:0[2-5]|[578][23]|64)\\d|5(?:0[2-7]|[57][23])\\d|6[24-689]3\\d|8(?:2[2-57]|4[26]|6[237]|8[2-4])\\d|9(?:2[27]|3[24]|52|6[2356]|7[2-4])\\d)\\d{5}|1[69]\\d{3}","\\d{5,9}",,,"234567890"]
+,[,,"1(?:0[0-269]|1[0-245]|2[0-278])\\d{7}","\\d{10}",,,"1001234567"]
 ,[,,"800\\d{7}","\\d{10}",,,"8001234567"]
 ,[,,"900\\d{7}","\\d{10}",,,"9001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"EG",20,"00","0",,,"0",,,,[[,"(\\d)(\\d{7,8})","$1 $2",["[23]"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["1(?:0[0169]|1[124]|2[0278]|5[0-2])|[89]00"]
-,"0$1",""]
-,[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["1(?:[0-246-9]|5[3-9])"]
-,"0$1",""]
-,[,"(\\d{2})(\\d{7})","$1 $2",["13|[4-6]|[89][2-9]"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["1[012]|[89]00"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{6,7})","$1 $2",["1[35]|[4-6]|[89][2-9]"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:2[23]|80)","\\d{3}",,,"122"]
+,,,[,,"NA","NA"]
+]
+,"EH":[,[,,"[5689]\\d{8}","\\d{9}"]
+,[,,"528[89]\\d{5}","\\d{9}",,,"528812345"]
+,[,,"6(?:0[0-8]|[12-79]\\d|8[01])\\d{6}","\\d{9}",,,"650123456"]
+,[,,"80\\d{7}","\\d{9}",,,"801234567"]
+,[,,"89\\d{7}","\\d{9}",,,"891234567"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"EH",212,"00","0",,,"0",,,,,,[,,"NA","NA"]
+,,"528[89]",[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"ER":[,[,,"[178]\\d{6}","\\d{6,7}"]
 ,[,,"1(?:1[12568]|20|40|55|6[146])\\d{4}|8\\d{6}","\\d{6,7}",,,"8370362"]
@@ -9907,42 +12113,43 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"ER",291,"00","0",,,"0",,,,[[,"(\\d)(\\d{3})(\\d{3})","$1 $2 $3",,"0$1",""]
+,"ER",291,"00","0",,,"0",,,,[[,"(\\d)(\\d{3})(\\d{3})","$1 $2 $3",,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"ES":[,[,,"[5-9]\\d{8}","\\d{9}"]
-,[,,"(?:8(?:[13]0|[28][0-8]|[47][1-9]|5[01346-9]|6[0457-9])|9(?:[1238][0-8]|[47][1-9]|[56]\\d))\\d{6}","\\d{9}",,,"810123456"]
-,[,,"(?:6\\d|7[1-4])\\d{7}","\\d{9}",,,"612345678"]
+,[,,"8(?:[13]0|[28][0-8]|[47][1-9]|5[01346-9]|6[0457-9])\\d{6}|9(?:[1238][0-8]\\d{6}|4[1-9]\\d{6}|5\\d{7}|6(?:[0-8]\\d{6}|9(?:0(?:[0-57-9]\\d{4}|6(?:0[0-8]|1[1-9]|[2-9]\\d)\\d{2})|[1-9]\\d{5}))|7(?:[124-9]\\d{2}|3(?:[0-8]\\d|9[1-9]))\\d{4})","\\d{9}",,,"810123456"]
+,[,,"(?:6\\d{6}|7[1-4]\\d{5}|9(?:6906(?:09|10)|7390\\d{2}))\\d{2}","\\d{9}",,,"612345678"]
 ,[,,"[89]00\\d{6}","\\d{9}",,,"800123456"]
 ,[,,"80[367]\\d{6}","\\d{9}",,,"803123456"]
 ,[,,"90[12]\\d{6}","\\d{9}",,,"901123456"]
 ,[,,"70\\d{7}","\\d{9}",,,"701234567"]
 ,[,,"NA","NA"]
-,"ES",34,"00",,,,,,,,[[,"([5-9]\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"",""]
+,"ES",34,"00",,,,,,,,[[,"([5-9]\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[568]|[79][0-8]"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"51\\d{7}","\\d{9}",,,"511234567"]
-,,[,,"0(?:61|8[05]|9[12])|112","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"ET":[,[,,"[1-59]\\d{8}","\\d{7,9}"]
-,[,,"(?:11(?:1(?:1[124]|2[2-57]|3[1-5]|5[5-8]|8[6-8])|2(?:13|3[6-8]|5[89]|7[05-9]|8[2-6])|3(?:2[01]|3[0-289]|4[1289]|7[1-4]|87)|4(?:1[69]|3[2-49]|4[0-23]|6[5-8])|5(?:1[57]|44|5[0-4])|6(?:18|2[69]|4[5-7]|5[1-5]|6[0-59]|8[015-8]))|2(?:2(?:11[1-9]|22[0-7]|33\\d|44[1467]|66[1-68])|5(?:11[124-6]|33[2-8]|44[1467]|55[14]|66[1-3679]|77[124-79]|880))|3(?:3(?:11[0-46-8]|22[0-6]|33[0134689]|44[04]|55[0-6]|66[01467])|4(?:44[0-8]|55[0-69]|66[0-3]|77[1-5]))|4(?:6(?:22[0-24-7]|33[1-5]|44[13-69]|55[14-689]|660|88[1-4])|7(?:11[1-9]|22[1-9]|33[13-7]|44[13-6]|55[1-689]))|5(?:7(?:227|55[05]|(?:66|77)[14-8])|8(?:11[149]|22[013-79]|33[0-68]|44[013-8]|550|66[1-5]|77\\d)))\\d{4}","\\d{7,9}",,,"111112345"]
-,[,,"9[12]\\d{7}","\\d{9}",,,"911234567"]
+,[,,"(?:11(?:1(?:1[124]|2[2-57]|3[1-5]|5[5-8]|8[6-8])|2(?:13|3[6-8]|5[89]|7[05-9]|8[2-6])|3(?:2[01]|3[0-289]|4[1289]|7[1-4]|87)|4(?:1[69]|3[2-49]|4[0-3]|6[5-8])|5(?:1[57]|44|5[0-4])|6(?:18|2[69]|4[5-7]|5[1-5]|6[0-59]|8[015-8]))|2(?:2(?:11[1-9]|22[0-7]|33\\d|44[1467]|66[1-68])|5(?:11[124-6]|33[2-8]|44[1467]|55[14]|66[1-3679]|77[124-79]|880))|3(?:3(?:11[0-46-8]|22[0-6]|33[0134689]|44[04]|55[0-6]|66[01467])|4(?:44[0-8]|55[0-69]|66[0-3]|77[1-5]))|4(?:6(?:22[0-24-7]|33[1-5]|44[13-69]|55[14-689]|660|88[1-4])|7(?:11[1-9]|22[1-9]|33[13-7]|44[13-6]|55[1-689]))|5(?:7(?:227|55[05]|(?:66|77)[14-8])|8(?:11[149]|22[013-79]|33[0-68]|44[013-8]|550|66[1-5]|77\\d)))\\d{4}","\\d{7,9}",,,"111112345"]
+,[,,"9(?:[1-3]\\d|5[89])\\d{6}","\\d{9}",,,"911234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"ET",251,"00","0",,,"0",,,,[[,"([1-59]\\d)(\\d{3})(\\d{4})","$1 $2 $3",,"0$1",""]
+,"ET",251,"00","0",,,"0",,,,[[,"([1-59]\\d)(\\d{3})(\\d{4})","$1 $2 $3",,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"FI":[,[,,"1\\d{4,11}|[2-9]\\d{4,10}","\\d{5,12}"]
 ,[,,"1(?:[3569][1-8]\\d{3,9}|[47]\\d{5,10})|2[1-8]\\d{3,9}|3(?:[1-8]\\d{3,9}|9\\d{4,8})|[5689][1-8]\\d{3,9}","\\d{5,12}",,,"1312345678"]
@@ -9952,35 +12159,35 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"FI",358,"00|99[049]","0",,,"0",,,,[[,"(\\d{2})(\\d{4,10})","$1 $2",["2[09]|[14]|50|7[135]"]
-,"0$1",""]
+,"FI",358,"00|99[049]","0",,,"0",,,,[[,"(\\d{3})(\\d{3,7})","$1 $2",["(?:[1-3]00|[6-8]0)"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{4,10})","$1 $2",["[14]|2[09]|50|7[135]"]
+,"0$1","",0]
 ,[,"(\\d)(\\d{4,11})","$1 $2",["[25689][1-8]|3"]
-,"0$1",""]
-,[,"([6-8]00)(\\d{4,7})","$1 $2",["[6-8]0"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
-,1,,[,,"NA","NA"]
-,[,,"10[1-9]\\d{3,7}|2(?:0(?:[16-8]\\d{3,7}|2[14-9]\\d{1,6}|[3-5]\\d{2,7}|9[0-7]\\d{1,6})|9\\d{4,8})|30[1-9]\\d{3,7}|7(?:1\\d{7}|3\\d{8}|5[03-9]\\d{2,7})","\\d{5,10}",,,"10112345"]
-,,[,,"112","\\d{3}",,,"112"]
+,1,,[,,"[13]00\\d{3,7}|2(?:0(?:0\\d{3,7}|2[023]\\d{1,6}|9[89]\\d{1,6}))|60(?:[12]\\d{5,6}|6\\d{7})|7(?:1\\d{7}|3\\d{8}|5[03-9]\\d{2,7})","\\d{5,10}",,,"100123"]
+,[,,"[13]0\\d{4,8}|2(?:0(?:[016-8]\\d{3,7}|[2-59]\\d{2,7})|9\\d{4,8})|60(?:[12]\\d{5,6}|6\\d{7})|7(?:1\\d{7}|3\\d{8}|5[03-9]\\d{2,7})","\\d{5,10}",,,"10112345"]
+,,,[,,"NA","NA"]
 ]
 ,"FJ":[,[,,"[36-9]\\d{6}|0\\d{10}","\\d{7}(?:\\d{4})?"]
 ,[,,"(?:3[0-5]|6[25-7]|8[58])\\d{5}","\\d{7}",,,"3212345"]
-,[,,"(?:7[0-467]|8[367]|9[02346-9])\\d{5}","\\d{7}",,,"7012345"]
+,[,,"(?:7[0-8]|8[034679]|9\\d)\\d{5}","\\d{7}",,,"7012345"]
 ,[,,"0800\\d{7}","\\d{11}",,,"08001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"FJ",679,"0(?:0|52)",,,,,,"00",,[[,"(\\d{3})(\\d{4})","$1 $2",["[36-9]"]
-,"",""]
+,"","",0]
 ,[,"(\\d{4})(\\d{3})(\\d{4})","$1 $2 $3",["0"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,1,[,,"91[17]","\\d{3}",,,"911"]
+,1,,[,,"NA","NA"]
 ]
 ,"FK":[,[,,"[2-7]\\d{4}","\\d{5}"]
 ,[,,"[2-47]\\d{4}","\\d{5}",,,"31234"]
@@ -9993,7 +12200,7 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"FK",500,"00",,,,,,,,,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"FM":[,[,,"[39]\\d{6}","\\d{7}"]
 ,[,,"3[2357]0[1-9]\\d{3}|9[2-6]\\d{5}","\\d{7}",,,"3201234"]
@@ -10003,12 +12210,12 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"FM",691,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"",""]
+,"FM",691,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"FO":[,[,,"[2-9]\\d{5}","\\d{6}"]
 ,[,,"(?:20|[3-4]\\d|8[19])\\d{4}","\\d{6}",,,"201234"]
@@ -10018,128 +12225,137 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"(?:6[0-36]|88)\\d{4}","\\d{6}",,,"601234"]
-,"FO",298,"00",,,,"(10(?:01|[12]0|88))",,,,[[,"(\\d{6})","$1",,"","$CC $1"]
+,"FO",298,"00",,,,"(10(?:01|[12]0|88))",,,,[[,"(\\d{6})","$1",,"","$CC $1",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"112","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
-,"FR":[,[,,"[124-9]\\d{8}|3\\d{3}(?:\\d{5})?","\\d{4}(?:\\d{5})?"]
+,"FR":[,[,,"[1-9]\\d{8}","\\d{9}"]
 ,[,,"[1-5]\\d{8}","\\d{9}",,,"123456789"]
 ,[,,"6\\d{8}|7[5-9]\\d{7}","\\d{9}",,,"612345678"]
 ,[,,"80\\d{7}","\\d{9}",,,"801234567"]
-,[,,"3\\d{3}|89[1-37-9]\\d{6}","\\d{4}(?:\\d{5})?",,,"891123456"]
+,[,,"89[1-37-9]\\d{6}","\\d{9}",,,"891123456"]
 ,[,,"8(?:1[019]|2[0156]|84|90)\\d{6}","\\d{9}",,,"810123456"]
 ,[,,"NA","NA"]
 ,[,,"9\\d{8}","\\d{9}",,,"912345678"]
-,"FR",33,"[04579]0","0",,,"0",,"00",,[[,"([1-79])(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4 $5",["[1-79]"]
-,"0$1",""]
+,"FR",33,"00","0",,,"0",,,,[[,"([1-79])(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4 $5",["[1-79]"]
+,"0$1","",0]
+,[,"(1\\d{2})(\\d{3})","$1 $2",["11"]
+,"$1","",0]
 ,[,"(8\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["8"]
-,"0 $1",""]
+,"0 $1","",0]
 ]
-,,[,,"NA","NA"]
-,,,[,,"3\\d{3}","\\d{4}",,,"3123"]
-,[,,"NA","NA"]
-,,[,,"1(?:[578]|12)","\\d{2,3}",,,"112"]
+,[[,"([1-79])(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4 $5",["[1-79]"]
+,"0$1","",0]
+,[,"(8\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["8"]
+,"0 $1","",0]
 ]
-,"GA":[,[,,"[4-9]\\d{5}|0\\d{7}","\\d{6,8}"]
-,[,,"(?:4(?:[04-8]\\d|2[04])|(?:5[04-689]|6[024-9]|7\\d|8[236]|9[02368])\\d)\\d{3}","\\d{6}",,,"441234"]
-,[,,"0(?:5(?:0[89]|3[0-4]|8[0-26]|9[238])|6(?:0[3-7]|1[01]|2[0-7]|6[0-589]|71|83|9[57])|7(?:1[2-5]|2[89]|3[35-9]|4[01]|5[0-347-9]|[67]\\d|8[457-9]|9[0146]))\\d{4}","\\d{8}",,,"06031234"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+]
+,"GA":[,[,,"0?\\d{7}","\\d{7,8}"]
+,[,,"01\\d{6}","\\d{8}",,,"01441234"]
+,[,,"0?[2-7]\\d{6}","\\d{7,8}",,,"06031234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"GA",241,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3",["[4-9]"]
-,"",""]
-,[,"(0\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["0"]
-,"",""]
+,"GA",241,"00",,,,,,,,[[,"(\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[2-7]"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["0"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,1,[,,"NA","NA"]
+,1,,[,,"NA","NA"]
 ]
 ,"GB":[,[,,"\\d{7,10}","\\d{4,10}"]
-,[,,"2(?:0[01378]|3[0189]|4[017]|8[0-46-9]|9[012])\\d{7}|1(?:(?:1(?:3[0-48]|[46][0-4]|5[012789]|7[0-39]|8[01349])|21[0-7]|31[0-8]|[459]1\\d|61[0-46-9]))\\d{6}|1(?:2(?:0[024-9]|2[3-9]|3[3-79]|4[1-689]|[58][02-9]|6[0-4789]|7[013-9]|9\\d)|3(?:0\\d|[25][02-9]|3[02-579]|[468][0-46-9]|7[1235679]|9[24578])|4(?:0[03-9]|[28][02-5789]|[37]\\d|4[02-69]|5[0-8]|[69][0-79])|5(?:0[1235-9]|2[024-9]|3[015689]|4[02-9]|5[03-9]|6\\d|7[0-35-9]|8[0-468]|9[0-5789])|6(?:0[034689]|2[0-35689]|[38][013-9]|4[1-467]|5[0-69]|6[13-9]|7[0-8]|9[0124578])|7(?:0[0246-9]|2\\d|3[023678]|4[03-9]|5[0-46-9]|6[013-9]|7[0-35-9]|8[024-9]|9[02-9])|8(?:0[35-9]|2[1-5789]|3[02-578]|4[0-578]|5[124-9]|6[2-69]|7\\d|8[02-9]|9[02569])|9(?:0[02-589]|2[02-689]|3[1-5789]|4[2-9]|5[0-579]|6[234789]|7[0124578]|8\\d|9[2-57]))\\d{6}|1(?:2(?:0(?:46[1-4]|87[2-9])|545[1-79]|76(?:2\\d|3[1-8]|6[1-6])|9(?:7(?:2[0-4]|3[2-5])|8(?:2[2-8]|7[0-4789]|8[345])))|3(?:638[2-5]|647[23]|8(?:47[04-9]|64[015789]))|4(?:044[1-7]|20(?:2[23]|8\\d)|6(?:0(?:30|5[2-57]|6[1-8]|7[2-8])|140)|8(?:052|87[123]))|5(?:24(?:3[2-79]|6\\d)|276\\d|6(?:26[06-9]|686))|6(?:06(?:4\\d|7[4-79])|295[567]|35[34]\\d|47(?:24|61)|59(?:5[08]|6[67]|74)|955[0-4])|7(?:26(?:6[13-9]|7[0-7])|442\\d|50(?:2[0-3]|[3-68]2|76))|8(?:27[56]\\d|37(?:5[2-5]|8[239])|84(?:3[2-58]))|9(?:0(?:0(?:6[1-8]|85)|52\\d)|3583|4(?:66[1-8]|9(?:2[01]|81))|63(?:23|3[1-4])|9561))\\d{3}|176888[234678]\\d{2}|16977[23]\\d{3}","\\d{4,10}",,,"1212345678"]
+,[,,"2(?:0[01378]|3[0189]|4[017]|8[0-46-9]|9[012])\\d{7}|1(?:(?:1(?:3[0-48]|[46][0-4]|5[012789]|7[0-49]|8[01349])|21[0-7]|31[0-8]|[459]1\\d|61[0-46-9]))\\d{6}|1(?:2(?:0[024-9]|2[3-9]|3[3-79]|4[1-689]|[58][02-9]|6[0-4789]|7[013-9]|9\\d)|3(?:0\\d|[25][02-9]|3[02-579]|[468][0-46-9]|7[1235679]|9[24578])|4(?:0[03-9]|[28][02-5789]|[37]\\d|4[02-69]|5[0-8]|[69][0-79])|5(?:0[1235-9]|2[024-9]|3[015689]|4[02-9]|5[03-9]|6\\d|7[0-35-9]|8[0-468]|9[0-5789])|6(?:0[034689]|2[0-35689]|[38][013-9]|4[1-467]|5[0-69]|6[13-9]|7[0-8]|9[0124578])|7(?:0[0246-9]|2\\d|3[023678]|4[03-9]|5[0-46-9]|6[013-9]|7[0-35-9]|8[024-9]|9[02-9])|8(?:0[35-9]|2[1-5789]|3[02-578]|4[0-578]|5[124-9]|6[2-69]|7\\d|8[02-9]|9[02569])|9(?:0[02-589]|2[02-689]|3[1-5789]|4[2-9]|5[0-579]|6[234789]|7[0124578]|8\\d|9[2-57]))\\d{6}|1(?:2(?:0(?:46[1-4]|87[2-9])|545[1-79]|76(?:2\\d|3[1-8]|6[1-6])|9(?:7(?:2[0-4]|3[2-5])|8(?:2[2-8]|7[0-4789]|8[345])))|3(?:638[2-5]|647[23]|8(?:47[04-9]|64[015789]))|4(?:044[1-7]|20(?:2[23]|8\\d)|6(?:0(?:30|5[2-57]|6[1-8]|7[2-8])|140)|8(?:052|87[123]))|5(?:24(?:3[2-79]|6\\d)|276\\d|6(?:26[06-9]|686))|6(?:06(?:4\\d|7[4-79])|295[567]|35[34]\\d|47(?:24|61)|59(?:5[08]|6[67]|74)|955[0-4])|7(?:26(?:6[13-9]|7[0-7])|442\\d|50(?:2[0-3]|[3-68]2|76))|8(?:27[56]\\d|37(?:5[2-5]|8[239])|84(?:3[2-58]))|9(?:0(?:0(?:6[1-8]|85)|52\\d)|3583|4(?:66[1-8]|9(?:2[01]|81))|63(?:23|3[1-4])|9561))\\d{3}|176888[234678]\\d{2}|16977[23]\\d{3}","\\d{4,10}",,,"1212345678"]
 ,[,,"7(?:[1-4]\\d\\d|5(?:0[0-8]|[13-9]\\d|2[0-35-9])|7(?:0[1-9]|[1-7]\\d|8[02-9]|9[0-689])|8(?:[014-9]\\d|[23][0-8])|9(?:[04-9]\\d|1[02-9]|2[0-35-9]|3[0-689]))\\d{6}","\\d{10}",,,"7400123456"]
 ,[,,"80(?:0(?:1111|\\d{6,7})|8\\d{7})|500\\d{6}","\\d{7}(?:\\d{2,3})?",,,"8001234567"]
-,[,,"(?:87[123]|9(?:[01]\\d|8[0-3]))\\d{7}","\\d{10}",,,"9012345678"]
+,[,,"(?:87[123]|9(?:[01]\\d|8[2349]))\\d{7}","\\d{10}",,,"9012345678"]
 ,[,,"8(?:4(?:5464\\d|[2-5]\\d{7})|70\\d{7})","\\d{7}(?:\\d{3})?",,,"8431234567"]
 ,[,,"70\\d{8}","\\d{10}",,,"7012345678"]
 ,[,,"56\\d{8}","\\d{10}",,,"5612345678"]
 ,"GB",44,"00","0"," x",,"0",,,,[[,"(\\d{2})(\\d{4})(\\d{4})","$1 $2 $3",["2|5[56]|7(?:0|6[013-9])","2|5[56]|7(?:0|6(?:[013-9]|2[0-35-9]))"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["1(?:1|\\d1)|3|9[018]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{5})(\\d{4,5})","$1 $2",["1(?:38|5[23]|69|76|94)","1(?:387|5(?:24|39)|697|768|946)","1(?:3873|5(?:242|39[456])|697[347]|768[347]|9467)"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(1\\d{3})(\\d{5,6})","$1 $2",["1"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(7\\d{3})(\\d{6})","$1 $2",["7(?:[1-5789]|62)","7(?:[1-5789]|624)"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(800)(\\d{4})","$1 $2",["800","8001","80011","800111","8001111"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(845)(46)(4\\d)","$1 $2 $3",["845","8454","84546","845464"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(8\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["8(?:4[2-5]|7[0-3])"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(80\\d)(\\d{3})(\\d{4})","$1 $2 $3",["80"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([58]00)(\\d{6})","$1 $2",["[58]00"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"76(?:0[012]|2[356]|4[0134]|5[49]|6[0-369]|77|81|9[39])\\d{6}","\\d{10}",,,"7640123456"]
 ,1,,[,,"NA","NA"]
 ,[,,"(?:3[0347]|55)\\d{8}","\\d{10}",,,"5512345678"]
-,,[,,"112|999","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"GD":[,[,,"[4589]\\d{9}","\\d{7}(?:\\d{3})?"]
-,[,,"473(?:2(?:3[0-2]|69)|3(?:2[89]|86)|4(?:[06]8|3[5-9]|4[0-49]|5[5-79]|68|73|90)|63[68]|7(?:58|84)|938)\\d{4}","\\d{7}(?:\\d{3})?",,,"4732691234"]
-,[,,"473(?:4(?:0[3-79]|1[04-9]|20|58)|53[3-8])\\d{4}","\\d{10}",,,"4734031234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"473(?:2(?:3[0-2]|69)|3(?:2[89]|86)|4(?:[06]8|3[5-9]|4[0-49]|5[5-79]|68|73|90)|63[68]|7(?:58|84)|800|938)\\d{4}","\\d{7}(?:\\d{3})?",,,"4732691234"]
+,[,,"473(?:4(?:0[2-79]|1[04-9]|20|58)|5(?:2[01]|3[3-8])|901)\\d{4}","\\d{10}",,,"4734031234"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"GD",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"473",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"GE":[,[,,"[3458]\\d{8}","\\d{6,9}"]
+,"GE":[,[,,"[34578]\\d{8}","\\d{6,9}"]
 ,[,,"(?:3(?:[256]\\d|4[124-9]|7[0-4])|4(?:1\\d|2[2-7]|3[1-79]|4[2-8]|7[239]|9[1-7]))\\d{6}","\\d{6,9}",,,"322123456"]
 ,[,,"5(?:14|5[01578]|68|7[0147-9]|9[0-35-9])\\d{6}","\\d{9}",,,"555123456"]
 ,[,,"800\\d{6}","\\d{9}",,,"800123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"GE",995,"810","8",,,"8",,"8~10",,[[,"(\\d{3})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[348]"]
-,"8 $1",""]
+,[,,"706\\d{6}","\\d{9}",,,"706123456"]
+,"GE",995,"00","0",,,"0",,,,[[,"(\\d{3})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[348]"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["7"]
+,"0$1","",0]
 ,[,"(\\d{3})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["5"]
-,"$1",""]
+,"$1","",0]
 ]
 ,,[,,"NA","NA"]
-,,,[,,"NA","NA"]
+,,,[,,"706\\d{6}","\\d{9}",,,"706123456"]
 ,[,,"NA","NA"]
-,,[,,"0(?:11|22|33)|1(?:1[123]|22)","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"GF":[,[,,"[56]\\d{8}","\\d{9}"]
 ,[,,"594(?:10|2[012457-9]|3[0-57-9]|4[3-9]|5[7-9]|6[0-3]|9[014])\\d{4}","\\d{9}",,,"594101234"]
-,[,,"694(?:[04][0-7]|1[0-5]|2[0-46-9]|38|9\\d)\\d{4}","\\d{9}",,,"694201234"]
+,[,,"694(?:[04][0-7]|1[0-5]|3[018]|[29]\\d)\\d{4}","\\d{9}",,,"694201234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"GF",594,"00","0",,,"0",,,,[[,"(\\d{3})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"0$1",""]
+,"GF",594,"00","0",,,"0",,,,[[,"(\\d{3})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1[578]","\\d{2}",,,"15"]
+,,,[,,"NA","NA"]
 ]
 ,"GG":[,[,,"[135789]\\d{6,9}","\\d{6,10}"]
 ,[,,"1481\\d{6}","\\d{6,10}",,,"1481456789"]
@@ -10152,35 +12368,41 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"GG",44,"00","0"," x",,"0",,,,,,[,,"76(?:0[012]|2[356]|4[0134]|5[49]|6[0-369]|77|81|9[39])\\d{6}","\\d{10}",,,"7640123456"]
 ,,,[,,"NA","NA"]
 ,[,,"(?:3[0347]|55)\\d{8}","\\d{10}",,,"5512345678"]
-,,[,,"NA","NA"]
-]
-,"GH":[,[,,"[235]\\d{6,8}","\\d{7,9}"]
-,[,,"3(?:0[237]\\d|[167](?:2[0-6]|7\\d)|2(?:2[0-5]|7\\d)|3(?:2[0-37]|7\\d)|4(?:[27]\\d|30)|5(?:2[0-7]|7\\d)|8(?:2[0-2]|7\\d)|9(?:20|7\\d))\\d{5}","\\d{7,9}",,,"302345678"]
-,[,,"(?:2[034678]|5[47])\\d{7}","\\d{9}",,,"231234567"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"GH",233,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",,"0$1",""]
-]
-,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
+]
+,"GH":[,[,,"[235]\\d{8}|8\\d{7}","\\d{7,9}"]
+,[,,"3(?:0[237]\\d|[167](?:2[0-6]|7\\d)|2(?:2[0-5]|7\\d)|3(?:2[0-3]|7\\d)|4(?:2[013-9]|3[01]|7\\d)|5(?:2[0-7]|7\\d)|8(?:2[0-2]|7\\d)|9(?:20|7\\d))\\d{5}","\\d{7,9}",,,"302345678"]
+,[,,"(?:2[034678]\\d|5(?:[047]\\d|54|6[01]))\\d{6}","\\d{9}",,,"231234567"]
+,[,,"800\\d{5}","\\d{8}",,,"80012345"]
 ,[,,"NA","NA"]
-,,[,,"19[123]|999","\\d{3}",,,"999"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"GH",233,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["[235]"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{5})","$1 $2",["8"]
+,"0$1","",0]
+]
+,,[,,"NA","NA"]
+,,,[,,"800\\d{5}","\\d{8}",,,"80012345"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"GI":[,[,,"[2568]\\d{7}","\\d{8}"]
-,[,,"2(?:00\\d|16[0-7]|22[2457])\\d{4}","\\d{8}",,,"20012345"]
-,[,,"(?:5[4-8]|60)\\d{6}","\\d{8}",,,"57123456"]
+,[,,"2(?:00\\d|1(?:6[24-7]|9\\d)|2(?:00|2[2457]))\\d{4}","\\d{8}",,,"20012345"]
+,[,,"(?:5[46-8]|62)\\d{6}","\\d{8}",,,"57123456"]
 ,[,,"80\\d{6}","\\d{8}",,,"80123456"]
 ,[,,"8[1-689]\\d{6}","\\d{8}",,,"88123456"]
 ,[,,"87\\d{6}","\\d{8}",,,"87123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"GI",350,"00",,,,,,,,,,[,,"NA","NA"]
+,"GI",350,"00",,,,,,,,[[,"(\\d{3})(\\d{5})","$1 $2",["2"]
+,"","",0]
+]
+,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:12|9[09])","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"GL":[,[,,"[1-689]\\d{5}","\\d{6}"]
 ,[,,"(?:19|3[1-6]|6[14689]|8[14-79]|9\\d)\\d{4}","\\d{6}",,,"321000"]
@@ -10190,57 +12412,60 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"3[89]\\d{4}","\\d{6}",,,"381234"]
-,"GL",299,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3",,"",""]
+,"GL",299,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"112","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
-,"GM":[,[,,"[3-9]\\d{6}","\\d{7}"]
+,"GM":[,[,,"[2-9]\\d{6}","\\d{7}"]
 ,[,,"(?:4(?:[23]\\d{2}|4(?:1[024679]|[6-9]\\d))|5(?:54[0-7]|6(?:[67]\\d)|7(?:1[04]|2[035]|3[58]|48))|8\\d{3})\\d{3}","\\d{7}",,,"5661234"]
-,[,,"[3679]\\d{6}","\\d{7}",,,"3012345"]
+,[,,"(?:2[0-6]|[3679]\\d)\\d{5}","\\d{7}",,,"3012345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"GM",220,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"",""]
+,"GM",220,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"GN":[,[,,"[3567]\\d{7}","\\d{8}"]
+,"GN":[,[,,"[367]\\d{7,8}","\\d{8,9}"]
 ,[,,"30(?:24|3[12]|4[1-35-7]|5[13]|6[189]|[78]1|9[1478])\\d{4}","\\d{8}",,,"30241234"]
-,[,,"55\\d{6}|6(?:0(?:2\\d|3[3467]|5[2457-9])|[24578]\\d{2}|3(?:[14]0|35))\\d{4}","\\d{8}",,,"60201234"]
+,[,,"6[02356]\\d{7}","\\d{9}",,,"601123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"GN",224,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"",""]
+,[,,"722\\d{6}","\\d{9}",,,"722123456"]
+,"GN",224,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["3"]
+,"","",0]
+,[,"(\\d{3})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[67]"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"GP":[,[,,"[56]\\d{8}","\\d{9}"]
-,[,,"590(?:1[12]|2[0-68]|3[28]|4[126-8]|5[067]|6[018]|[89]\\d)\\d{4}","\\d{9}",,,"590201234"]
-,[,,"690(?:00|1[1-9]|2[013-5]|[3-5]\\d|6[0-57-9]|7[1-6]|8[0-6]|9[09])\\d{4}","\\d{9}",,,"690301234"]
+,[,,"590(?:0[13468]|1[012]|2[0-68]|3[28]|4[0-8]|5[579]|6[0189]|70|8[0-689]|9\\d)\\d{4}","\\d{9}",,,"590201234"]
+,[,,"690(?:0[0-7]|[1-9]\\d)\\d{4}","\\d{9}",,,"690301234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"GP",590,"00","0",,,"0",,,,[[,"([56]90)(\\d{2})(\\d{4})","$1 $2-$3",,"0$1",""]
+,"GP",590,"00","0",,,"0",,,,[[,"([56]90)(\\d{2})(\\d{4})","$1 $2-$3",,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,1,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"GQ":[,[,,"[23589]\\d{8}","\\d{9}"]
 ,[,,"3(?:3(?:3\\d[7-9]|[0-24-9]\\d[46])|5\\d{2}[7-9])\\d{4}","\\d{9}",,,"333091234"]
@@ -10251,17 +12476,17 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"GQ",240,"00",,,,,,,,[[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["[235]"]
-,"",""]
+,"","",0]
 ,[,"(\\d{3})(\\d{6})","$1 $2",["[89]"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"GR":[,[,,"[26-9]\\d{9}","\\d{10}"]
-,[,,"2(?:1\\d{2}|2(?:3[1-8]|4[1-7]|5[1-4]|6[1-8]|7[1-5]|[289][1-9])|3(?:1\\d|2[1-5]|3[1-4]|[45][1-3]|7[1-7]|8[1-6]|9[1-79])|4(?:1\\d|2[1-8]|3[1-4]|4[13-5]|6[1-578]|9[1-5])|5(?:1\\d|2[1-3]|4[124]|5[1-6]|[39][1-4])|6(?:1\\d|3[24]|4[1-7]|5[13-9]|[269][1-6]|7[14]|8[1-35])|7(?:1\\d|2[1-5]|3[1-6]|4[1-7]|5[1-57]|6[134]|9[15-7])|8(?:1\\d|2[1-5]|[34][1-4]|9[1-7]))\\d{6}","\\d{10}",,,"2123456789"]
+,[,,"2(?:1\\d{2}|2(?:2[1-46-9]|3[1-8]|4[1-7]|5[1-4]|6[1-8]|7[1-5]|[89][1-9])|3(?:1\\d|2[1-57]|[35][1-3]|4[13]|7[1-7]|8[124-6]|9[1-79])|4(?:1\\d|2[1-8]|3[1-4]|4[13-5]|6[1-578]|9[1-5])|5(?:1\\d|[29][1-4]|3[1-5]|4[124]|5[1-6])|6(?:1\\d|3[1245]|4[1-7]|5[13-9]|[269][1-6]|7[14]|8[1-5])|7(?:1\\d|2[1-5]|3[1-6]|4[1-7]|5[1-57]|6[135]|9[125-7])|8(?:1\\d|2[1-5]|[34][1-4]|9[1-57]))\\d{6}","\\d{10}",,,"2123456789"]
 ,[,,"69\\d{8}","\\d{10}",,,"6912345678"]
 ,[,,"800\\d{7}","\\d{10}",,,"8001234567"]
 ,[,,"90[19]\\d{7}","\\d{10}",,,"9091234567"]
@@ -10269,16 +12494,16 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"70\\d{8}","\\d{10}",,,"7012345678"]
 ,[,,"NA","NA"]
 ,"GR",30,"00",,,,,,,,[[,"([27]\\d)(\\d{4})(\\d{4})","$1 $2 $3",["21|7"]
-,"",""]
+,"","",0]
 ,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["2[2-9]1|[689]"]
-,"",""]
+,"","",0]
 ,[,"(2\\d{3})(\\d{6})","$1 $2",["2[2-9][02-9]"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:00|12|66|99)","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"GT":[,[,,"[2-7]\\d{7}|1[89]\\d{9}","\\d{8}(?:\\d{3})?"]
 ,[,,"[267][2-9]\\d{6}","\\d{8}",,,"22456789"]
@@ -10289,42 +12514,42 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"GT",502,"00",,,,,,,,[[,"(\\d{4})(\\d{4})","$1 $2",["[2-7]"]
-,"",""]
+,"","",0]
 ,[,"(\\d{4})(\\d{3})(\\d{4})","$1 $2 $3",["1"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:10|2[03])","\\d{3}",,,"110"]
+,,,[,,"NA","NA"]
 ]
 ,"GU":[,[,,"[5689]\\d{9}","\\d{7}(?:\\d{3})?"]
-,[,,"671(?:3(?:00|3[39]|4[349]|55|6[26])|4(?:56|7[1-9]|8[23678])|5(?:55|6[2-5]|88)|6(?:3[2-578]|4[24-9]|5[34]|78|8[5-9])|7(?:[079]7|2[0167]|3[45]|8[789])|8(?:[2-5789]8|6[48])|9(?:2[29]|6[79]|7[179]|8[789]|9[78]))\\d{4}","\\d{7}(?:\\d{3})?",,,"6713001234"]
-,[,,"671(?:3(?:00|3[39]|4[349]|55|6[26])|4(?:56|7[1-9]|8[23678])|5(?:55|6[2-5]|88)|6(?:3[2-578]|4[24-9]|5[34]|78|8[5-9])|7(?:[079]7|2[0167]|3[45]|8[789])|8(?:[2-5789]8|6[48])|9(?:2[29]|6[79]|7[179]|8[789]|9[78]))\\d{4}","\\d{7}(?:\\d{3})?",,,"6713001234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"671(?:3(?:00|3[39]|4[349]|55|6[26])|4(?:56|7[1-9]|8[236-9])|5(?:55|6[2-5]|88)|6(?:3[2-578]|4[24-9]|5[34]|78|8[5-9])|7(?:[079]7|2[0167]|3[45]|8[789])|8(?:[2-5789]8|6[48])|9(?:2[29]|6[79]|7[179]|8[789]|9[78]))\\d{4}","\\d{7}(?:\\d{3})?",,,"6713001234"]
+,[,,"671(?:3(?:00|3[39]|4[349]|55|6[26])|4(?:56|7[1-9]|8[236-9])|5(?:55|6[2-5]|88)|6(?:3[2-578]|4[24-9]|5[34]|78|8[5-9])|7(?:[079]7|2[0167]|3[45]|8[789])|8(?:[2-5789]8|6[48])|9(?:2[29]|6[79]|7[179]|8[789]|9[78]))\\d{4}","\\d{7}(?:\\d{3})?",,,"6713001234"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"GU",1,"011","1",,,"1",,,1,,,[,,"NA","NA"]
 ,,"671",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"GW":[,[,,"[3567]\\d{6}","\\d{7}"]
+,"GW":[,[,,"[3-79]\\d{6}","\\d{7}"]
 ,[,,"3(?:2[0125]|3[1245]|4[12]|5[1-4]|70|9[1-467])\\d{4}","\\d{7}",,,"3201234"]
-,[,,"[5-7]\\d{6}","\\d{7}",,,"5012345"]
+,[,,"(?:[5-7]\\d|9[012])\\d{5}","\\d{7}",,,"5012345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"GW",245,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"",""]
+,[,,"40\\d{5}","\\d{7}",,,"4012345"]
+,"GW",245,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"GY":[,[,,"[2-4679]\\d{6}","\\d{7}"]
 ,[,,"(?:2(?:1[6-9]|2[0-35-9]|3[1-4]|5[3-9]|6\\d|7[0-24-79])|3(?:2[25-9]|3\\d)|4(?:4[0-24]|5[56])|77[1-57])\\d{4}","\\d{7}",,,"2201234"]
@@ -10334,81 +12559,85 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"GY",592,"001",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"",""]
+,"GY",592,"001",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"91[123]","\\d{3}",,,"911"]
+,,,[,,"NA","NA"]
 ]
-,"HK":[,[,,"[235-7]\\d{7}|8\\d{7,8}|9\\d{7,10}","\\d{8,11}"]
-,[,,"[23]\\d{7}","\\d{8}",,,"21234567"]
-,[,,"[5-79]\\d{7}","\\d{8}",,,"51234567"]
+,"HK":[,[,,"[235-7]\\d{7}|8\\d{7,8}|9\\d{4,10}","\\d{5,11}"]
+,[,,"(?:[23]\\d|5[78])\\d{6}","\\d{8}",,,"21234567"]
+,[,,"(?:5[1-69]\\d|6\\d{2}|9(?:0[1-9]|[1-8]\\d))\\d{5}","\\d{8}",,,"51234567"]
 ,[,,"800\\d{6}","\\d{9}",,,"800123456"]
-,[,,"900\\d{8}","\\d{11}",,,"90012345678"]
+,[,,"900(?:[0-24-9]\\d{7}|3\\d{1,4})","\\d{5,11}",,,"90012345678"]
 ,[,,"NA","NA"]
 ,[,,"8[1-3]\\d{6}","\\d{8}",,,"81123456"]
 ,[,,"NA","NA"]
 ,"HK",852,"00",,,,,,,,[[,"(\\d{4})(\\d{4})","$1 $2",["[235-7]|[89](?:0[1-9]|[1-9])"]
-,"",""]
+,"","",0]
 ,[,"(800)(\\d{3})(\\d{3})","$1 $2 $3",["800"]
-,"",""]
+,"","",0]
 ,[,"(900)(\\d{2})(\\d{3})(\\d{3})","$1 $2 $3 $4",["900"]
-,"",""]
+,"","",0]
+,[,"(900)(\\d{2,5})","$1 $2",["900"]
+,"","",0]
 ]
-,,[,,"NA","NA"]
+,,[,,"7\\d{7}","\\d{8}",,,"71234567"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"112|99[29]","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
 ]
 ,"HN":[,[,,"[237-9]\\d{7}","\\d{8}"]
-,[,,"2(?:2(?:0[019]|1[1-36]|[23]\\d|4[056]|5[57]|9[01])|4(?:2|3-59]|3[13-689]|4[0-68]|5[1-35])|5(?:4[3-5]|5\\d|6[56]|74)|6(?:4[0-378]|[56]\\d|[78][0-8]|9[01])|7(?:6[46-9]|7[02-9]|8[34])|8(?:79|8[0-35789]|9[1-57-9]))\\d{4}","\\d{8}",,,"22123456"]
+,[,,"2(?:2(?:0[019]|1[1-36]|[23]\\d|4[056]|5[57]|7[01389]|8[0146-9]|9[012])|4(?:2[3-59]|3[13-689]|4[0-68]|5[1-35])|5(?:4[3-5]|5\\d|6[56]|74)|6(?:[056]\\d|4[0-378]|[78][0-8]|9[01])|7(?:6[46-9]|7[02-9]|8[34])|8(?:79|8[0-35789]|9[1-57-9]))\\d{4}","\\d{8}",,,"22123456"]
 ,[,,"[37-9]\\d{7}","\\d{8}",,,"91234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"HN",504,"00",,,,,,,,[[,"(\\d{4})(\\d{4})","$1-$2",,"",""]
+,"HN",504,"00",,,,,,,,[[,"(\\d{4})(\\d{4})","$1-$2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"199","\\d{3}",,,"199"]
+,,,[,,"NA","NA"]
 ]
 ,"HR":[,[,,"[1-7]\\d{5,8}|[89]\\d{6,11}","\\d{6,12}"]
-,[,,"(?:1|6[029])\\d{7}|(?:2[0-3]|3[1-5]|4[02-47-9]|5[1-3])\\d{6}","\\d{6,9}",,,"12345678"]
+,[,,"1\\d{7}|(?:2[0-3]|3[1-5]|4[02-47-9]|5[1-3])\\d{6}","\\d{6,8}",,,"12345678"]
 ,[,,"9[1257-9]\\d{6,10}","\\d{8,12}",,,"912345678"]
 ,[,,"80[01]\\d{4,7}","\\d{7,10}",,,"8001234567"]
-,[,,"6[145]\\d{4,7}","\\d{6,9}",,,"611234"]
+,[,,"6(?:[09]\\d{7}|[145]\\d{4,7})","\\d{6,9}",,,"611234"]
 ,[,,"NA","NA"]
 ,[,,"7[45]\\d{4,7}","\\d{6,9}",,,"741234567"]
 ,[,,"NA","NA"]
 ,"HR",385,"00","0",,,"0",,,,[[,"(1)(\\d{4})(\\d{3})","$1 $2 $3",["1"]
-,"0$1",""]
-,[,"(6[029])(\\d{4})(\\d{3})","$1 $2 $3",["6[029]"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(6[09])(\\d{4})(\\d{3})","$1 $2 $3",["6[09]"]
+,"0$1","",0]
+,[,"(62)(\\d{3})(\\d{3,4})","$1 $2 $3",["62"]
+,"0$1","",0]
 ,[,"([2-5]\\d)(\\d{3})(\\d{3})","$1 $2 $3",["[2-5]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(9\\d)(\\d{3})(\\d{3,4})","$1 $2 $3",["9"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(9\\d)(\\d{4})(\\d{4})","$1 $2 $3",["9"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(9\\d)(\\d{3,4})(\\d{3})(\\d{3})","$1 $2 $3 $4",["9"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{2})(\\d{2})(\\d{2,3})","$1 $2 $3",["6[145]|7"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{2})(\\d{3,4})(\\d{3})","$1 $2 $3",["6[145]|7"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(80[01])(\\d{2})(\\d{2,3})","$1 $2 $3",["8"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(80[01])(\\d{3,4})(\\d{3})","$1 $2 $3",["8"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"1(?:12|92)|9[34]","\\d{2,3}",,,"112"]
+,[,,"62\\d{6,7}","\\d{8,9}",,,"62123456"]
+,,,[,,"NA","NA"]
 ]
 ,"HT":[,[,,"[2-489]\\d{7}","\\d{8}"]
 ,[,,"2(?:[24]\\d|5[1-5]|94)\\d{5}","\\d{8}",,,"22453300"]
@@ -10418,12 +12647,12 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"98[89]\\d{5}","\\d{8}",,,"98901234"]
-,"HT",509,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{4})","$1 $2 $3",,"",""]
+,"HT",509,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{4})","$1 $2 $3",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"HU":[,[,,"[1-9]\\d{7,8}","\\d{6,9}"]
 ,[,,"(?:1\\d|2(?:1\\d|[2-9])|3[2-7]|4[24-9]|5[2-79]|6[23689]|7(?:1\\d|[2-9])|8[2-57-9]|9[2-69])\\d{6}","\\d{6,9}",,,"12345678"]
@@ -10434,100 +12663,102 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"HU",36,"00","06",,,"06",,,,[[,"(1)(\\d{3})(\\d{4})","$1 $2 $3",["1"]
-,"($1)",""]
+,"($1)","",0]
 ,[,"(\\d{2})(\\d{3})(\\d{3,4})","$1 $2 $3",["[2-9]"]
-,"($1)",""]
+,"($1)","",0]
 ]
 ,,[,,"NA","NA"]
-,,,[,,"NA","NA"]
+,,,[,,"[48]0\\d{6}","\\d{8}",,,"80123456"]
 ,[,,"NA","NA"]
-,,[,,"1(?:0[457]|12)","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"ID":[,[,,"[1-9]\\d{6,10}","\\d{5,11}"]
-,[,,"2[124]\\d{7,8}|(?:2(?:[35][1-4]|6[0-8]|7[1-6]|8\\d|9[1-8])|3(?:1|2[1-578]|3[1-68]|4[1-3]|5[1-8]|6[1-3568]|7[0-46]|8\\d)|4(?:0[1-589]|1[01347-9]|2[0-36-8]|3[0-24-68]|5[1-378]|6[1-5]|7[134]|8[1245])|5(?:1[1-35-9]|2[25-8]|3[1246-9]|4[1-3589]|5[1-46]|6[1-8])|6(?:19?|[25]\\d|3[1-469]|4[1-6])|7(?:1[1-46-9]|2[14-9]|[36]\\d|4[1-8]|5[1-9]|7[0-36-9])|9(?:0[12]|1[0134-8]|2[0-479]|5[125-8]|6[23679]|7[159]|8[01346]))\\d{5,8}","\\d{5,10}",,,"612345678"]
-,[,,"8[1-35-9]\\d{7,9}","\\d{9,11}",,,"812345678"]
+,[,,"2(?:1(?:14\\d{3}|[0-8]\\d{6,7}|500\\d{3}|9\\d{6})|2\\d{6,8}|4\\d{7,8})|(?:2(?:[35][1-4]|6[0-8]|7[1-6]|8\\d|9[1-8])|3(?:1|2[1-578]|3[1-68]|4[1-3]|5[1-8]|6[1-3568]|7[0-46]|8\\d)|4(?:0[1-589]|1[01347-9]|2[0-36-8]|3[0-24-68]|5[1-378]|6[1-5]|7[134]|8[1245])|5(?:1[1-35-9]|2[25-8]|3[1246-9]|4[1-3589]|5[1-46]|6[1-8])|6(?:19?|[25]\\d|3[1-469]|4[1-6])|7(?:1[1-9]|2[14-9]|[36]\\d|4[1-8]|5[1-9]|7[0-36-9])|9(?:0[12]|1[013-8]|2[0-479]|5[125-8]|6[23679]|7[159]|8[01346]))\\d{5,8}","\\d{5,11}",,,"612345678"]
+,[,,"(?:2(?:1(?:3[145]|4[01]|5[1-469]|60|8[0359]|9\\d)|2(?:88|9[1256])|3[1-4]9|4(?:36|91)|5(?:1[349]|[2-4]9)|6[0-7]9|7(?:[1-36]9|4[39])|8[1-5]9|9[1-48]9)|3(?:19[1-3]|2[12]9|3[13]9|4(?:1[69]|39)|5[14]9|6(?:1[69]|2[89])|709)|4[13]19|5(?:1(?:19|8[39])|4[129]9|6[12]9)|6(?:19[12]|2(?:[23]9|77))|7(?:1[13]9|2[15]9|419|5(?:1[89]|29)|6[15]9|7[178]9))\\d{5,6}|8[1-35-9]\\d{7,9}","\\d{9,11}",,,"812345678"]
 ,[,,"177\\d{6,8}|800\\d{5,7}","\\d{8,11}",,,"8001234567"]
 ,[,,"809\\d{7}","\\d{10}",,,"8091234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"ID",62,"0(?:0[1789]|10(?:00|1[67]))","0",,,"0",,,,[[,"(\\d{2})(\\d{7,8})","$1 $2",["2[124]|[36]1"]
-,"(0$1)",""]
-,[,"(\\d{3})(\\d{5,7})","$1 $2",["[4579]|2[035-9]|[36][02-9]"]
-,"(0$1)",""]
+,"ID",62,"0(?:0[1789]|10(?:00|1[67]))","0",,,"0",,,,[[,"(\\d{2})(\\d{5,8})","$1 $2",["2[124]|[36]1"]
+,"(0$1)","",0]
+,[,"(\\d{3})(\\d{5,8})","$1 $2",["[4579]|2[035-9]|[36][02-9]"]
+,"(0$1)","",0]
 ,[,"(8\\d{2})(\\d{3,4})(\\d{3,4})","$1-$2-$3",["8[1-35-9]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(177)(\\d{6,8})","$1 $2",["1"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(800)(\\d{5,7})","$1 $2",["800"]
-,"0$1",""]
-,[,"(809)(\\d)(\\d{3})(\\d{3})","$1 $2 $3 $4",["809"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(80\\d)(\\d)(\\d{3})(\\d{3})","$1 $2 $3 $4",["80[79]"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
+,,,[,,"8071\\d{6}","\\d{10}",,,"8071123456"]
+,[,,"8071\\d{6}","\\d{10}",,,"8071123456"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"11[02389]","\\d{3}",,,"112"]
 ]
 ,"IE":[,[,,"[124-9]\\d{6,9}","\\d{5,10}"]
-,[,,"1\\d{7,8}|2(?:1\\d{6,7}|[24-9]\\d{5}|3\\d{5,7})|4(?:0[24]\\d{5}|[1269]\\d{7}|[34]\\d{5,7}|5\\d{6}|7\\d{5}|8[0-46-9]\\d{7})|5(?:0[45]\\d{5}|1\\d{6}|2\\d{5,7}|[3679]\\d{7}|8\\d{5})|6(?:1\\d{6}|4\\d{5,7}|[237-9]\\d{5}|[56]\\d{7})|7[14]\\d{7}|9(?:1\\d{6}|[04]\\d{7}|[3-9]\\d{5})","\\d{5,10}",,,"2212345"]
-,[,,"8(?:22\\d{6}|[35-9]\\d{7,8})","\\d{9,10}",,,"850123456"]
+,[,,"1\\d{7,8}|2(?:1\\d{6,7}|3\\d{7}|[24-9]\\d{5})|4(?:0[24]\\d{5}|[1-469]\\d{7}|5\\d{6}|7\\d{5}|8[0-46-9]\\d{7})|5(?:0[45]\\d{5}|1\\d{6}|[23679]\\d{7}|8\\d{5})|6(?:1\\d{6}|[237-9]\\d{5}|[4-6]\\d{7})|7[14]\\d{7}|9(?:1\\d{6}|[04]\\d{7}|[35-9]\\d{5})","\\d{5,10}",,,"2212345"]
+,[,,"8(?:22\\d{6}|[35-9]\\d{7})","\\d{9}",,,"850123456"]
 ,[,,"1800\\d{6}","\\d{10}",,,"1800123456"]
-,[,,"15(?:1[2-9]|[2-8]0|59|9[089])\\d{6}","\\d{10}",,,"1520123456"]
+,[,,"15(?:1[2-8]|[2-8]0|9[089])\\d{6}","\\d{10}",,,"1520123456"]
 ,[,,"18[59]0\\d{6}","\\d{10}",,,"1850123456"]
 ,[,,"700\\d{6}","\\d{9}",,,"700123456"]
 ,[,,"76\\d{7}","\\d{9}",,,"761234567"]
 ,"IE",353,"00","0",,,"0",,,,[[,"(1)(\\d{3,4})(\\d{4})","$1 $2 $3",["1"]
-,"(0$1)",""]
-,[,"(\\d{2})(\\d{5})","$1 $2",["2[2-9]|4[347]|5[2-58]|6[2-47-9]|9[3-9]"]
-,"(0$1)",""]
+,"(0$1)","",0]
+,[,"(\\d{2})(\\d{5})","$1 $2",["2[24-9]|47|58|6[237-9]|9[35-9]"]
+,"(0$1)","",0]
 ,[,"(\\d{3})(\\d{5})","$1 $2",["40[24]|50[45]"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"(48)(\\d{4})(\\d{4})","$1 $2 $3",["48"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"(818)(\\d{3})(\\d{3})","$1 $2 $3",["81"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"(\\d{2})(\\d{3})(\\d{3,4})","$1 $2 $3",["[24-69]|7[14]"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"([78]\\d)(\\d{3,4})(\\d{4})","$1 $2 $3",["76|8[35-9]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(700)(\\d{3})(\\d{3})","$1 $2 $3",["70"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{4})(\\d{3})(\\d{3})","$1 $2 $3",["1(?:8[059]|5)","1(?:8[059]0|5)"]
-,"$1",""]
+,"$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"18[59]0\\d{6}","\\d{10}",,,"1850123456"]
 ,[,,"818\\d{6}","\\d{9}",,,"818123456"]
-,,[,,"112|999","\\d{3}",,,"112"]
+,,,[,,"8[35-9]\\d{8}","\\d{10}",,,"8501234567"]
 ]
 ,"IL":[,[,,"[17]\\d{6,9}|[2-589]\\d{3}(?:\\d{3,6})?|6\\d{3}","\\d{4,10}"]
-,[,,"(?:[2-489]|7[2-46-8])\\d{7}","\\d{7,9}",,,"21234567"]
-,[,,"5[024679]\\d{7}","\\d{9}",,,"501234567"]
+,[,,"[2-489]\\d{7}","\\d{7,8}",,,"21234567"]
+,[,,"5(?:[02347-9]\\d{2}|5(?:01|2[23]|3[34]|4[45]|5[5689]|6[67]|7[78]|8[89]|9[7-9])|6[2-9]\\d)\\d{5}","\\d{9}",,,"501234567"]
 ,[,,"1(?:80[019]\\d{3}|255)\\d{3}","\\d{7,10}",,,"1800123456"]
-,[,,"1(?:212|(?:919|200)\\d{2})\\d{4}","\\d{8,10}",,,"1919123456"]
+,[,,"1(?:212|(?:9(?:0[01]|19)|200)\\d{2})\\d{4}","\\d{8,10}",,,"1919123456"]
 ,[,,"1700\\d{6}","\\d{10}",,,"1700123456"]
 ,[,,"NA","NA"]
-,[,,"77\\d{7}","\\d{9}",,,"771234567"]
-,"IL",972,"0(?:0|1[2-48])","0",,,"0",,,,[[,"([2-489])(\\d{3})(\\d{4})","$1-$2-$3",["[2-489]"]
-,"0$1",""]
+,[,,"7(?:2[23]\\d|3[237]\\d|47\\d|6(?:5\\d|8[068])|7\\d{2}|8(?:33|55|77|81))\\d{5}","\\d{9}",,,"771234567"]
+,"IL",972,"0(?:0|1[2-9])","0",,,"0",,,,[[,"([2-489])(\\d{3})(\\d{4})","$1-$2-$3",["[2-489]"]
+,"0$1","",0]
 ,[,"([57]\\d)(\\d{3})(\\d{4})","$1-$2-$3",["[57]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(1)([7-9]\\d{2})(\\d{3})(\\d{3})","$1-$2-$3-$4",["1[7-9]"]
-,"$1",""]
+,"$1","",0]
 ,[,"(1255)(\\d{3})","$1-$2",["125"]
-,"$1",""]
+,"$1","",0]
 ,[,"(1200)(\\d{3})(\\d{3})","$1-$2-$3",["120"]
-,"$1",""]
+,"$1","",0]
 ,[,"(1212)(\\d{2})(\\d{2})","$1-$2-$3",["121"]
-,"$1",""]
+,"$1","",0]
+,[,"(1599)(\\d{6})","$1-$2",["15"]
+,"$1","",0]
 ,[,"(\\d{4})","*$1",["[2-689]"]
-,"$1",""]
+,"$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"1700\\d{6}|[2-689]\\d{3}","\\d{4,10}",,,"1700123456"]
-,[,,"[2-689]\\d{3}","\\d{4}",,,"2250"]
-,,[,,"1(?:0[012]|12)","\\d{3}",,,"112"]
+,[,,"[2-689]\\d{3}|1599\\d{6}","\\d{4}(?:\\d{6})?",,,"1599123456"]
+,,,[,,"NA","NA"]
 ]
 ,"IM":[,[,,"[135789]\\d{6,9}","\\d{6,10}"]
 ,[,,"1624\\d{6}","\\d{6,10}",,,"1624456789"]
@@ -10540,41 +12771,43 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"IM",44,"00","0"," x",,"0",,,,,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"3(?:08162\\d|3\\d{5}|4(?:40[49]06|5624\\d)|7(?:0624\\d|2299\\d))\\d{3}|55\\d{8}","\\d{10}",,,"5512345678"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"IN":[,[,,"1\\d{7,12}|[2-9]\\d{9,10}","\\d{6,13}"]
-,[,,"(?:11|2[02]|33|4[04]|79)[2-6]\\d{7}|80[2-46]\\d{7}|(?:1(?:2[0-249]|3[0-25]|4[145]|[59][14]|6[014]|7[1257]|8[01346])|2(?:1[257]|3[013]|4[01]|5[0137]|6[0158]|78|8[1568]|9[14])|3(?:26|4[1-3]|5[34]|6[01489]|7[02-46]|8[159])|4(?:1[36]|2[1-47]|3[15]|5[12]|6[126-9]|7[0-24-9]|8[013-57]|9[014-7])|5(?:[136][25]|22|4[28]|5[12]|[78]1|9[15])|6(?:12|[2345]1|57|6[13]|7[14]|80)|7(?:12|2[14]|3[134]|4[47]|5[15]|[67]1|88)|8(?:16|2[014]|3[126]|6[136]|7[078]|8[34]|91))[2-6]\\d{6}|(?:(?:1(?:2[35-8]|3[346-9]|4[236-9]|[59][0235-9]|6[235-9]|7[34689]|8[257-9])|2(?:1[134689]|3[24-8]|4[2-8]|5[25689]|6[2-4679]|7[13-79]|8[2-479]|9[235-9])|3(?:01|1[79]|2[1-5]|4[25-8]|5[125689]|6[235-7]|7[157-9]|8[2-467])|4(?:1[14578]|2[5689]|3[2-467]|5[4-7]|6[35]|73|8[2689]|9[2389])|5(?:[16][146-9]|2[14-8]|3[1346]|4[14-69]|5[46]|7[2-4]|8[2-8]|9[246])|6(?:1[1358]|2[2457]|3[2-4]|4[235-7]|5[2-689]|6[24-58]|7[23-689]|8[1-6])|8(?:1[1357-9]|2[235-8]|3[03-57-9]|4[0-24-9]|5\\d|6[2457-9]|7[1-6]|8[1256]|9[2-4]))\\d|7(?:(?:1[013-9]|2[0235-9]|3[2679]|4[1-35689]|5[2-46-9]|[67][02-9]|9\\d)\\d|8(?:2[0-6]|[013-8]\\d)))[2-6]\\d{5}","\\d{6,10}",,,"1123456789"]
-,[,,"(?:7(?:2(?:0[04-9]|5[09]|7[5-8]|9[389])|3(?:0[13-9]|5[0-4789]|7[3679]|8[1-9]|9[689])|4(?:0[245789]|1[15-9]|[29][89]|39|8[389])|5(?:0[0-5789]|[47]9|[25]0|6[6-9]|[89][7-9])|6(?:0[027]|12|20|3[19]|5[45]|6[5-9]|7[679]|9[6-9])|7(?:0[27-9]|[39][5-9]|42|60)|8(?:[03][07-9]|14|2[7-9]|4[25]|6[09]|7\\d|9[013-9]))|8(?:0(?:[01589]\\d|66)|1(?:[024]\\d|1[56]|30|7[19]|97)|2(?:[2369]\\d|52|7[01357]|8[567])|3(?:0[235-8]|4[14789]|74|90)|4(?:[02-58]\\d|10|6[09])|5(?:0[079]|11|2\\d|30|4[47]|53|7[45]|9[015])|6(?:[0589]\\d|7[09])|7(?:1[24]|[2569]\\d)|8(?:[07-9]\\d|17|2[024-8]|44|5[389]|6[0167])|9(?:[057-9]\\d|2[35-9]|3[09]|4[036-8]|6[0-46-9]))|9\\d{3})\\d{6}","\\d{10}",,,"9123456789"]
+,[,,"(?:11|2[02]|33|4[04]|79)[2-7]\\d{7}|80[2-467]\\d{7}|(?:1(?:2[0-249]|3[0-25]|4[145]|[59][14]|6[014]|7[1257]|8[01346])|2(?:1[257]|3[013]|4[01]|5[0137]|6[0158]|78|8[1568]|9[14])|3(?:26|4[1-3]|5[34]|6[01489]|7[02-46]|8[159])|4(?:1[36]|2[1-47]|3[15]|5[12]|6[0-26-9]|7[0-24-9]|8[013-57]|9[014-7])|5(?:[136][25]|22|4[28]|5[12]|[78]1|9[15])|6(?:12|[2345]1|57|6[13]|7[14]|80)|7(?:12|2[14]|3[134]|4[47]|5[15]|[67]1|88)|8(?:16|2[014]|3[126]|6[136]|7[078]|8[34]|91))[2-7]\\d{6}|(?:(?:1(?:2[35-8]|3[346-9]|4[236-9]|[59][0235-9]|6[235-9]|7[34689]|8[257-9])|2(?:1[134689]|3[24-8]|4[2-8]|5[25689]|6[2-4679]|7[13-79]|8[2-479]|9[235-9])|3(?:01|1[79]|2[1-5]|4[25-8]|5[125689]|6[235-7]|7[157-9]|8[2-467])|4(?:1[14578]|2[5689]|3[2-467]|5[4-7]|6[35]|73|8[2689]|9[2389])|5(?:[16][146-9]|2[14-8]|3[1346]|4[14-69]|5[46]|7[2-4]|8[2-8]|9[246])|6(?:1[1358]|2[2457]|3[2-4]|4[235-7]|[57][2-689]|6[24-578]|8[1-6])|8(?:1[1357-9]|2[235-8]|3[03-57-9]|4[0-24-9]|5\\d|6[2457-9]|7[1-6]|8[1256]|9[2-4]))\\d|7(?:(?:1[013-9]|2[0235-9]|3[2679]|4[1-35689]|5[2-46-9]|[67][02-9]|9\\d)\\d|8(?:2[0-6]|[013-8]\\d)))[2-7]\\d{5}","\\d{6,10}",,,"1123456789"]
+,[,,"(?:7(?:0(?:2[2-9]|[3-8]\\d|9[0-8])|2(?:0[04-9]|5[09]|7[5-8]|9[389])|3(?:0[1-9]|[58]\\d|7[3679]|9[689])|4(?:0[1-9]|1[15-9]|[29][89]|39|8[389])|5(?:[034678]\\d|2[03-9]|5[017-9]|9[7-9])|6(?:0[0127]|1[0-257-9]|2[0-4]|3[19]|5[4589]|[6-9]\\d)|7(?:0[2-9]|[1-79]\\d|8[1-9])|8(?:[0-7]\\d|9[013-9]))|8(?:0(?:[01589]\\d|6[67])|1(?:[02-589]\\d|1[0135-9]|7[0-79])|2(?:[236-9]\\d|5[1-9])|3(?:[0357-9]\\d|4[1-9])|[45]\\d{2}|6[02457-9]\\d|7[1-69]\\d|8(?:[0-26-9]\\d|44|5[2-9])|9(?:[035-9]\\d|2[2-9]|4[0-8]))|9\\d{3})\\d{6}","\\d{10}",,,"9123456789"]
 ,[,,"1(?:600\\d{6}|80(?:0\\d{4,8}|3\\d{9}))","\\d{8,13}",,,"1800123456"]
 ,[,,"186[12]\\d{9}","\\d{13}",,,"1861123456789"]
+,[,,"1860\\d{7}","\\d{11}",,,"18603451234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"IN",91,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{2})(\\d{6})","$1 $2 $3",["7(?:2[0579]|3[057-9]|4[0-389]|5[024-9]|6[0-35-9]|7[03469]|8[0-4679])|8(?:0[01589]|1[0-479]|2[236-9]|3[0479]|4[0-68]|5[0-579]6[05789]7[12569]|8[0124-9]|9[02-9])|9","7(?:2(?:0[04-9]|5[09]|7[5-8]|9[389])|3(?:0[13-9]|5[0-4789]|7[3679]|8[1-9]|9[689])|4(?:0[245789]|1[15-9]|[29][89]|39|8[389])|5(?:0[0-5789]|[47]9|[25]0|6[6-9]|[89][7-9])|6(?:0[027]|12|20|3[19]|5[45]|6[5-9]|7[679]|9[6-9])|7(?:0[27-9]|3[5-9]|42|60|9[5-9])|8(?:[03][07-9]|14|2[7-9]|4[25]|6[09]|7|9[013-9]))|8(?:0[01589]|1(?:[024]|1[56]|30|7[19]|97)|2(?:[2369]|7[01357]|8[567])|3(?:0[235-8]|4[14789]|74|90)|4(?:[02-58]|10|6[09])|5(?:0[079]|11|2|30|4[47]|53|7[45]|9[015])|6(?:[0589]|70)|7(?:1[24]|[2569])|8(?:[07-9]|17|2[024-8]|44|5[389]|6[0167])|9(?:[057-9]|2[35-9]|3[09]|4[03678]|6[0-46-9]))|9"]
-,"0$1",""]
+,"IN",91,"00","0",,,"0",,,,[[,"(\\d{5})(\\d{5})","$1 $2",["7(?:0[2-9]|2[0579]|3[057-9]|4[0-389]|6[0-35-9]|[57]|8[0-79])|8(?:0[015689]|1[0-57-9]|2[2356-9]|3[0-57-9]|[45]|6[02457-9]|7[1-69]|8[0124-9]|9[02-9])|9","7(?:0(?:2[2-9]|[3-8]|9[0-8])|2(?:0[04-9]|5[09]|7[5-8]|9[389])|3(?:0[1-9]|[58]|7[3679]|9[689])|4(?:0[1-9]|1[15-9]|[29][89]|39|8[389])|5(?:[034678]|2[03-9]|5[017-9]|9[7-9])|6(?:0[0-27]|1[0-257-9]|2[0-4]|3[19]|5[4589]|[6-9])|7(?:0[2-9]|[1-79]|8[1-9])|8(?:[0-7]|9[013-9]))|8(?:0(?:[01589]|6[67])|1(?:[02-589]|1[0135-9]|7[0-79])|2(?:[236-9]|5[1-9])|3(?:[0357-9]|4[1-9])|[45]|6[02457-9]|7[1-69]|8(?:[0-26-9]|44|5[2-9])|9(?:[035-9]|2[2-9]|4[0-8]))|9"]
+,"0$1","",1]
 ,[,"(\\d{2})(\\d{4})(\\d{4})","$1 $2 $3",["11|2[02]|33|4[04]|79|80[2-46]"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["1(?:2[0-249]|3[0-25]|4[145]|[569][14]|7[1257]|8[1346]|[68][1-9])|2(?:1[257]|3[013]|4[01]|5[0137]|6[0158]|78|8[1568]|9[14])|3(?:26|4[1-3]|5[34]|6[01489]|7[02-46]|8[159])|4(?:1[36]|2[1-47]|3[15]|5[12]|6[126-9]|7[0-24-9]|8[013-57]|9[014-7])|5(?:[136][25]|22|4[28]|5[12]|[78]1|9[15])|6(?:12|[2345]1|57|6[13]|7[14]|80)"]
-,"0$1",""]
+,"0$1","",1]
+,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["1(?:2[0-249]|3[0-25]|4[145]|[569][14]|7[1257]|8[1346]|[68][1-9])|2(?:1[257]|3[013]|4[01]|5[0137]|6[0158]|78|8[1568]|9[14])|3(?:26|4[1-3]|5[34]|6[01489]|7[02-46]|8[159])|4(?:1[36]|2[1-47]|3[15]|5[12]|6[0-26-9]|7[0-24-9]|8[013-57]|9[014-7])|5(?:[136][25]|22|4[28]|5[12]|[78]1|9[15])|6(?:12|[2345]1|57|6[13]|7[14]|80)"]
+,"0$1","",1]
 ,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["7(?:12|2[14]|3[134]|4[47]|5[15]|[67]1|88)","7(?:12|2[14]|3[134]|4[47]|5(?:1|5[2-6])|[67]1|88)"]
-,"0$1",""]
+,"0$1","",1]
 ,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["8(?:16|2[014]|3[126]|6[136]|7[078]|8[34]|91)"]
-,"0$1",""]
-,[,"(\\d{4})(\\d{3})(\\d{3})","$1 $2 $3",["1(?:[2-579]|[68][1-9])|[2-8]"]
-,"0$1",""]
+,"0$1","",1]
+,[,"(\\d{4})(\\d{3})(\\d{3})","$1 $2 $3",["1(?:[23579]|[468][1-9])|[2-8]"]
+,"0$1","",1]
 ,[,"(1600)(\\d{2})(\\d{4})","$1 $2 $3",["160","1600"]
-,"$1",""]
+,"$1","",1]
 ,[,"(1800)(\\d{4,5})","$1 $2",["180","1800"]
-,"$1",""]
+,"$1","",1]
 ,[,"(18[06]0)(\\d{2,4})(\\d{4})","$1 $2 $3",["18[06]","18[06]0"]
-,"$1",""]
+,"$1","",1]
+,[,"(140)(\\d{3})(\\d{4})","$1 $2 $3",["140"]
+,"$1","",1]
 ,[,"(\\d{4})(\\d{3})(\\d{4})(\\d{2})","$1 $2 $3 $4",["18[06]","18(?:03|6[12])"]
-,"$1",""]
+,"$1","",1]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"1(?:600\\d{6}|8(?:0(?:0\\d{4,8}|3\\d{9})|6(?:0\\d{7}|[12]\\d{9})))","\\d{8,13}",,,"1800123456"]
-,[,,"1860\\d{7}","\\d{11}",,,"18603451234"]
-,,[,,"1(?:0[0128]|12|298)|2611","\\d{3,4}",,,"108"]
+,[,,"140\\d{7}","\\d{10}",,,"1409305260"]
+,,,[,,"NA","NA"]
 ]
 ,"IO":[,[,,"3\\d{6}","\\d{7}"]
 ,[,,"37\\d{5}","\\d{7}",,,"3709100"]
@@ -10584,12 +12817,12 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"IO",246,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"",""]
+,"IO",246,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"IQ":[,[,,"[1-7]\\d{7,9}","\\d{6,10}"]
 ,[,,"1\\d{7}|(?:2[13-5]|3[02367]|4[023]|5[03]|6[026])\\d{6,7}","\\d{6,9}",,,"12345678"]
@@ -10600,84 +12833,92 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"IQ",964,"00","0",,,"0",,,,[[,"(1)(\\d{3})(\\d{4})","$1 $2 $3",["1"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([2-6]\\d)(\\d{3})(\\d{3,4})","$1 $2 $3",["[2-6]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(7\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["7"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
-]
-,"IR":[,[,,"[2-6]\\d{4,9}|[1789]\\d{9}","\\d{5,10}"]
-,[,,"2(?:1[2-9]\\d{2,7}|51\\d{3,7})|(?:241|3(?:11|5[23])|441|5[14]1)\\d{4,7}|(?:3(?:34|41)|6(?:11|52)|)\\d{6,7}|(?:1(?:[134589][12]|[27][1-4])|2(?:2[189]|[3689][12]|42|5[256]|7[34])|3(?:12|2[1-4]|3[125]|4[24-9]|51|[6-9][12])|4(?:[135-9][12]|2[1-467]|4[2-4])|5(?:12|2[89]|3[1-5]|4[2-8]|[5-7][12]|8[1245])|6(?:12|[347-9][12]|51|6[1-6])|7(?:[13589][12]|2[1289]|4[1-4]|6[1-6]|7[1-3])|8(?:[145][12]|3[124578]|6[1256]|7[1245]))\\d{7}","\\d{5,10}",,,"2123456789"]
-,[,,"9(?:1\\d|3[124-8])\\d{7}","\\d{10}",,,"9123456789"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"993[12]\\d{6}","\\d{10}",,,"9932123456"]
-,"IR",98,"00","0",,,"0",,,,[[,"(21)(\\d{4})(\\d{4})","$1 $2 $3",["21"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["[13-89]|2[02-9]"]
-,"0$1",""]
-]
-,,[,,"943[24678]\\d{6}","\\d{10}",,,"9432123456"]
 ,,,[,,"NA","NA"]
-,[,,"9990\\d{6}","\\d{10}",,,"9990123456"]
-,,[,,"1(?:1[025]|25)","\\d{3}",,,"112"]
+]
+,"IR":[,[,,"[1-8]\\d{9}|9(?:[0-4]\\d{8}|9\\d{2,8})","\\d{4,10}"]
+,[,,"(?:1[137]|2[13-68]|3[1458]|4[145]|5[146-8]|6[146]|7[1467]|8[13467])\\d{8}","\\d{10}",,,"2123456789"]
+,[,,"9(?:0[12]|[1-3]\\d)\\d{7}","\\d{10}",,,"9123456789"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"(?:[2-6]0\\d|993)\\d{7}","\\d{10}",,,"9932123456"]
+,"IR",98,"00","0",,,"0",,,,[[,"(21)(\\d{3,5})","$1 $2",["21"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{4})(\\d{4})","$1 $2 $3",["[1-8]"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{3})(\\d{3,4})","$1 $2 $3",["9"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{2})(\\d{2,3})","$1 $2 $3",["9"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{3})","$1 $2",["9"]
+,"0$1","",0]
+]
+,,[,,"943\\d{7}","\\d{10}",,,"9432123456"]
+,,,[,,"NA","NA"]
+,[,,"9990\\d{0,6}","\\d{4,10}",,,"9990123456"]
+,,,[,,"NA","NA"]
 ]
 ,"IS":[,[,,"[4-9]\\d{6}|38\\d{7}","\\d{7,9}"]
-,[,,"(?:4(?:1[0-245]|2[0-7]|[37][0-8]|4[0245]|5[0-356]|6\\d|8[0-46-8]|9[013-79])|5(?:05|[156]\\d|2[02578]|3[013-6]|4[03-6]|7[0-2578]|8[0-25-9]|9[013-689])|87[23])\\d{4}","\\d{7}",,,"4101234"]
-,[,,"38[59]\\d{6}|(?:6(?:1[0-8]|2[0-8]|3[0-27-9]|4[0-29]|5[029]|[67][0-69]|[89]\\d)|7(?:5[057]|7[0-7])|8(?:2[0-5]|[469]\\d|5[1-9]))\\d{4}","\\d{7,9}",,,"6101234"]
+,[,,"(?:4(?:1[0-24-6]|2[0-7]|[37][0-8]|4[0-245]|5[0-3568]|6\\d|8[0-36-8])|5(?:05|[156]\\d|2[02578]|3[013-7]|4[03-7]|7[0-2578]|8[0-35-9]|9[013-689])|87[23])\\d{4}","\\d{7}",,,"4101234"]
+,[,,"38[589]\\d{6}|(?:6(?:1[1-8]|3[089]|4[0167]|5[019]|[67][0-69]|9\\d)|7(?:5[057]|7\\d|8[0-36-8])|8(?:2[0-5]|3[0-4]|[469]\\d|5[1-9]))\\d{4}","\\d{7,9}",,,"6111234"]
 ,[,,"800\\d{4}","\\d{7}",,,"8001234"]
 ,[,,"90\\d{5}","\\d{7}",,,"9011234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"49[013-79]\\d{4}","\\d{7}",,,"4931234"]
+,[,,"49\\d{5}","\\d{7}",,,"4921234"]
 ,"IS",354,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",["[4-9]"]
-,"",""]
+,"","",0]
 ,[,"(3\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["3"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"112","\\d{3}",,,"112"]
+,,,[,,"(?:6(?:2[0-8]|49|8\\d)|87[0189]|95[48])\\d{4}","\\d{7}",,,"6201234"]
 ]
-,"IT":[,[,,"[0189]\\d{5,10}|3\\d{8,9}","\\d{6,11}"]
-,[,,"0(?:[26]\\d{4,9}|[13-57-9](?:[0159]\\d{4,8}|[2-46-8]\\d{5,8}))","\\d{6,11}",,,"0212345678"]
-,[,,"3\\d{8,9}","\\d{9,10}",,,"312345678"]
+,"IT":[,[,,"[01589]\\d{5,10}|3(?:[12457-9]\\d{8}|[36]\\d{7,9})","\\d{6,11}"]
+,[,,"0(?:[26]\\d{4,9}|(?:1(?:[0159]\\d|[27][1-5]|31|4[1-4]|6[1356]|8[2-57])|3(?:[0159]\\d|2[1-4]|3[12]|[48][1-6]|6[2-59]|7[1-7])|4(?:[0159]\\d|[23][1-9]|4[245]|6[1-5]|7[1-4]|81)|5(?:[0159]\\d|2[1-5]|3[2-6]|4[1-79]|6[4-6]|7[1-578]|8[3-8])|7(?:[0159]\\d|2[12]|3[1-7]|4[2346]|6[13569]|7[13-6]|8[1-59])|8(?:[0159]\\d|2[34578]|3[1-356]|[6-8][1-5])|9(?:[0159]\\d|[238][1-5]|4[12]|6[1-8]|7[1-6]))\\d{2,7})","\\d{6,11}",,,"0212345678"]
+,[,,"3(?:[12457-9]\\d{8}|6\\d{7,8}|3\\d{7,9})","\\d{9,11}",,,"3123456789"]
 ,[,,"80(?:0\\d{6}|3\\d{3})","\\d{6,9}",,,"800123456"]
-,[,,"0878\\d{5}|1(?:44|6[346])\\d{6}|89(?:2\\d{3}|9\\d{6})","\\d{6,9}",,,"899123456"]
-,[,,"84[78]\\d{6,7}","\\d{9,10}",,,"8481234567"]
-,[,,"178\\d{6,7}","\\d{9,10}",,,"1781234567"]
-,[,,"NA","NA"]
-,"IT",39,"00",,,,,,,,[[,"(0[26])(\\d{3,4})(\\d{4})","$1 $2 $3",["0[26]"]
-,"",""]
+,[,,"0878\\d{5}|1(?:44|6[346])\\d{6}|89(?:2\\d{3}|4(?:[0-4]\\d{2}|[5-9]\\d{4})|5(?:[0-4]\\d{2}|[5-9]\\d{6})|9\\d{6})","\\d{6,10}",,,"899123456"]
+,[,,"84(?:[08]\\d{6}|[17]\\d{3})","\\d{6,9}",,,"848123456"]
+,[,,"1(?:78\\d|99)\\d{6}","\\d{9,10}",,,"1781234567"]
+,[,,"55\\d{8}","\\d{10}",,,"5512345678"]
+,"IT",39,"00",,,,,,,,[[,"(\\d{2})(\\d{3,4})(\\d{4})","$1 $2 $3",["0[26]|55"]
+,"","",0]
 ,[,"(0[26])(\\d{4})(\\d{5})","$1 $2 $3",["0[26]"]
-,"",""]
+,"","",0]
 ,[,"(0[26])(\\d{4,6})","$1 $2",["0[26]"]
-,"",""]
+,"","",0]
 ,[,"(0\\d{2})(\\d{3,4})(\\d{4})","$1 $2 $3",["0[13-57-9][0159]"]
-,"",""]
-,[,"(0\\d{2})(\\d{4,6})","$1 $2",["0[13-57-9][0159]"]
-,"",""]
+,"","",0]
+,[,"(\\d{3})(\\d{3,6})","$1 $2",["0[13-57-9][0159]|8(?:03|4[17]|9[245])","0[13-57-9][0159]|8(?:03|4[17]|9(?:2|[45][0-4]))"]
+,"","",0]
 ,[,"(0\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["0[13-57-9][2-46-8]"]
-,"",""]
-,[,"(0\\d{3})(\\d{4,6})","$1 $2",["0[13-57-9][2-46-8]"]
-,"",""]
-,[,"(\\d{3})(\\d{3})(\\d{3,4})","$1 $2 $3",["[13]|8(?:00|4[78]|99)"]
-,"",""]
-,[,"(\\d{3})(\\d{3,6})","$1 $2",["8(?:03|92)"]
-,"",""]
+,"","",0]
+,[,"(0\\d{3})(\\d{2,6})","$1 $2",["0[13-57-9][2-46-8]"]
+,"","",0]
+,[,"(\\d{3})(\\d{3})(\\d{3,4})","$1 $2 $3",["[13]|8(?:00|4[08]|9[59])","[13]|8(?:00|4[08]|9(?:5[5-9]|9))"]
+,"","",0]
+,[,"(\\d{4})(\\d{4})","$1 $2",["894","894[5-9]"]
+,"","",0]
+,[,"(\\d{3})(\\d{4})(\\d{4})","$1 $2 $3",["3"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
-,,,[,,"NA","NA"]
+,,,[,,"848\\d{6}","\\d{9}",,,"848123456"]
 ,[,,"NA","NA"]
-,1,[,,"11[2358]","\\d{3}",,,"112"]
+,1,,[,,"NA","NA"]
 ]
 ,"JE":[,[,,"[135789]\\d{6,9}","\\d{6,10}"]
 ,[,,"1534\\d{6}","\\d{6,10}",,,"1534456789"]
@@ -10690,173 +12931,204 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"JE",44,"00","0"," x",,"0",,,,,,[,,"76(?:0[012]|2[356]|4[0134]|5[49]|6[0-369]|77|81|9[39])\\d{6}","\\d{10}",,,"7640123456"]
 ,,,[,,"NA","NA"]
 ,[,,"3(?:0(?:07(?:35|81)|8901)|3\\d{4}|4(?:4(?:4(?:05|42|69)|703)|5(?:041|800))|7(?:0002|1206))\\d{4}|55\\d{8}","\\d{10}",,,"5512345678"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"JM":[,[,,"[589]\\d{9}","\\d{7}(?:\\d{3})?"]
-,[,,"876(?:5(?:0[12]|1[0-468]|2[35]|63)|6(?:0[1-3579]|1[027-9]|[23]\\d|40|5[06]|6[2-489]|7[05]|8[04]|9[4-9])|7(?:0[2-689]|[1-6]\\d|8[056]|9[45])|9(?:0[1-8]|1[02378]|[2-8]\\d|9[2-468]))\\d{4}","\\d{7}(?:\\d{3})?",,,"8765123456"]
-,[,,"876(?:2[1789]\\d|[348]\\d{2}|5(?:08|27|6[0-24-9]|[3-578]\\d)|7(?:0[07]|7\\d|8[1-47-9]|9[0-36-9])|9(?:[01]9|9[0579]))\\d{4}","\\d{10}",,,"8762101234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"876(?:5(?:0[12]|1[0-468]|2[35]|63)|6(?:0[1-3579]|1[027-9]|[23]\\d|40|5[06]|6[2-589]|7[05]|8[04]|9[4-9])|7(?:0[2-689]|[1-6]\\d|8[056]|9[45])|9(?:0[1-8]|1[02378]|[2-8]\\d|9[2-468]))\\d{4}","\\d{7}(?:\\d{3})?",,,"8765123456"]
+,[,,"876(?:2[1789]\\d|[348]\\d{2}|5(?:0[3-9]|27|6[0-24-9]|[3-578]\\d)|7(?:0[07]|7\\d|8[1-47-9]|9[0-36-9])|9(?:[01]9|9[0579]))\\d{4}","\\d{10}",,,"8762101234"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"JM",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"876",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"11[09]","\\d{3}",,,"119"]
+,,,[,,"NA","NA"]
 ]
 ,"JO":[,[,,"[235-9]\\d{7,8}","\\d{7,9}"]
-,[,,"[2356][2-8]\\d{6}","\\d{7,8}",,,"62001234"]
-,[,,"7(?:[1-8]\\d|9[02-9])\\d{6}","\\d{9}",,,"790123456"]
+,[,,"(?:2(?:6(?:2[0-35-9]|3[0-57-8]|4[24-7]|5[0-24-8]|[6-8][02]|9[0-2])|7(?:0[1-79]|10|2[014-7]|3[0-689]|4[019]|5[0-3578]))|32(?:0[1-69]|1[1-35-7]|2[024-7]|3\\d|4[0-2]|[57][02]|60)|53(?:0[0-2]|[13][02]|2[0-59]|49|5[0-35-9]|6[15]|7[45]|8[1-6]|9[0-36-9])|6(?:2[50]0|300|4(?:0[0125]|1[2-7]|2[0569]|[38][07-9]|4[025689]|6[0-589]|7\\d|9[0-2])|5(?:[01][056]|2[034]|3[0-57-9]|4[17-8]|5[0-69]|6[0-35-9]|7[1-379]|8[0-68]|9[02-39]))|87(?:[02]0|7[08]|9[09]))\\d{4}","\\d{7,8}",,,"62001234"]
+,[,,"7(?:55|7[25-9]|8[05-9]|9[015-9])\\d{6}","\\d{9}",,,"790123456"]
 ,[,,"80\\d{6}","\\d{8}",,,"80012345"]
 ,[,,"900\\d{5}","\\d{8}",,,"90012345"]
 ,[,,"85\\d{6}","\\d{8}",,,"85012345"]
 ,[,,"70\\d{7}","\\d{9}",,,"700123456"]
 ,[,,"NA","NA"]
-,"JO",962,"00","0",,,"0",,,,[[,"(\\d)(\\d{3})(\\d{4})","$1 $2 $3",["[2356]"]
-,"(0$1)",""]
-,[,"(7)(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4 $5",["7[457-9]"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{5,6})","$1 $2",["70|[89]"]
-,"0$1",""]
+,"JO",962,"00","0",,,"0",,,,[[,"(\\d)(\\d{3})(\\d{4})","$1 $2 $3",["[2356]|87"]
+,"(0$1)","",0]
+,[,"(7)(\\d{4})(\\d{4})","$1 $2 $3",["7[457-9]"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{5,6})","$1 $2",["70|8[0158]|9"]
+,"0$1","",0]
 ]
-,,[,,"NA","NA"]
+,,[,,"74(?:66|77)\\d{5}","\\d{9}",,,"746612345"]
 ,,,[,,"NA","NA"]
-,[,,"8(?:10|[78]\\d)\\d{5}","\\d{8}",,,"87101234"]
-,,[,,"112|911","\\d{3}",,,"112"]
+,[,,"8(?:10|8\\d)\\d{5}","\\d{8}",,,"88101234"]
+,,,[,,"NA","NA"]
 ]
-,"JP":[,[,,"[1-9]\\d{8,9}|0(?:7\\d{5,6}|8\\d{7})","\\d{7,10}"]
+,"JP":[,[,,"[1-9]\\d{8,9}|00(?:[36]\\d{7,14}|7\\d{5,7}|8\\d{7})","\\d{8,17}"]
 ,[,,"(?:1(?:1[235-8]|2[3-6]|3[3-9]|4[2-6]|[58][2-8]|6[2-7]|7[2-9]|9[1-9])|2[2-9]\\d|[36][1-9]\\d|4(?:6[02-8]|[2-578]\\d|9[2-59])|5(?:6[1-9]|7[2-8]|[2-589]\\d)|7(?:3[4-9]|4[02-9]|[25-9]\\d)|8(?:3[2-9]|4[5-9]|5[1-9]|8[03-9]|[2679]\\d)|9(?:[679][1-9]|[2-58]\\d))\\d{6}","\\d{9}",,,"312345678"]
-,[,,"(?:[79]0\\d|80[1-9])\\d{7}","\\d{10}",,,"7012345678"]
-,[,,"120\\d{6}|800\\d{7}|0(?:777(?:[01]\\d{2}|5\\d{3})|882[1245]\\d{4})","\\d{7,10}",,,"120123456"]
+,[,,"[7-9]0[1-9]\\d{7}","\\d{10}",,,"7012345678"]
+,[,,"120\\d{6}|800\\d{7}|00(?:37\\d{6,13}|66\\d{6,13}|777(?:[01]\\d{2}|5\\d{3}|8\\d{4})|882[1245]\\d{4})","\\d{8,17}",,,"120123456"]
 ,[,,"990\\d{6}","\\d{9}",,,"990123456"]
 ,[,,"NA","NA"]
 ,[,,"60\\d{7}","\\d{9}",,,"601234567"]
-,[,,"50\\d{8}","\\d{10}",,,"5012345678"]
+,[,,"50[1-9]\\d{7}","\\d{10}",,,"5012345678"]
 ,"JP",81,"010","0",,,"0",,,,[[,"(\\d{3})(\\d{3})(\\d{3})","$1-$2-$3",["(?:12|57|99)0"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{3})(\\d{3})(\\d{4})","$1-$2-$3",["800"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{4,5})","$1-$2",["077"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{2})(\\d{4})","$1-$2-$3",["088"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(\\d{4})(\\d{4})","$1-$2",["0077"]
+,"$1","",0]
+,[,"(\\d{4})(\\d{2})(\\d{3,4})","$1-$2-$3",["0077"]
+,"$1","",0]
+,[,"(\\d{4})(\\d{2})(\\d{4})","$1-$2-$3",["0088"]
+,"$1","",0]
+,[,"(\\d{4})(\\d{3})(\\d{3,4})","$1-$2-$3",["00(?:37|66)"]
+,"$1","",0]
+,[,"(\\d{4})(\\d{4})(\\d{4,5})","$1-$2-$3",["00(?:37|66)"]
+,"$1","",0]
+,[,"(\\d{4})(\\d{5})(\\d{5,6})","$1-$2-$3",["00(?:37|66)"]
+,"$1","",0]
+,[,"(\\d{4})(\\d{6})(\\d{6,7})","$1-$2-$3",["00(?:37|66)"]
+,"$1","",0]
 ,[,"(\\d{2})(\\d{4})(\\d{4})","$1-$2-$3",["[2579]0|80[1-9]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{4})(\\d)(\\d{4})","$1-$2-$3",["1(?:26|3[79]|4[56]|5[4-68]|6[3-5])|5(?:76|97)|499|746|8(?:3[89]|63|47|51)|9(?:49|80|9[16])","1(?:267|3(?:7[247]|9[278])|4(?:5[67]|66)|5(?:47|58|64|8[67])|6(?:3[245]|48|5[4-68]))|5(?:76|97)9|499[2468]|7468|8(?:3(?:8[78]|96)|636|477|51[24])|9(?:496|802|9(?:1[23]|69))","1(?:267|3(?:7[247]|9[278])|4(?:5[67]|66)|5(?:47|58|64|8[67])|6(?:3[245]|48|5[4-68]))|5(?:769|979[2-69])|499[2468]|7468|8(?:3(?:8[78]|96[2457-9])|636[2-57-9]|477|51[24])|9(?:496|802|9(?:1[23]|69))"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{2})(\\d{4})","$1-$2-$3",["1(?:2[3-6]|3[3-9]|4[2-6]|5[2-8]|[68][2-7]|7[2-689]|9[1-578])|2(?:2[034-9]|3[3-58]|4[0-468]|5[04-8]|6[013-8]|7[06-9]|8[02-57-9]|9[13])|4(?:2[28]|3[689]|6[035-7]|7[05689]|80|9[3-5])|5(?:3[1-36-9]|4[4578]|5[013-8]|6[1-9]|7[2-8]|8[14-7]|9[4-9])|7(?:2[15]|3[5-9]|4[02-9]|6[135-8]|7[0-4689]|9[014-9])|8(?:2[49]|3[3-8]|4[5-8]|5[2-9]|6[35-9]|7[579]|8[03-579]|9[2-8])|9(?:[23]0|4[02-46-9]|5[0245-79]|6[4-9]|7[2-47-9]|8[02-7]|9[3-7])","1(?:2[3-6]|3[3-9]|4[2-6]|5(?:[236-8]|[45][2-69])|[68][2-7]|7[2-689]|9[1-578])|2(?:2(?:[04-9]|3[23])|3[3-58]|4[0-468]|5(?:5[78]|7[2-4]|[0468][2-9])|6(?:[0135-8]|4[2-5])|7(?:[0679]|8[2-7])|8(?:[024578]|3[25-9]|9[6-9])|9(?:11|3[2-4]))|4(?:2(?:2[2-9]|8[237-9])|3[689]|6[035-7]|7(?:[059][2-8]|[68])|80|9[3-5])|5(?:3[1-36-9]|4[4578]|5[013-8]|6[1-9]|7[2-8]|8[14-7]|9(?:[89][2-8]|[4-7]))|7(?:2[15]|3[5-9]|4[02-9]|6[135-8]|7[0-4689]|9(?:[017-9]|4[6-8]|5[2-478]|6[2-589]))|8(?:2(?:4[4-8]|9[2-8])|3(?:7[2-56]|[3-6][2-9]|8[2-5])|4[5-8]|5[2-9]|6(?:[37]|5[4-7]|6[2-9]|8[2-8]|9[236-9])|7[579]|8[03-579]|9[2-8])|9(?:[23]0|4[02-46-9]|5[0245-79]|6[4-9]|7[2-47-9]|8[02-7]|9(?:3[34]|[4-7]))","1(?:2[3-6]|3[3-9]|4[2-6]|5(?:[236-8]|[45][2-69])|[68][2-7]|7[2-689]|9[1-578])|2(?:2(?:[04-9]|3[23])|3[3-58]|4[0-468]|5(?:5[78]|7[2-4]|[0468][2-9])|6(?:[0135-8]|4[2-5])|7(?:[0679]|8[2-7])|8(?:[024578]|3[25-9]|9[6-9])|9(?:11|3[2-4]))|4(?:2(?:2[2-9]|8[237-9])|3[689]|6[035-7]|7(?:[059][2-8]|[68])|80|9[3-5])|5(?:3[1-36-9]|4[4578]|5[013-8]|6[1-9]|7[2-8]|8[14-7]|9(?:[89][2-8]|[4-7]))|7(?:2[15]|3[5-9]|4[02-9]|6[135-8]|7[0-4689]|9(?:[017-9]|4[6-8]|5[2-478]|6[2-589]))|8(?:2(?:4[4-8]|9(?:[3578]|20|4[04-9]|6[56]))|3(?:7(?:[2-5]|6[0-59])|[3-6][2-9]|8[2-5])|4[5-8]|5[2-9]|6(?:[37]|5(?:[467]|5[014-9])|6(?:[2-8]|9[02-69])|8[2-8]|9(?:[236-8]|9[23]))|7[579]|8[03-579]|9[2-8])|9(?:[23]0|4[02-46-9]|5[0245-79]|6[4-9]|7[2-47-9]|8[02-7]|9(?:3(?:3[02-9]|4[0-24689])|4[2-69]|[5-7]))","1(?:2[3-6]|3[3-9]|4[2-6]|5(?:[236-8]|[45][2-69])|[68][2-7]|7[2-689]|9[1-578])|2(?:2(?:[04-9]|3[23])|3[3-58]|4[0-468]|5(?:5[78]|7[2-4]|[0468][2-9])|6(?:[0135-8]|4[2-5])|7(?:[0679]|8[2-7])|8(?:[024578]|3[25-9]|9[6-9])|9(?:11|3[2-4]))|4(?:2(?:2[2-9]|8[237-9])|3[689]|6[035-7]|7(?:[059][2-8]|[68])|80|9[3-5])|5(?:3[1-36-9]|4[4578]|5[013-8]|6[1-9]|7[2-8]|8[14-7]|9(?:[89][2-8]|[4-7]))|7(?:2[15]|3[5-9]|4[02-9]|6[135-8]|7[0-4689]|9(?:[017-9]|4[6-8]|5[2-478]|6[2-589]))|8(?:2(?:4[4-8]|9(?:[3578]|20|4[04-9]|6(?:5[25]|60)))|3(?:7(?:[2-5]|6[0-59])|[3-6][2-9]|8[2-5])|4[5-8]|5[2-9]|6(?:[37]|5(?:[467]|5[014-9])|6(?:[2-8]|9[02-69])|8[2-8]|9(?:[236-8]|9[23]))|7[579]|8[03-579]|9[2-8])|9(?:[23]0|4[02-46-9]|5[0245-79]|6[4-9]|7[2-47-9]|8[02-7]|9(?:3(?:3[02-9]|4[0-24689])|4[2-69]|[5-7]))"]
-,"0$1",""]
-,[,"(\\d{2})(\\d{3})(\\d{4})","$1-$2-$3",["1|2(?:23|5[5-89]|64|78|8[39]|91)|4(?:2[2689]|64|7[347])|5(?:[2-589]|39)|60|8(?:[46-9]|3[279]|2[124589])|9(?:[235-8]|93)","1|2(?:23|5(?:[57]|[68]0|9[19])|64|78|8[39]|917)|4(?:2(?:[68]|20|9[178])|64|7[347])|5(?:[2-589]|39[67])|60|8(?:[46-9]|3[279]|2[124589])|9(?:[235-8]|93[34])","1|2(?:23|5(?:[57]|[68]0|9(?:17|99))|64|78|8[39]|917)|4(?:2(?:[68]|20|9[178])|64|7[347])|5(?:[2-589]|39[67])|60|8(?:[46-9]|3[279]|2[124589])|9(?:[235-8]|93(?:31|4))"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{2})(\\d{4})","$1-$2-$3",["1(?:2[3-6]|3[3-9]|4[2-6]|5[2-8]|[68][2-7]|7[2-689]|9[1-578])|2(?:2[03-689]|3[3-58]|4[0-468]|5[04-8]|6[013-8]|7[06-9]|8[02-57-9]|9[13])|4(?:2[28]|3[689]|6[035-7]|7[05689]|80|9[3-5])|5(?:3[1-36-9]|4[4578]|5[013-8]|6[1-9]|7[2-8]|8[14-7]|9[4-9])|7(?:2[15]|3[5-9]|4[02-9]|6[135-8]|7[0-4689]|9[014-9])|8(?:2[49]|3[3-8]|4[5-8]|5[2-9]|6[35-9]|7[579]|8[03-579]|9[2-8])|9(?:[23]0|4[02-46-9]|5[024-79]|6[4-9]|7[2-47-9]|8[02-7]|9[3-7])","1(?:2[3-6]|3[3-9]|4[2-6]|5(?:[236-8]|[45][2-69])|[68][2-7]|7[2-689]|9[1-578])|2(?:2(?:[04-689]|3[23])|3[3-58]|4[0-468]|5(?:5[78]|7[2-4]|[0468][2-9])|6(?:[0135-8]|4[2-5])|7(?:[0679]|8[2-7])|8(?:[024578]|3[25-9]|9[6-9])|9(?:11|3[2-4]))|4(?:2(?:2[2-9]|8[237-9])|3[689]|6[035-7]|7(?:[059][2-8]|[68])|80|9[3-5])|5(?:3[1-36-9]|4[4578]|5[013-8]|6[1-9]|7[2-8]|8[14-7]|9(?:[89][2-8]|[4-7]))|7(?:2[15]|3[5-9]|4[02-9]|6[135-8]|7[0-4689]|9(?:[017-9]|4[6-8]|5[2-478]|6[2-589]))|8(?:2(?:4[4-8]|9[2-8])|3(?:7[2-6]|[3-6][2-9]|8[2-5])|4[5-8]|5[2-9]|6(?:[37]|5[4-7]|6[2-9]|8[2-8]|9[236-9])|7[579]|8[03-579]|9[2-8])|9(?:[23]0|4[02-46-9]|5[024-79]|6[4-9]|7[2-47-9]|8[02-7]|9(?:3[34]|[4-7]))","1(?:2[3-6]|3[3-9]|4[2-6]|5(?:[236-8]|[45][2-69])|[68][2-7]|7[2-689]|9[1-578])|2(?:2(?:[04-689]|3[23])|3[3-58]|4[0-468]|5(?:5[78]|7[2-4]|[0468][2-9])|6(?:[0135-8]|4[2-5])|7(?:[0679]|8[2-7])|8(?:[024578]|3[25-9]|9[6-9])|9(?:11|3[2-4]))|4(?:2(?:2[2-9]|8[237-9])|3[689]|6[035-7]|7(?:[059][2-8]|[68])|80|9[3-5])|5(?:3[1-36-9]|4[4578]|5[013-8]|6[1-9]|7[2-8]|8[14-7]|9(?:[89][2-8]|[4-7]))|7(?:2[15]|3[5-9]|4[02-9]|6[135-8]|7[0-4689]|9(?:[017-9]|4[6-8]|5[2-478]|6[2-589]))|8(?:2(?:4[4-8]|9(?:[3578]|20|4[04-9]|6[56]))|3(?:7(?:[2-5]|6[0-59])|[3-6][2-9]|8[2-5])|4[5-8]|5[2-9]|6(?:[37]|5(?:[467]|5[014-9])|6(?:[2-8]|9[02-69])|8[2-8]|9(?:[236-8]|9[23]))|7[579]|8[03-579]|9[2-8])|9(?:[23]0|4[02-46-9]|5[024-79]|6[4-9]|7[2-47-9]|8[02-7]|9(?:3(?:3[02-9]|4[0-24689])|4[2-69]|[5-7]))","1(?:2[3-6]|3[3-9]|4[2-6]|5(?:[236-8]|[45][2-69])|[68][2-7]|7[2-689]|9[1-578])|2(?:2(?:[04-689]|3[23])|3[3-58]|4[0-468]|5(?:5[78]|7[2-4]|[0468][2-9])|6(?:[0135-8]|4[2-5])|7(?:[0679]|8[2-7])|8(?:[024578]|3[25-9]|9[6-9])|9(?:11|3[2-4]))|4(?:2(?:2[2-9]|8[237-9])|3[689]|6[035-7]|7(?:[059][2-8]|[68])|80|9[3-5])|5(?:3[1-36-9]|4[4578]|5[013-8]|6[1-9]|7[2-8]|8[14-7]|9(?:[89][2-8]|[4-7]))|7(?:2[15]|3[5-9]|4[02-9]|6[135-8]|7[0-4689]|9(?:[017-9]|4[6-8]|5[2-478]|6[2-589]))|8(?:2(?:4[4-8]|9(?:[3578]|20|4[04-9]|6(?:5[25]|60)))|3(?:7(?:[2-5]|6[0-59])|[3-6][2-9]|8[2-5])|4[5-8]|5[2-9]|6(?:[37]|5(?:[467]|5[014-9])|6(?:[2-8]|9[02-69])|8[2-8]|9(?:[236-8]|9[23]))|7[579]|8[03-579]|9[2-8])|9(?:[23]0|4[02-46-9]|5[024-79]|6[4-9]|7[2-47-9]|8[02-7]|9(?:3(?:3[02-9]|4[0-24689])|4[2-69]|[5-7]))"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{3})(\\d{4})","$1-$2-$3",["1|2(?:2[37]|5[5-9]|64|78|8[39]|91)|4(?:2[2689]|64|7[347])|5(?:[2-589]|39)|60|8(?:[46-9]|3[279]|2[124589])|9(?:[235-8]|93)","1|2(?:2[37]|5(?:[57]|[68]0|9[19])|64|78|8[39]|917)|4(?:2(?:[68]|20|9[178])|64|7[347])|5(?:[2-589]|39[67])|60|8(?:[46-9]|3[279]|2[124589])|9(?:[235-8]|93[34])","1|2(?:2[37]|5(?:[57]|[68]0|9(?:17|99))|64|78|8[39]|917)|4(?:2(?:[68]|20|9[178])|64|7[347])|5(?:[2-589]|39[67])|60|8(?:[46-9]|3[279]|2[124589])|9(?:[235-8]|93(?:31|4))"]
+,"0$1","",0]
 ,[,"(\\d{3})(\\d{2})(\\d{4})","$1-$2-$3",["2(?:9[14-79]|74|[34]7|[56]9)|82|993"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d)(\\d{4})(\\d{4})","$1-$2-$3",["3|4(?:2[09]|7[01])|6[1-9]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{2})(\\d{3})(\\d{4})","$1-$2-$3",["[2479][1-9]"]
-,"0$1",""]
+,"0$1","",0]
 ]
-,,[,,"20\\d{8}","\\d{10}",,,"2012345678"]
-,,,[,,"0(?:777(?:[01]\\d{2}|5\\d{3})|882[1245]\\d{4})","\\d{7,9}",,,"0777012"]
+,[[,"(\\d{3})(\\d{3})(\\d{3})","$1-$2-$3",["(?:12|57|99)0"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{3})(\\d{4})","$1-$2-$3",["800"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{4})(\\d{4})","$1-$2-$3",["[2579]0|80[1-9]"]
+,"0$1","",0]
+,[,"(\\d{4})(\\d)(\\d{4})","$1-$2-$3",["1(?:26|3[79]|4[56]|5[4-68]|6[3-5])|5(?:76|97)|499|746|8(?:3[89]|63|47|51)|9(?:49|80|9[16])","1(?:267|3(?:7[247]|9[278])|4(?:5[67]|66)|5(?:47|58|64|8[67])|6(?:3[245]|48|5[4-68]))|5(?:76|97)9|499[2468]|7468|8(?:3(?:8[78]|96)|636|477|51[24])|9(?:496|802|9(?:1[23]|69))","1(?:267|3(?:7[247]|9[278])|4(?:5[67]|66)|5(?:47|58|64|8[67])|6(?:3[245]|48|5[4-68]))|5(?:769|979[2-69])|499[2468]|7468|8(?:3(?:8[78]|96[2457-9])|636[2-57-9]|477|51[24])|9(?:496|802|9(?:1[23]|69))"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{2})(\\d{4})","$1-$2-$3",["1(?:2[3-6]|3[3-9]|4[2-6]|5[2-8]|[68][2-7]|7[2-689]|9[1-578])|2(?:2[03-689]|3[3-58]|4[0-468]|5[04-8]|6[013-8]|7[06-9]|8[02-57-9]|9[13])|4(?:2[28]|3[689]|6[035-7]|7[05689]|80|9[3-5])|5(?:3[1-36-9]|4[4578]|5[013-8]|6[1-9]|7[2-8]|8[14-7]|9[4-9])|7(?:2[15]|3[5-9]|4[02-9]|6[135-8]|7[0-4689]|9[014-9])|8(?:2[49]|3[3-8]|4[5-8]|5[2-9]|6[35-9]|7[579]|8[03-579]|9[2-8])|9(?:[23]0|4[02-46-9]|5[024-79]|6[4-9]|7[2-47-9]|8[02-7]|9[3-7])","1(?:2[3-6]|3[3-9]|4[2-6]|5(?:[236-8]|[45][2-69])|[68][2-7]|7[2-689]|9[1-578])|2(?:2(?:[04-689]|3[23])|3[3-58]|4[0-468]|5(?:5[78]|7[2-4]|[0468][2-9])|6(?:[0135-8]|4[2-5])|7(?:[0679]|8[2-7])|8(?:[024578]|3[25-9]|9[6-9])|9(?:11|3[2-4]))|4(?:2(?:2[2-9]|8[237-9])|3[689]|6[035-7]|7(?:[059][2-8]|[68])|80|9[3-5])|5(?:3[1-36-9]|4[4578]|5[013-8]|6[1-9]|7[2-8]|8[14-7]|9(?:[89][2-8]|[4-7]))|7(?:2[15]|3[5-9]|4[02-9]|6[135-8]|7[0-4689]|9(?:[017-9]|4[6-8]|5[2-478]|6[2-589]))|8(?:2(?:4[4-8]|9[2-8])|3(?:7[2-6]|[3-6][2-9]|8[2-5])|4[5-8]|5[2-9]|6(?:[37]|5[4-7]|6[2-9]|8[2-8]|9[236-9])|7[579]|8[03-579]|9[2-8])|9(?:[23]0|4[02-46-9]|5[024-79]|6[4-9]|7[2-47-9]|8[02-7]|9(?:3[34]|[4-7]))","1(?:2[3-6]|3[3-9]|4[2-6]|5(?:[236-8]|[45][2-69])|[68][2-7]|7[2-689]|9[1-578])|2(?:2(?:[04-689]|3[23])|3[3-58]|4[0-468]|5(?:5[78]|7[2-4]|[0468][2-9])|6(?:[0135-8]|4[2-5])|7(?:[0679]|8[2-7])|8(?:[024578]|3[25-9]|9[6-9])|9(?:11|3[2-4]))|4(?:2(?:2[2-9]|8[237-9])|3[689]|6[035-7]|7(?:[059][2-8]|[68])|80|9[3-5])|5(?:3[1-36-9]|4[4578]|5[013-8]|6[1-9]|7[2-8]|8[14-7]|9(?:[89][2-8]|[4-7]))|7(?:2[15]|3[5-9]|4[02-9]|6[135-8]|7[0-4689]|9(?:[017-9]|4[6-8]|5[2-478]|6[2-589]))|8(?:2(?:4[4-8]|9(?:[3578]|20|4[04-9]|6[56]))|3(?:7(?:[2-5]|6[0-59])|[3-6][2-9]|8[2-5])|4[5-8]|5[2-9]|6(?:[37]|5(?:[467]|5[014-9])|6(?:[2-8]|9[02-69])|8[2-8]|9(?:[236-8]|9[23]))|7[579]|8[03-579]|9[2-8])|9(?:[23]0|4[02-46-9]|5[024-79]|6[4-9]|7[2-47-9]|8[02-7]|9(?:3(?:3[02-9]|4[0-24689])|4[2-69]|[5-7]))","1(?:2[3-6]|3[3-9]|4[2-6]|5(?:[236-8]|[45][2-69])|[68][2-7]|7[2-689]|9[1-578])|2(?:2(?:[04-689]|3[23])|3[3-58]|4[0-468]|5(?:5[78]|7[2-4]|[0468][2-9])|6(?:[0135-8]|4[2-5])|7(?:[0679]|8[2-7])|8(?:[024578]|3[25-9]|9[6-9])|9(?:11|3[2-4]))|4(?:2(?:2[2-9]|8[237-9])|3[689]|6[035-7]|7(?:[059][2-8]|[68])|80|9[3-5])|5(?:3[1-36-9]|4[4578]|5[013-8]|6[1-9]|7[2-8]|8[14-7]|9(?:[89][2-8]|[4-7]))|7(?:2[15]|3[5-9]|4[02-9]|6[135-8]|7[0-4689]|9(?:[017-9]|4[6-8]|5[2-478]|6[2-589]))|8(?:2(?:4[4-8]|9(?:[3578]|20|4[04-9]|6(?:5[25]|60)))|3(?:7(?:[2-5]|6[0-59])|[3-6][2-9]|8[2-5])|4[5-8]|5[2-9]|6(?:[37]|5(?:[467]|5[014-9])|6(?:[2-8]|9[02-69])|8[2-8]|9(?:[236-8]|9[23]))|7[579]|8[03-579]|9[2-8])|9(?:[23]0|4[02-46-9]|5[024-79]|6[4-9]|7[2-47-9]|8[02-7]|9(?:3(?:3[02-9]|4[0-24689])|4[2-69]|[5-7]))"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{3})(\\d{4})","$1-$2-$3",["1|2(?:2[37]|5[5-9]|64|78|8[39]|91)|4(?:2[2689]|64|7[347])|5(?:[2-589]|39)|60|8(?:[46-9]|3[279]|2[124589])|9(?:[235-8]|93)","1|2(?:2[37]|5(?:[57]|[68]0|9[19])|64|78|8[39]|917)|4(?:2(?:[68]|20|9[178])|64|7[347])|5(?:[2-589]|39[67])|60|8(?:[46-9]|3[279]|2[124589])|9(?:[235-8]|93[34])","1|2(?:2[37]|5(?:[57]|[68]0|9(?:17|99))|64|78|8[39]|917)|4(?:2(?:[68]|20|9[178])|64|7[347])|5(?:[2-589]|39[67])|60|8(?:[46-9]|3[279]|2[124589])|9(?:[235-8]|93(?:31|4))"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{2})(\\d{4})","$1-$2-$3",["2(?:9[14-79]|74|[34]7|[56]9)|82|993"]
+,"0$1","",0]
+,[,"(\\d)(\\d{4})(\\d{4})","$1-$2-$3",["3|4(?:2[09]|7[01])|6[1-9]"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{3})(\\d{4})","$1-$2-$3",["[2479][1-9]"]
+,"0$1","",0]
+]
+,[,,"20\\d{8}","\\d{10}",,,"2012345678"]
+,,,[,,"00(?:37\\d{6,13}|66\\d{6,13}|777(?:[01]\\d{2}|5\\d{3}|8\\d{4})|882[1245]\\d{4})","\\d{8,17}",,,"00777012"]
 ,[,,"570\\d{6}","\\d{9}",,,"570123456"]
-,1,[,,"11[09]","\\d{3}",,,"110"]
+,1,,[,,"NA","NA"]
 ]
-,"KE":[,[,,"\\d{6,10}","\\d{4,10}"]
-,[,,"(?:20|4[0-6]|5\\d|6[0-24-9])\\d{4,7}","\\d{4,9}",,,"202012345"]
-,[,,"7(?:0[0-5]|[123]\\d|5[0-3]|7[0-5])\\d{6}","\\d{9}",,,"712123456"]
-,[,,"8(?:00|88)\\d{6,7}","\\d{9,10}",,,"800123456"]
-,[,,"9(?:00|1)\\d{6,7}","\\d{8,10}",,,"900123456"]
+,"KE":[,[,,"20\\d{6,7}|[4-9]\\d{6,9}","\\d{7,10}"]
+,[,,"20\\d{6,7}|4(?:[0136]\\d{7}|[245]\\d{5,7})|5(?:[08]\\d{7}|[1-79]\\d{5,7})|6(?:[01457-9]\\d{5,7}|[26]\\d{7})","\\d{7,9}",,,"202012345"]
+,[,,"7(?:[0-36]\\d|5[0-6]|7[0-5]|8[0-25-9])\\d{6}","\\d{9}",,,"712123456"]
+,[,,"800[24-8]\\d{5,6}","\\d{9,10}",,,"800223456"]
+,[,,"900[02-9]\\d{5}","\\d{9}",,,"900223456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"KE",254,"000","0",,,"0",,,,[[,"(\\d{2})(\\d{4,7})","$1 $2",["[2-6]|91"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{6,7})","$1 $2",["[78]|90"]
-,"0$1",""]
+,"KE",254,"000","0",,,"0",,,,[[,"(\\d{2})(\\d{5,7})","$1 $2",["[24-6]"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{6,7})","$1 $2",["7"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{3})(\\d{3,4})","$1 $2 $3",["[89]"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"KG":[,[,,"[356-8]\\d{8,9}","\\d{5,10}"]
-,[,,"(?:3(?:1(?:2\\d|3[1-9]|47|5[02]|6[1-8])|2(?:22|3[0-479]|6[0-7])|4(?:22|5[6-9]|6[0-4])|5(?:22|3[4-7]|59|6[0-5])|6(?:22|5[35-7]|6[0-3])|7(?:22|3[468]|4[1-9]|59|6\\d|7[5-7])|9(?:22|4[1-8]|6[0-8]))|6(?:09|12|2[2-4])\\d)\\d{5}","\\d{5,10}",,,"312123456"]
-,[,,"5[124-7]\\d{7}|7(?:0[0-357-9]|7\\d)\\d{6}","\\d{9}",,,"700123456"]
+,"KG":[,[,,"[235-8]\\d{8,9}","\\d{5,10}"]
+,[,,"(?:3(?:1(?:[256]\\d|3[1-9]|47)|2(?:22|3[0-479]|6[0-7])|4(?:22|5[6-9]|6\\d)|5(?:22|3[4-7]|59|6\\d)|6(?:22|5[35-7]|6\\d)|7(?:22|3[468]|4[1-9]|59|[67]\\d)|9(?:22|4[1-8]|6\\d))|6(?:09|12|2[2-4])\\d)\\d{5}","\\d{5,10}",,,"312123456"]
+,[,,"(?:20[0-35]|5[124-7]\\d|7[07]\\d)\\d{6}","\\d{9}",,,"700123456"]
 ,[,,"800\\d{6,7}","\\d{9,10}",,,"800123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"KG",996,"00","0",,,"0",,,,[[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["31[25]|[5-7]"]
-,"0$1",""]
+,"KG",996,"00","0",,,"0",,,,[[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["[25-7]|31[25]"]
+,"0$1","",0]
 ,[,"(\\d{4})(\\d{5})","$1 $2",["3(?:1[36]|[2-9])"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{3})(\\d{3})(\\d)(\\d{3})","$1 $2 $3 $4",["8"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"KH":[,[,,"[1-9]\\d{7,9}","\\d{6,10}"]
-,[,,"(?:2[3-6]|3[2-6]|4[2-4]|[567][2-5])[2-46-9]\\d{5}","\\d{6,8}",,,"23456789"]
-,[,,"(?:(?:1[0-35-9]|6[6-9]|7[06-89])[1-9]|8(?:0[89]|5[2-689]|8\\d{2}|[13469]\\d|)|9(?:[0-689][1-9]|7[1-9]\\d?))\\d{5}","\\d{8,9}",,,"91234567"]
+,[,,"(?:2[3-6]|3[2-6]|4[2-4]|[5-7][2-5])(?:[237-9]|4[56]|5\\d|6\\d?)\\d{5}|23(?:4[234]|8\\d{2})\\d{4}","\\d{6,9}",,,"23756789"]
+,[,,"(?:1(?:[013-9]|2\\d?)|3[18]\\d|6[016-9]|7(?:[07-9]|6\\d)|8(?:[013-79]|8\\d)|9(?:6\\d|7\\d?|[0-589]))\\d{6}","\\d{8,9}",,,"91234567"]
 ,[,,"1800(?:1\\d|2[019])\\d{4}","\\d{10}",,,"1800123456"]
 ,[,,"1900(?:1\\d|2[09])\\d{4}","\\d{10}",,,"1900123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"KH",855,"00[178]","0",,,"0",,,,[[,"(\\d{2})(\\d{3})(\\d{3,4})","$1 $2 $3",["1\\d[1-9]|[2-9]"]
-,"0$1",""]
+,"KH",855,"00[14-9]","0",,,"0",,,,[[,"(\\d{2})(\\d{3})(\\d{3,4})","$1 $2 $3",["1\\d[1-9]|[2-9]"]
+,"0$1","",0]
 ,[,"(1[89]00)(\\d{3})(\\d{3})","$1 $2 $3",["1[89]0"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"KI":[,[,,"[2-689]\\d{4}","\\d{5}"]
-,[,,"(?:[234]\\d|50|8[1-5])\\d{3}","\\d{5}",,,"31234"]
-,[,,"[69]\\d{4}","\\d{5}",,,"61234"]
+,"KI":[,[,,"[2458]\\d{4}|3\\d{4,7}|7\\d{7}","\\d{5,8}"]
+,[,,"(?:[24]\\d|3[1-9]|50|8[0-5])\\d{3}","\\d{5}",,,"31234"]
+,[,,"7(?:[24]\\d|3[1-9]|8[0-5])\\d{5}","\\d{8}",,,"72012345"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
+,[,,"3001\\d{4}","\\d{5,8}",,,"30010000"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"KI",686,"00",,,,"0",,,,,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"KM":[,[,,"[379]\\d{6}","\\d{7}"]
 ,[,,"7(?:6[0-37-9]|7[0-57-9])\\d{4}","\\d{7}",,,"7712345"]
-,[,,"3[23]\\d{5}","\\d{7}",,,"3212345"]
+,[,,"3[234]\\d{5}","\\d{7}",,,"3212345"]
 ,[,,"NA","NA"]
 ,[,,"(?:39[01]|9[01]0)\\d{4}","\\d{7}",,,"9001234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"KM",269,"00",,,,,,,,[[,"(\\d)(\\d{3})(\\d{3})","$1 $2 $3",,"",""]
+,"KM",269,"00",,,,,,,,[[,"(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"KN":[,[,,"[589]\\d{9}","\\d{7}(?:\\d{3})?"]
-,[,,"869(?:2(?:29|36)|302|4(?:6[5-9]|70))\\d{4}","\\d{7}(?:\\d{3})?",,,"8692361234"]
-,[,,"869(?:5(?:5[6-8]|6[5-7])|66\\d|76[02-6])\\d{4}","\\d{10}",,,"8695561234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"869(?:2(?:29|36)|302|4(?:6[015-9]|70))\\d{4}","\\d{7}(?:\\d{3})?",,,"8692361234"]
+,[,,"869(?:5(?:5[6-8]|6[5-7])|66\\d|76[02-6])\\d{4}","\\d{10}",,,"8697652917"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"KN",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"869",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"KP":[,[,,"1\\d{9}|[28]\\d{7}","\\d{6,8}|\\d{10}"]
 ,[,,"2\\d{7}|85\\d{6}","\\d{6,8}",,,"21234567"]
@@ -10867,87 +13139,85 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"KP",850,"00|99","0",,,"0",,,,[[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["1"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d)(\\d{3})(\\d{4})","$1 $2 $3",["2"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["8"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"2(?:[0-24-9]\\d{2}|3(?:[0-79]\\d|8[02-9]))\\d{4}","\\d{8}",,,"23821234"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"KR":[,[,,"[1-7]\\d{3,9}|8\\d{8}","\\d{4,10}"]
-,[,,"(?:2|[34][1-3]|5[1-5]|6[1-4])(?:1\\d{2,3}|[2-9]\\d{6,7})","\\d{4,10}",,,"22123456"]
-,[,,"1[0-25-9]\\d{7,8}","\\d{9,10}",,,"1023456789"]
+,[,,"(?:2|3[1-3]|[46][1-4]|5[1-5])(?:1\\d{2,3}|[1-9]\\d{6,7})","\\d{4,10}",,,"22123456"]
+,[,,"1[0-26-9]\\d{7,8}","\\d{9,10}",,,"1023456789"]
 ,[,,"80\\d{7}","\\d{9}",,,"801234567"]
 ,[,,"60[2-9]\\d{6}","\\d{9}",,,"602345678"]
 ,[,,"NA","NA"]
 ,[,,"50\\d{8}","\\d{10}",,,"5012345678"]
 ,[,,"70\\d{8}","\\d{10}",,,"7012345678"]
 ,"KR",82,"00(?:[124-68]|[37]\\d{2})","0",,,"0(8[1-46-8]|85\\d{2})?",,,,[[,"(\\d{2})(\\d{4})(\\d{4})","$1-$2-$3",["1(?:0|1[19]|[69]9|5[458])|[57]0","1(?:0|1[19]|[69]9|5(?:44|59|8))|[57]0"]
-,"0$1","0$CC-$1"]
-,[,"(\\d{2})(\\d{3})(\\d{4})","$1-$2-$3",["1(?:[169][2-8]|[78]|5[1-4])|[68]0|[3-6][1-9][2-9]","1(?:[169][2-8]|[78]|5(?:[1-3]|4[56]))|[68]0|[3-6][1-9][2-9]"]
-,"0$1","0$CC-$1"]
+,"0$1","0$CC-$1",0]
+,[,"(\\d{2})(\\d{3,4})(\\d{4})","$1-$2-$3",["1(?:[169][2-8]|[78]|5[1-4])|[68]0|[3-6][1-9][1-9]","1(?:[169][2-8]|[78]|5(?:[1-3]|4[56]))|[68]0|[3-6][1-9][1-9]"]
+,"0$1","0$CC-$1",0]
 ,[,"(\\d{3})(\\d)(\\d{4})","$1-$2-$3",["131","1312"]
-,"0$1","0$CC-$1"]
+,"0$1","0$CC-$1",0]
 ,[,"(\\d{3})(\\d{2})(\\d{4})","$1-$2-$3",["131","131[13-9]"]
-,"0$1","0$CC-$1"]
+,"0$1","0$CC-$1",0]
 ,[,"(\\d{3})(\\d{3})(\\d{4})","$1-$2-$3",["13[2-9]"]
-,"0$1","0$CC-$1"]
+,"0$1","0$CC-$1",0]
 ,[,"(\\d{2})(\\d{2})(\\d{3})(\\d{4})","$1-$2-$3-$4",["30"]
-,"0$1","0$CC-$1"]
-,[,"(\\d)(\\d{4})(\\d{4})","$1-$2-$3",["2(?:[26]|3[0-467])","2(?:[26]|3(?:01|1[45]|2[17-9]|39|4|6[67]|7[078]))"]
-,"0$1","0$CC-$1"]
-,[,"(\\d)(\\d{3})(\\d{4})","$1-$2-$3",["2(?:3[0-35-9]|[457-9])","2(?:3(?:0[02-9]|1[0-36-9]|2[02-6]|3[0-8]|6[0-589]|7[1-69]|[589])|[457-9])"]
-,"0$1","0$CC-$1"]
+,"0$1","0$CC-$1",0]
+,[,"(\\d)(\\d{3,4})(\\d{4})","$1-$2-$3",["2[1-9]"]
+,"0$1","0$CC-$1",0]
 ,[,"(\\d)(\\d{3,4})","$1-$2",["21[0-46-9]"]
-,"0$1","0$CC-$1"]
+,"0$1","0$CC-$1",0]
 ,[,"(\\d{2})(\\d{3,4})","$1-$2",["[3-6][1-9]1","[3-6][1-9]1(?:[0-46-9])"]
-,"0$1","0$CC-$1"]
-,[,"(\\d{4})(\\d{4})","$1-$2",["1(?:5[46-9]|6[04678])","1(?:5(?:44|66|77|88|99)|6(?:00|44|6[16]|70|88))"]
-,"$1","0$CC-$1"]
+,"0$1","0$CC-$1",0]
+,[,"(\\d{4})(\\d{4})","$1-$2",["1(?:5[46-9]|6[04678]|8[0579])","1(?:5(?:44|66|77|88|99)|6(?:00|44|6[16]|70|88)|8(?:00|55|77|99))"]
+,"$1","0$CC-$1",0]
 ]
-,,[,,"NA","NA"]
+,,[,,"15\\d{7,8}","\\d{9,10}",,,"1523456789"]
 ,,,[,,"NA","NA"]
-,[,,"1(?:5(?:44|66|77|88|99)|6(?:00|44|6[16]|70|88))\\d{4}","\\d{8}",,,"15441234"]
-,,[,,"11[29]","\\d{3}",,,"112"]
+,[,,"1(?:5(?:44|66|77|88|99)|6(?:00|44|6[16]|70|88)|8(?:00|55|77|99))\\d{4}","\\d{8}",,,"15441234"]
+,,,[,,"NA","NA"]
 ]
 ,"KW":[,[,,"[12569]\\d{6,7}","\\d{7,8}"]
-,[,,"(?:18\\d|2(?:[23]\\d{2}|4[1-35-9]\\d|5(?:0[034]|[2-46]\\d|5[1-3]|7[1-7])))\\d{4}","\\d{7,8}",,,"22345678"]
-,[,,"(?:5(?:0[0-26]|5\\d)|6(?:0[034679]|5[015-9]|6\\d|7[067]|9[69])|9(?:0[09]|4[049]|66|[79]\\d))\\d{5}","\\d{8}",,,"50012345"]
+,[,,"(?:18\\d|2(?:[23]\\d{2}|4(?:[1-35-9]\\d|44)|5(?:0[034]|[2-46]\\d|5[1-3]|7[1-7])))\\d{4}","\\d{7,8}",,,"22345678"]
+,[,,"(?:5(?:[05]\\d|1[0-6])|6(?:0[034679]|5[015-9]|6\\d|7[067]|9[0369])|9(?:0[09]|4[049]|55|6[069]|[79]\\d|8[089]))\\d{5}","\\d{8}",,,"50012345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"KW",965,"00",,,,,,,,[[,"(\\d{4})(\\d{3,4})","$1 $2",["[1269]"]
-,"",""]
-,[,"(5[05]\\d)(\\d{5})","$1 $2",["5"]
-,"",""]
+,"","",0]
+,[,"(5[015]\\d)(\\d{5})","$1 $2",["5"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"112","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"KY":[,[,,"[3589]\\d{9}","\\d{7}(?:\\d{3})?"]
-,[,,"345(?:2(?:22|44)|444|6(?:23|38|40)|7(?:6[6-9]|77)|8(?:00|1[45]|25|4[89]|88)|9(?:14|4[035-9]))\\d{4}","\\d{7}(?:\\d{3})?",,,"3452221234"]
-,[,,"345(?:32[3-79]|5(?:1[467]|2[5-7]|4[5-9])|9(?:1[679]|2[4-9]|3[89]))\\d{4}","\\d{10}",,,"3453231234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
+,[,,"345(?:2(?:22|44)|444|6(?:23|38|40)|7(?:4[35-79]|6[6-9]|77)|8(?:00|1[45]|25|[48]8)|9(?:14|4[035-9]))\\d{4}","\\d{7}(?:\\d{3})?",,,"3452221234"]
+,[,,"345(?:32[1-9]|5(?:1[67]|2[5-7]|4[6-8]|76)|9(?:1[67]|2[3-9]|3[689]))\\d{4}","\\d{10}",,,"3453231234"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
 ,[,,"900[2-9]\\d{6}|345976\\d{4}","\\d{10}",,,"9002345678"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
-,"KY",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
+,"KY",1,"011","1",,,"1",,,,,,[,,"345849\\d{4}","\\d{10}",,,"3458491234"]
 ,,"345",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"911","\\d{3}",,,"911"]
+,,,[,,"NA","NA"]
 ]
-,"KZ":[,[,,"(?:7\\d{2}|80[09])\\d{7}","\\d{10}"]
-,[,,"7(?:1(?:0(?:[23]\\d|4[023]|59|63)|1(?:[23]\\d|4[0-79]|59)|2(?:[23]\\d|59)|3(?:2\\d|3[1-79]|4[0-35-9]|59)|4(?:2\\d|3[013-79]|4[0-8]|5[1-79])|5(?:2\\d|3[1-8]|4[1-7]|59)|6(?:2\\d|[34]\\d|5[19]|61)|72\\d|8(?:[27]\\d|3[1-46-9]|4[0-5]|))|2(?:1(?:[23]\\d|4[46-9]|5[3469])|2(?:2\\d|3[0679]|46|5[12679]|)|3(?:[234]\\d|5[139]|)|4(?:2\\d|3[1235-9]|59)|5(?:[23]\\d|4[01246-8]|59|61)|6(?:2\\d|3[1-9]|4[0-4]|59)|7(?:[23]\\d|40|5[279]|7\\d)|8(?:[23]\\d|4[0-3]|59)|9(?:2\\d|3[124578]|59))|3622)\\d{5}","\\d{10}",,,"7123456789"]
-,[,,"7(?:0[01257]|6[02-4]|7[157])\\d{7}","\\d{10}",,,"7710009998"]
+,"KZ":[,[,,"(?:33\\d|7\\d{2}|80[09])\\d{7}","\\d{10}"]
+,[,,"33622\\d{5}|7(?:1(?:0(?:[23]\\d|4[023]|59|63)|1(?:[23]\\d|4[0-79]|59)|2(?:[23]\\d|59)|3(?:2\\d|3[1-79]|4[0-35-9]|59)|4(?:2\\d|3[013-79]|4[0-8]|5[1-79])|5(?:2\\d|3[1-8]|4[1-7]|59)|6(?:[234]\\d|5[19]|61)|72\\d|8(?:[27]\\d|3[1-46-9]|4[0-5]))|2(?:1(?:[23]\\d|4[46-9]|5[3469])|2(?:2\\d|3[0679]|46|5[12679])|3(?:[234]\\d|5[139])|4(?:2\\d|3[1235-9]|59)|5(?:[23]\\d|4[01246-8]|59|61)|6(?:2\\d|3[1-9]|4[0-4]|59)|7(?:[237]\\d|40|5[279])|8(?:[23]\\d|4[0-3]|59)|9(?:2\\d|3[124578]|59)))\\d{5}","\\d{10}",,,"7123456789"]
+,[,,"7(?:0[012578]|47|6[02-4]|7[15-8]|85)\\d{7}","\\d{10}",,,"7710009998"]
 ,[,,"800\\d{7}","\\d{10}",,,"8001234567"]
 ,[,,"809\\d{7}","\\d{10}",,,"8091234567"]
 ,[,,"NA","NA"]
@@ -10956,118 +13226,124 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"KZ",7,"810","8",,,"8",,"8~10",,,,[,,"NA","NA"]
 ,,,[,,"751\\d{7}","\\d{10}",,,"7511234567"]
 ,[,,"NA","NA"]
-,,[,,"1(?:0[123]|12)","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
-,"LA":[,[,,"[2-57]\\d{7,9}","\\d{6,10}"]
-,[,,"(?:[2-57]1|54)\\d{6}","\\d{6,8}",,,"21212862"]
-,[,,"20(?:2[23]|5[4-68]|7[78]|9[7-9])\\d{6}","\\d{10}",,,"2023123456"]
+,"LA":[,[,,"[2-8]\\d{7,9}","\\d{6,10}"]
+,[,,"(?:2[13]|3(?:0\\d|[14])|[5-7][14]|41|8[1468])\\d{6}","\\d{6,9}",,,"21212862"]
+,[,,"20(?:2[2389]|5[4-689]|7[6-8]|9[15-9])\\d{6}","\\d{10}",,,"2023123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"LA",856,"00","0",,,"0",,,,[[,"(20)(\\d{2})(\\d{3})(\\d{3})","$1 $2 $3 $4",["20"]
-,"0$1",""]
-,[,"([2-57]\\d)(\\d{3})(\\d{3})","$1 $2 $3",["21|[3-57]"]
-,"0$1",""]
+,"0$1","",0]
+,[,"([2-8]\\d)(\\d{3})(\\d{3})","$1 $2 $3",["2[13]|3[14]|[4-8]"]
+,"0$1","",0]
+,[,"(30)(\\d{2})(\\d{2})(\\d{3})","$1 $2 $3 $4",["30"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"LB":[,[,,"[13-9]\\d{6,7}","\\d{7,8}"]
-,[,,"(?:[14-6]\\d{2}|7(?:[2-57-9]\\d|62)|[89][2-9]\\d)\\d{4}","\\d{7}",,,"1123456"]
-,[,,"(?:3\\d|7(?:[01]\\d|6[136-9]))\\d{5}","\\d{7,8}",,,"71123456"]
+,[,,"(?:[14-6]\\d{2}|7(?:[2-579]\\d|62|8[0-7])|[89][2-9]\\d)\\d{4}","\\d{7}",,,"1123456"]
+,[,,"(?:3\\d|7(?:[019]\\d|6[013-9]|8[89]))\\d{5}","\\d{7,8}",,,"71123456"]
 ,[,,"NA","NA"]
 ,[,,"9[01]\\d{6}","\\d{8}",,,"90123456"]
 ,[,,"8[01]\\d{6}","\\d{8}",,,"80123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"LB",961,"00","0",,,"0",,,,[[,"(\\d)(\\d{3})(\\d{3})","$1 $2 $3",["[13-6]|7(?:[2-57-9]|62)|[89][2-9]"]
-,"0$1",""]
-,[,"([7-9]\\d)(\\d{3})(\\d{3})","$1 $2 $3",["[89][01]|7(?:[01]|6[136-9])"]
-,"0$1",""]
+,"LB",961,"00","0",,,"0",,,,[[,"(\\d)(\\d{3})(\\d{3})","$1 $2 $3",["[13-6]|7(?:[2-579]|62|8[0-7])|[89][2-9]"]
+,"0$1","",0]
+,[,"([7-9]\\d)(\\d{3})(\\d{3})","$1 $2 $3",["[89][01]|7(?:[019]|6[013-9]|8[89])"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:12|40|75)|999","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"LC":[,[,,"[5789]\\d{9}","\\d{7}(?:\\d{3})?"]
-,[,,"758(?:234|4(?:5[0-9]|6[2-9]|8[0-2])|638|758)\\d{4}","\\d{7}(?:\\d{3})?",,,"7582345678"]
-,[,,"758(?:28[4-7]|384|4(?:6[01]|8[4-9])|5(?:1[89]|20|84)|7(?:1[2-9]|2[0-4]))\\d{4}","\\d{10}",,,"7582845678"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"758(?:4(?:30|5[0-9]|6[2-9]|8[0-2])|57[0-2]|638)\\d{4}","\\d{7}(?:\\d{3})?",,,"7584305678"]
+,[,,"758(?:28[4-7]|384|4(?:6[01]|8[4-9])|5(?:1[89]|20|84)|7(?:1[2-9]|2[0-8]))\\d{4}","\\d{10}",,,"7582845678"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"LC",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"758",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"LI":[,[,,"(?:66|80|90)\\d{7}|[237-9]\\d{6}","\\d{7,9}"]
-,[,,"(?:2(?:17|3\\d|6[02-58]|96)|3(?:02|7[01357]|8[048]|9[0269])|870)\\d{4}","\\d{7}",,,"2345678"]
-,[,,"66(?:[0178][0-4]|2[025-9]|[36]\\d|4[129]|5[45]|9[019])\\d{5}|7(?:4[2-59]|56|[6-9]\\d)\\d{4}","\\d{7,9}",,,"661234567"]
-,[,,"80(?:0(?:07|2[238]|79|\\d{4})|9\\d{2})\\d{2}","\\d{7,9}",,,"8002222"]
+,"LI":[,[,,"6\\d{8}|[23789]\\d{6}","\\d{7,9}"]
+,[,,"(?:2(?:01|1[27]|3\\d|6[02-578]|96)|3(?:7[0135-7]|8[048]|9[0269]))\\d{4}","\\d{7}",,,"2345678"]
+,[,,"6(?:51[01]|6(?:[01][0-4]|2[016-9]|88)|710)\\d{5}|7(?:36|4[25]|56|[7-9]\\d)\\d{4}","\\d{7,9}",,,"661234567"]
+,[,,"80(?:0(?:2[238]|79)|9\\d{2})\\d{2}","\\d{7}",,,"8002222"]
+,[,,"90(?:0(?:2[278]|79)|1(?:23|3[012])|6(?:4\\d|6[0126]))\\d{2}","\\d{7}",,,"9002222"]
 ,[,,"NA","NA"]
-,[,,"90(?:0(?:2[278]|79|\\d{4})|1(?:23|\\d{4})|6(?:66|\\d{4}))\\d{2}","\\d{7,9}",,,"9002222"]
 ,[,,"701\\d{4}","\\d{7}",,,"7011234"]
 ,[,,"NA","NA"]
-,"LI",423,"00","0",,,"0",,,,[[,"(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3",["[23]|7[4-9]|87"]
-,"",""]
+,"LI",423,"00","0",,,"0",,,,[[,"(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3",["[23]|7[3-57-9]|87"]
+,"","",0]
 ,[,"(6\\d)(\\d{3})(\\d{3})","$1 $2 $3",["6"]
-,"",""]
+,"","",0]
+,[,"(6[567]\\d)(\\d{3})(\\d{3})","$1 $2 $3",["6[567]"]
+,"","",0]
+,[,"(69)(7\\d{2})(\\d{4})","$1 $2 $3",["697"]
+,"","",0]
 ,[,"([7-9]0\\d)(\\d{2})(\\d{2})","$1 $2 $3",["[7-9]0"]
-,"",""]
+,"","",0]
 ,[,"([89]0\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[89]0"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,[,,"87(?:0[128]|7[0-4])\\d{3}","\\d{7}",,,"8770123"]
+,,,[,,"697(?:[35]6|4[25]|[7-9]\\d)\\d{4}","\\d{9}",,,"697361234"]
 ]
 ,"LK":[,[,,"[1-9]\\d{8}","\\d{7,9}"]
 ,[,,"(?:[189]1|2[13-7]|3[1-8]|4[157]|5[12457]|6[35-7])[2-57]\\d{6}","\\d{7,9}",,,"112345678"]
-,[,,"7[12578]\\d{7}","\\d{9}",,,"712345678"]
+,[,,"7[125-8]\\d{7}","\\d{9}",,,"712345678"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"LK",94,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{1})(\\d{6})","$1 $2 $3",["[1-689]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["7"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"11[0189]","\\d{3}",,,"119"]
+,,,[,,"NA","NA"]
 ]
-,"LR":[,[,,"(?:[29]\\d|[4-6]|7\\d{1,2}|[38]\\d{2})\\d{6}","\\d{7,9}"]
+,"LR":[,[,,"2\\d{7}|[37-9]\\d{8}|[45]\\d{6}","\\d{7,9}"]
 ,[,,"2\\d{7}","\\d{8}",,,"21234567"]
-,[,,"(?:4[67]|5\\d|6[4-8]|7(?:76\\d|\\d{2})|880\\d)\\d{5}","\\d{7,9}",,,"4612345"]
+,[,,"(?:330\\d|4[67]|5\\d|77\\d{2}|88\\d{2}|994\\d)\\d{5}","\\d{7,9}",,,"770123456"]
 ,[,,"NA","NA"]
-,[,,"90\\d{6}","\\d{8}",,,"90123456"]
+,[,,"90[03]\\d{6}","\\d{9}",,,"900123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"33200\\d{4}","\\d{9}",,,"332001234"]
-,"LR",231,"00","0",,,"0",,,,[[,"([279]\\d)(\\d{3})(\\d{3})","$1 $2 $3",["[279]"]
-,"0$1",""]
-,[,"(7\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["7"]
-,"0$1",""]
+,[,,"332(?:0[02]|5\\d)\\d{4}","\\d{9}",,,"332001234"]
+,"LR",231,"00","0",,,"0",,,,[[,"(2\\d)(\\d{3})(\\d{3})","$1 $2 $3",["2"]
+,"0$1","",0]
+,[,"([79]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["[79]"]
+,"0$1","",0]
 ,[,"([4-6])(\\d{3})(\\d{3})","$1 $2 $3",["[4-6]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["[38]"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"LS":[,[,,"[2568]\\d{7}","\\d{8}"]
 ,[,,"2\\d{7}","\\d{8}",,,"22123456"]
@@ -11077,79 +13353,81 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"LS",266,"00",,,,,,,,[[,"(\\d{4})(\\d{4})","$1 $2",,"",""]
+,"LS",266,"00",,,,,,,,[[,"(\\d{4})(\\d{4})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"LT":[,[,,"[3-9]\\d{7}","\\d{8}"]
 ,[,,"(?:3[1478]|4[124-6]|52)\\d{6}","\\d{8}",,,"31234567"]
 ,[,,"6\\d{7}","\\d{8}",,,"61234567"]
 ,[,,"800\\d{5}","\\d{8}",,,"80012345"]
-,[,,"90[0239]\\d{5}","\\d{8}",,,"90012345"]
+,[,,"9(?:0[0239]|10)\\d{5}","\\d{8}",,,"90012345"]
+,[,,"808\\d{5}","\\d{8}",,,"80812345"]
+,[,,"700\\d{5}","\\d{8}",,,"70012345"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"LT",370,"00","8",,,"8",,,,[[,"([34]\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["37|4(?:1|5[45]|6[2-4])"]
-,"8 $1",""]
-,[,"([3-689]\\d{2})(\\d{2})(\\d{3})","$1 $2 $3",["3[148]|4(?:[24]|6[09])|5(?:[0189]|28)|[689]"]
-,"8 $1",""]
-,[,"(5)(2[0-79]\\d)(\\d{4})","$1 $2 $3",["52[0-79]"]
-,"8 $1",""]
+,"LT",370,"00","8",,,"[08]",,,,[[,"([34]\\d)(\\d{6})","$1 $2",["37|4(?:1|5[45]|6[2-4])"]
+,"(8-$1)","",1]
+,[,"([3-6]\\d{2})(\\d{5})","$1 $2",["3[148]|4(?:[24]|6[09])|528|6"]
+,"(8-$1)","",1]
+,[,"([7-9]\\d{2})(\\d{2})(\\d{3})","$1 $2 $3",["[7-9]"]
+,"8 $1","",1]
+,[,"(5)(2\\d{2})(\\d{4})","$1 $2 $3",["52[0-79]"]
+,"(8-$1)","",1]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"0(?:11?|22?|33?)|1(?:0[123]|12)","\\d{2,3}",,,"112"]
+,[,,"70[67]\\d{5}","\\d{8}",,,"70712345"]
+,,,[,,"NA","NA"]
 ]
 ,"LU":[,[,,"[24-9]\\d{3,10}|3(?:[0-46-9]\\d{2,9}|5[013-9]\\d{1,8})","\\d{4,11}"]
-,[,,"(?:2(?:2\\d{1,2}|3[2-9]|[67]\\d|4[1-8]\\d?|5[1-5]\\d?|9[0-24-9]\\d?)|3(?:[059][05-9]|[13]\\d|[26][015-9]|4[0-26-9]|7[0-389]|8[08])\\d?|4\\d{2,3}|5(?:[01458]\\d|[27][0-69]|3[0-3]|[69][0-7])\\d?|7(?:1[019]|2[05-9]|3[05]|[45][07-9]|[679][089]|8[06-9])\\d?|8(?:0[2-9]|1[0-36-9]|3[3-9]|[469]9|[58][7-9]|7[89])\\d?|9(?:0[89]|2[0-49]|37|49|5[0-27-9]|7[7-9]|9[0-478])\\d?)\\d{1,7}","\\d{4,11}",,,"27123456"]
-,[,,"6[269][18]\\d{6}","\\d{9}",,,"628123456"]
+,[,,"(?:2(?:[259]\\d{2,9}|[346-8]\\d{4}(?:\\d{2})?)|(?:[3457]\\d{2}|8(?:0[2-9]|[13-9]\\d)|9(?:0[89]|[2-579]\\d))\\d{1,8})","\\d{4,11}",,,"27123456"]
+,[,,"6[2679][18]\\d{6}","\\d{9}",,,"628123456"]
 ,[,,"800\\d{5}","\\d{8}",,,"80012345"]
 ,[,,"90[01]\\d{5}","\\d{8}",,,"90012345"]
 ,[,,"801\\d{5}","\\d{8}",,,"80112345"]
 ,[,,"70\\d{6}","\\d{8}",,,"70123456"]
-,[,,"20\\d{2,8}","\\d{4,10}",,,"2012345"]
-,"LU",352,"00",,,,"(15(?:0[06]|1[12]|35|4[04]|55|6[26]|77|88|99)\\d)",,,,[[,"(\\d{2})(\\d{3})","$1 $2",["[23-5]|7[1-9]|[89](?:[1-9]|0[2-9])"]
-,"","$CC $1"]
-,[,"(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3",["[23-5]|7[1-9]|[89](?:[1-9]|0[2-9])"]
-,"","$CC $1"]
+,[,,"20(?:1\\d{5}|[2-689]\\d{1,7})","\\d{4,10}",,,"20201234"]
+,"LU",352,"00",,,,"(15(?:0[06]|1[12]|35|4[04]|55|6[26]|77|88|99)\\d)",,,,[[,"(\\d{2})(\\d{3})","$1 $2",["[2-5]|7[1-9]|[89](?:[1-9]|0[2-9])"]
+,"","$CC $1",0]
+,[,"(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3",["[2-5]|7[1-9]|[89](?:[1-9]|0[2-9])"]
+,"","$CC $1",0]
 ,[,"(\\d{2})(\\d{2})(\\d{3})","$1 $2 $3",["20"]
-,"","$CC $1"]
+,"","$CC $1",0]
 ,[,"(\\d{2})(\\d{2})(\\d{2})(\\d{1,2})","$1 $2 $3 $4",["2(?:[0367]|4[3-8])"]
-,"","$CC $1"]
+,"","$CC $1",0]
 ,[,"(\\d{2})(\\d{2})(\\d{2})(\\d{3})","$1 $2 $3 $4",["20"]
-,"","$CC $1"]
+,"","$CC $1",0]
 ,[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})(\\d{1,2})","$1 $2 $3 $4 $5",["2(?:[0367]|4[3-8])"]
-,"","$CC $1"]
+,"","$CC $1",0]
 ,[,"(\\d{2})(\\d{2})(\\d{2})(\\d{1,4})","$1 $2 $3 $4",["2(?:[12589]|4[12])|[3-5]|7[1-9]|[89](?:[1-9]|0[2-9])"]
-,"","$CC $1"]
+,"","$CC $1",0]
 ,[,"(\\d{3})(\\d{2})(\\d{3})","$1 $2 $3",["[89]0[01]|70"]
-,"","$CC $1"]
+,"","$CC $1",0]
 ,[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["6"]
-,"","$CC $1"]
+,"","$CC $1",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"11[23]","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"LV":[,[,,"[2689]\\d{7}","\\d{8}"]
-,[,,"6\\d{7}","\\d{8}",,,"61234567"]
+,[,,"6[3-8]\\d{6}","\\d{8}",,,"63123456"]
 ,[,,"2\\d{7}","\\d{8}",,,"21234567"]
 ,[,,"80\\d{6}","\\d{8}",,,"80123456"]
 ,[,,"90\\d{6}","\\d{8}",,,"90123456"]
+,[,,"81\\d{6}","\\d{8}",,,"81123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"LV",371,"00",,,,,,,,[[,"([2689]\\d)(\\d{3})(\\d{3})","$1 $2 $3",,"",""]
+,"LV",371,"00",,,,,,,,[[,"([2689]\\d)(\\d{3})(\\d{3})","$1 $2 $3",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"0[123]|112","\\d{2,3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"LY":[,[,,"[25679]\\d{8}","\\d{7,9}"]
 ,[,,"(?:2[1345]|5[1347]|6[123479]|71)\\d{7}","\\d{7,9}",,,"212345678"]
@@ -11159,74 +13437,76 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"LY",218,"00","0",,,"0",,,,[[,"([25679]\\d)(\\d{7})","$1-$2",,"0$1",""]
+,"LY",218,"00","0",,,"0",,,,[[,"([25679]\\d)(\\d{7})","$1-$2",,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"MA":[,[,,"[5689]\\d{8}","\\d{9}"]
-,[,,"5(?:2(?:(?:[015-7]\\d|2[2-9]|3[2-57]|4[2-8]|8[235-9]|)\\d|9(?:0\\d|[89]0))|3(?:(?:[0-4]\\d|[57][2-9]|6[235-8]|9[3-9])\\d|8(?:0\\d|[89]0)))\\d{4}","\\d{9}",,,"520123456"]
-,[,,"6(?:0[0-36]|[14-7]\\d|2[236]|3[348]|99)\\d{6}","\\d{9}",,,"650123456"]
+,[,,"5(?:2(?:(?:[015-7]\\d|2[2-9]|3[2-57]|4[2-8]|8[235-7])\\d|9(?:0\\d|[89]0))|3(?:(?:[0-4]\\d|[57][2-9]|6[235-8]|9[3-9])\\d|8(?:0\\d|[89]0)))\\d{4}","\\d{9}",,,"520123456"]
+,[,,"6(?:0[0-8]|[12-79]\\d|8[01])\\d{6}","\\d{9}",,,"650123456"]
 ,[,,"80\\d{7}","\\d{9}",,,"801234567"]
 ,[,,"89\\d{7}","\\d{9}",,,"891234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"MA",212,"00","0",,,"0",,,,[[,"([56]\\d{2})(\\d{6})","$1-$2",["5(?:2[015-7]|3[0-4])|6"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([58]\\d{3})(\\d{5})","$1-$2",["5(?:2[2-489]|3[5-9])|892","5(?:2(?:[2-48]|90)|3(?:[5-79]|80))|892"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(5\\d{4})(\\d{4})","$1-$2",["5(?:29|38)","5(?:29|38)[89]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(8[09])(\\d{7})","$1-$2",["8(?:0|9[013-9])"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
-,,,[,,"NA","NA"]
+,1,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:[59]|77)","\\d{2,3}",,,"15"]
+,,,[,,"NA","NA"]
 ]
 ,"MC":[,[,,"[4689]\\d{7,8}","\\d{8,9}"]
-,[,,"9[2-47-9]\\d{6}","\\d{8}",,,"99123456"]
-,[,,"6\\d{8}|4\\d{7}","\\d{8,9}",,,"612345678"]
-,[,,"(?:8\\d|90)\\d{6}","\\d{8}",,,"90123456"]
+,[,,"870\\d{5}|9[2-47-9]\\d{6}","\\d{8}",,,"99123456"]
+,[,,"6\\d{8}|4(?:4\\d|5[2-9])\\d{5}","\\d{8,9}",,,"612345678"]
+,[,,"90\\d{6}","\\d{8}",,,"90123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"MC",377,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[89]"]
-,"$1",""]
+,"MC",377,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["9"]
+,"$1","",0]
 ,[,"(\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["4"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(6)(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4 $5",["6"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{3})(\\d{2})","$1 $2 $3",["8"]
+,"$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"8\\d{7}","\\d{8}"]
 ,[,,"NA","NA"]
-,,[,,"1(?:12|[578])","\\d{2,3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
-,"MD":[,[,,"[256-9]\\d{7}","\\d{8}"]
-,[,,"(?:2(?:1[0569]|2\\d|3[015-7]|4[1-46-9]|5[0-24689]|6[2-589]|7[1-37]|9[1347-9])|5(?:33|5[257]))\\d{5}","\\d{5,8}",,,"22212345"]
-,[,,"(?:562|6(?:50|7[1-4]|[089]\\d)|7(?:7[47-9]|[89]\\d))\\d{5}","\\d{8}",,,"65012345"]
+,"MD":[,[,,"[235-9]\\d{7}","\\d{8}"]
+,[,,"(?:2(?:1[0569]|2\\d|3[015-7]|4[1-46-9]|5[0-24689]|6[2-589]|7[1-37]|9[1347-9])|5(?:33|5[257]))\\d{5}","\\d{8}",,,"22212345"]
+,[,,"(?:562\\d|6(?:[089]\\d{2}|1[01]\\d|21\\d|50\\d|7(?:[1-6]\\d|7[0-4]))|7(?:6[07]|7[457-9]|[89]\\d)\\d)\\d{4}","\\d{8}",,,"65012345"]
 ,[,,"800\\d{5}","\\d{8}",,,"80012345"]
 ,[,,"90[056]\\d{5}","\\d{8}",,,"90012345"]
 ,[,,"808\\d{5}","\\d{8}",,,"80812345"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"MD",373,"00","0",,,"0",,,,[[,"(22)(\\d{3})(\\d{3})","$1 $2 $3",["22"]
-,"0$1",""]
+,[,,"3[08]\\d{6}","\\d{8}",,,"30123456"]
+,"MD",373,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["22|3"]
+,"0$1","",0]
 ,[,"([25-7]\\d{2})(\\d{2})(\\d{3})","$1 $2 $3",["2[13-79]|[5-7]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([89]\\d{2})(\\d{5})","$1 $2",["[89]"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"8(?:03|14)\\d{5}","\\d{8}",,,"80312345"]
-,,[,,"112|90[123]","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"ME":[,[,,"[2-9]\\d{7,8}","\\d{6,9}"]
 ,[,,"(?:20[2-8]|3(?:0[2-7]|1[35-7]|2[3567]|3[4-7])|4(?:0[237]|1[27])|5(?:0[47]|1[27]|2[378]))\\d{5}","\\d{6,8}",,,"30234567"]
@@ -11235,35 +13515,20 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"(?:88\\d|9(?:4[13-8]|5[16-8]))\\d{5}","\\d{8}",,,"94515151"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"78[134579]\\d{5}","\\d{8}",,,"78108780"]
+,[,,"78[1-9]\\d{5}","\\d{8}",,,"78108780"]
 ,"ME",382,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["[2-57-9]|6[3789]","[2-57-9]|6(?:[389]|7(?:[0-8]|9[3-9]))"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(67)(9)(\\d{3})(\\d{3})","$1 $2 $3 $4",["679","679[0-2]"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"77\\d{6}","\\d{8}",,,"77273012"]
-,,[,,"1(?:12|2[234])","\\d{3}",,,"112"]
-]
-,"MG":[,[,,"[23]\\d{8}","\\d{7,9}"]
-,[,,"2(?:0(?:(?:2\\d|4[47]|5[3467]|6[279]|8[268]|9[245])\\d|7(?:2[29]|[35]\\d))|210\\d)\\d{4}","\\d{7,9}",,,"202123456"]
-,[,,"3[02-4]\\d{7}","\\d{9}",,,"301234567"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"MG",261,"00","0",,,"0",,,,[[,"([23]\\d)(\\d{2})(\\d{3})(\\d{2})","$1 $2 $3 $4",,"0$1",""]
-]
-,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"NA","NA"]
 ]
 ,"MF":[,[,,"[56]\\d{8}","\\d{9}"]
-,[,,"590(?:10|2[79]|5[128]|[78]7)\\d{4}","\\d{9}",,,"590271234"]
-,[,,"690(?:10|2[27]|66|77|8[78])\\d{4}","\\d{9}",,,"690221234"]
+,[,,"590(?:[02][79]|13|5[0-268]|[78]7)\\d{4}","\\d{9}",,,"590271234"]
+,[,,"690(?:0[0-7]|[1-9]\\d)\\d{4}","\\d{9}",,,"690301234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -11272,7 +13537,22 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"MF",590,"00","0",,,"0",,,,,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+]
+,"MG":[,[,,"[23]\\d{8}","\\d{7,9}"]
+,[,,"20(?:2\\d{2}|4[47]\\d|5[3467]\\d|6[279]\\d|7(?:2[29]|[35]\\d)|8[268]\\d|9[245]\\d)\\d{4}","\\d{7,9}",,,"202123456"]
+,[,,"3[2-49]\\d{7}","\\d{9}",,,"321234567"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"22\\d{7}","\\d{9}",,,"221234567"]
+,"MG",261,"00","0",,,"0",,,,[[,"([23]\\d)(\\d{2})(\\d{3})(\\d{2})","$1 $2 $3 $4",,"0$1","",0]
+]
 ,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"MH":[,[,,"[2-6]\\d{6}","\\d{7}"]
 ,[,,"(?:247|528|625)\\d{4}","\\d{7}",,,"2471234"]
@@ -11282,97 +13562,107 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"635\\d{4}","\\d{7}",,,"6351234"]
-,"MH",692,"011","1",,,"1",,,,[[,"(\\d{3})(\\d{4})","$1-$2",,"",""]
+,"MH",692,"011","1",,,"1",,,,[[,"(\\d{3})(\\d{4})","$1-$2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"MK":[,[,,"[2-578]\\d{7}","\\d{8}"]
-,[,,"(?:2(?:[23]\\d|5[125]|61)|3(?:1[3-6]|2[2-6]|3[2-5]|4[235])|4(?:[23][2-6]|4[3-6]|5[25]|6[25-8]|7[24-6]|8[4-6]))\\d{5}","\\d{6,8}",,,"22212345"]
-,[,,"7[0-25-8]\\d{6}","\\d{8}",,,"72345678"]
+,[,,"(?:2(?:[23]\\d|5[124578]|6[01])|3(?:1[3-6]|[23][2-6]|4[2356])|4(?:[23][2-6]|4[3-6]|5[256]|6[25-8]|7[24-6]|8[4-6]))\\d{5}","\\d{6,8}",,,"22212345"]
+,[,,"7(?:[0-25-8]\\d{2}|32\\d|421)\\d{4}","\\d{8}",,,"72345678"]
 ,[,,"800\\d{5}","\\d{8}",,,"80012345"]
 ,[,,"5[02-9]\\d{6}","\\d{8}",,,"50012345"]
 ,[,,"8(?:0[1-9]|[1-9]\\d)\\d{5}","\\d{8}",,,"80123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"MK",389,"00","0",,,"0",,,,[[,"(2)(\\d{3})(\\d{4})","$1 $2 $3",["2"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([347]\\d)(\\d{3})(\\d{3})","$1 $2 $3",["[347]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([58]\\d{2})(\\d)(\\d{2})(\\d{2})","$1 $2 $3 $4",["[58]"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:12|9[234])","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
-,"ML":[,[,,"[246-8]\\d{7}","\\d{8}"]
-,[,,"(?:2(?:0(?:2[0-589]|7[027-9])|1(?:2[5-7]|[3-689]\\d))|442\\d)\\d{4}","\\d{8}",,,"20212345"]
-,[,,"(?:6(?:[3569]\\d)|7(?:[08][1-9]|[3579][0-4]|4[014-7]|[16]\\d))\\d{5}","\\d{8}",,,"65012345"]
+,"ML":[,[,,"[246-9]\\d{7}","\\d{8}"]
+,[,,"(?:2(?:0(?:2[0-589]|7\\d)|1(?:2[5-7]|[3-689]\\d|7[2-4689]))|44[239]\\d)\\d{4}","\\d{8}",,,"20212345"]
+,[,,"[67]\\d{7}|9[0-25-9]\\d{6}","\\d{8}",,,"65012345"]
 ,[,,"800\\d{5}","\\d{8}",,,"80012345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"ML",223,"00",,,,,,,,[[,"([246-8]\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"",""]
+,"ML",223,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[246-9]"]
+,"","",0]
+,[,"(\\d{4})","$1",["67|74"]
+,"","",0]
+]
+,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[246-9]"]
+,"","",0]
+]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+]
+,"MM":[,[,,"[14578]\\d{5,7}|[26]\\d{5,8}|9(?:2\\d{0,2}|[58]|3\\d|4\\d{1,2}|6\\d?|[79]\\d{0,2})\\d{6}","\\d{5,10}"]
+,[,,"1(?:2\\d{1,2}|[3-5]\\d|6\\d?|[89][0-6]\\d)\\d{4}|2(?:[236-9]\\d{4}|4(?:0\\d{5}|\\d{4})|5(?:1\\d{3,6}|[02-9]\\d{3,5}))|4(?:2[245-8]|[346][2-6]|5[3-5])\\d{4}|5(?:2(?:20?|[3-8])|3[2-68]|4(?:21?|[4-8])|5[23]|6[2-4]|7[2-8]|8[24-7]|9[2-7])\\d{4}|6(?:0[23]|1[2356]|[24][2-6]|3[24-6]|5[2-4]|6[2-8]|7(?:[2367]|4\\d|5\\d?|8[145]\\d)|8[245]|9[24])\\d{4}|7(?:[04][24-8]|[15][2-7]|22|3[2-4])\\d{4}|8(?:1(?:2\\d?|[3-689])|2[2-8]|3[24]|4[24-7]|5[245]|6[23])\\d{4}","\\d{5,9}",,,"1234567"]
+,[,,"17[01]\\d{4}|9(?:2(?:[0-4]|5\\d{2})|3[136]\\d|4(?:0[0-4]\\d|[1379]\\d|[24][0-589]\\d|5\\d{2}|88)|5[0-6]|61?\\d|7(?:3\\d|9\\d{2})|8\\d|9(?:1\\d|7\\d{2}|[089]))\\d{5}","\\d{7,10}",,,"92123456"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"1333\\d{4}","\\d{8}",,,"13331234"]
+,"MM",95,"00","0",,,"0",,,,[[,"(\\d)(\\d{3})(\\d{3,4})","$1 $2 $3",["1|2[45]"]
+,"0$1","",0]
+,[,"(2)(\\d{4})(\\d{4})","$1 $2 $3",["251"]
+,"0$1","",0]
+,[,"(\\d)(\\d{2})(\\d{3})","$1 $2 $3",["16|2"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{3})(\\d{3,4})","$1 $2 $3",["67|81"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{2})(\\d{3,4})","$1 $2 $3",["[4-8]"]
+,"0$1","",0]
+,[,"(9)(\\d{3})(\\d{4,6})","$1 $2 $3",["9(?:2[0-4]|[35-9]|4[13789])"]
+,"0$1","",0]
+,[,"(9)(4\\d{4})(\\d{4})","$1 $2 $3",["94[0245]"]
+,"0$1","",0]
+,[,"(9)(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3 $4",["925"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1[578]","\\d{2}",,,"17"]
-]
-,"MM":[,[,,"[124-8]\\d{5,7}|9\\d{7,8}","\\d{5,9}"]
-,[,,"(?:1\\d|2|4[2-6]|5[2-9]|6\\d|7[0-5]|8[1-6])\\d{5}|1333\\d{4}","\\d{5,8}",,,"1234567"]
-,[,,"9(?:[25689]\\d|444)\\d{5}","\\d{8,9}",,,"92123456"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"MM",95,"00",,,,,,,,[[,"(1)(\\d{3})(\\d{3})","$1 $2 $3",["1"]
-,"",""]
-,[,"(1)(3)(33\\d)(\\d{3})","$1 $2 $3 $4",["133","1333"]
-,"",""]
-,[,"(2)(\\d{2})(\\d{3})","$1 $2 $3",["2"]
-,"",""]
-,[,"(\\d{2})(\\d{2})(\\d{3})","$1 $2 $3",["[4-8]"]
-,"",""]
-,[,"(9444)(\\d{5})","$1 $2",["94"]
-,"",""]
-,[,"(9)([25689]\\d{2})(\\d{4})","$1 $2 $3",["9[25689]"]
-,"",""]
-]
-,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"199","\\d{3}",,,"199"]
 ]
 ,"MN":[,[,,"[12]\\d{7,9}|[57-9]\\d{7}","\\d{6,10}"]
-,[,,"[12](?:1\\d|2(?:[1-3]\\d?|7\\d)|3[2-8]\\d{1,2}|4[2-68]\\d{1,2}|5[1-4689]\\d{1,2})\\d{5}|(?:5[0568]|70)\\d{6}","\\d{6,10}",,,"70123456"]
-,[,,"(?:8[89]|9[15689])\\d{6}","\\d{8}",,,"88123456"]
+,[,,"[12](?:1\\d|2(?:[1-3]\\d?|7\\d)|3[2-8]\\d{1,2}|4[2-68]\\d{1,2}|5[1-4689]\\d{1,2})\\d{5}|5[0568]\\d{6}","\\d{6,10}",,,"50123456"]
+,[,,"(?:8[689]|9[013-9])\\d{6}","\\d{8}",,,"88123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"7[569]\\d{6}","\\d{8}",,,"75123456"]
+,[,,"7[05-8]\\d{6}","\\d{8}",,,"75123456"]
 ,"MN",976,"001","0",,,"0",,,,[[,"([12]\\d)(\\d{2})(\\d{4})","$1 $2 $3",["[12]1"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([12]2\\d)(\\d{5,6})","$1 $2",["[12]2[1-3]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([12]\\d{3})(\\d{5})","$1 $2",["[12](?:27|[3-5])","[12](?:27|[3-5]\\d)2"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{4})(\\d{4})","$1 $2",["[57-9]"]
-,"$1",""]
+,"$1","",0]
 ,[,"([12]\\d{4})(\\d{4,5})","$1 $2",["[12](?:27|[3-5])","[12](?:27|[3-5]\\d)[4-9]"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"10[0-3]","\\d{3}",,,"102"]
+,,,[,,"NA","NA"]
 ]
 ,"MO":[,[,,"[268]\\d{7}","\\d{8}"]
 ,[,,"(?:28[2-57-9]|8[2-57-9]\\d)\\d{5}","\\d{8}",,,"28212345"]
@@ -11382,25 +13672,25 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"MO",853,"00",,,,,,,,[[,"([268]\\d{3})(\\d{4})","$1 $2",,"",""]
+,"MO",853,"00",,,,,,,,[[,"([268]\\d{3})(\\d{4})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"999","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
 ]
 ,"MP":[,[,,"[5689]\\d{9}","\\d{7}(?:\\d{3})?"]
 ,[,,"670(?:2(?:3[3-7]|56|8[5-8])|32[1238]|4(?:33|8[348])|5(?:32|55|88)|6(?:64|70|82)|78[589]|8[3-9]8|989)\\d{4}","\\d{7}(?:\\d{3})?",,,"6702345678"]
 ,[,,"670(?:2(?:3[3-7]|56|8[5-8])|32[1238]|4(?:33|8[348])|5(?:32|55|88)|6(?:64|70|82)|78[589]|8[3-9]8|989)\\d{4}","\\d{7}(?:\\d{3})?",,,"6702345678"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"MP",1,"011","1",,,"1",,,1,,,[,,"NA","NA"]
 ,,"670",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"MQ":[,[,,"[56]\\d{8}","\\d{9}"]
 ,[,,"596(?:0[2-5]|[12]0|3[05-9]|4[024-8]|[5-7]\\d|89|9[4-8])\\d{4}","\\d{9}",,,"596301234"]
@@ -11410,132 +13700,133 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"MQ",596,"00","0",,,"0",,,,[[,"(\\d{3})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"0$1",""]
+,"MQ",596,"00","0",,,"0",,,,[[,"(\\d{3})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"MR":[,[,,"[2-48]\\d{7}","\\d{8}"]
 ,[,,"25[08]\\d{5}|35\\d{6}|45[1-7]\\d{5}","\\d{8}",,,"35123456"]
-,[,,"(?:2(?:2\\d|70)|3(?:3\\d|6[1-36]|7[1-3])|4(?:4\\d|6[0457-9]|7[4-9]))\\d{5}","\\d{8}",,,"22123456"]
+,[,,"(?:2(?:2\\d|70)|3(?:3\\d|6[1-36]|7[1-3])|4(?:[49]\\d|6[0457-9]|7[4-9]|8[01346-8]))\\d{5}","\\d{8}",,,"22123456"]
 ,[,,"800\\d{5}","\\d{8}",,,"80012345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"MR",222,"00",,,,,,,,[[,"([2-48]\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"",""]
+,"MR",222,"00",,,,,,,,[[,"([2-48]\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"MS":[,[,,"[5689]\\d{9}","\\d{7}(?:\\d{3})?"]
 ,[,,"664491\\d{4}","\\d{7}(?:\\d{3})?",,,"6644912345"]
-,[,,"664492\\d{4}","\\d{10}",,,"6644923456"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"66449[2-6]\\d{4}","\\d{10}",,,"6644923456"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"MS",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"664",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"MT":[,[,,"[2579]\\d{7}","\\d{8}"]
-,[,,"2(?:0(?:1[0-6]|[69]\\d)|[1-357]\\d{2})\\d{4}","\\d{8}",,,"21001234"]
-,[,,"(?:7(?:210|[79]\\d{2}|)|9(?:2[13]\\d|696|8(?:1[1-3]|89|97)|9\\d{2}))\\d{4}","\\d{8}",,,"96961234"]
+,"MT":[,[,,"[2357-9]\\d{7}","\\d{8}"]
+,[,,"2(?:0(?:1[0-6]|3[1-4]|[69]\\d)|[1-357]\\d{2})\\d{4}","\\d{8}",,,"21001234"]
+,[,,"(?:7(?:210|[79]\\d{2})|9(?:2(?:1[01]|31)|696|8(?:1[1-3]|89|97)|9\\d{2}))\\d{4}","\\d{8}",,,"96961234"]
+,[,,"800[3467]\\d{4}","\\d{8}",,,"80071234"]
+,[,,"5(?:0(?:0(?:37|43)|6\\d{2}|70\\d|9[0168])|[12]\\d0[1-5])\\d{3}","\\d{8}",,,"50037123"]
 ,[,,"NA","NA"]
-,[,,"50(?:0(?:3[1679]|4\\d)|[169]\\d{2}|7[06]\\d)\\d{3}","\\d{8}",,,"50031234"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"MT",356,"00",,,,,,,,[[,"(\\d{4})(\\d{4})","$1 $2",,"",""]
+,[,,"3550\\d{4}","\\d{8}",,,"35501234"]
+,"MT",356,"00",,,,,,,,[[,"(\\d{4})(\\d{4})","$1 $2",,"","",0]
 ]
 ,,[,,"7117\\d{4}","\\d{8}",,,"71171234"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"112","\\d{3}",,,"112"]
+,[,,"501\\d{5}","\\d{8}",,,"50112345"]
+,,,[,,"NA","NA"]
 ]
-,"MU":[,[,,"[2-9]\\d{6}","\\d{7}"]
-,[,,"(?:2(?:[034789]\\d|1[0-7])|4(?:[013-8]\\d|2[4-7])|[56]\\d{2}|8(?:14|3[129]))\\d{4}","\\d{7}",,,"2012345"]
-,[,,"(?:25\\d|4(?:2[12389]|9\\d)|7\\d{2}|87[15-8]|9[1-8]\\d)\\d{4}","\\d{7}",,,"2512345"]
+,"MU":[,[,,"[2-9]\\d{6,7}","\\d{7,8}"]
+,[,,"(?:2(?:[03478]\\d|1[0-7]|6[1-69])|4(?:[013568]\\d|2[4-7])|5(?:44\\d|471)|6\\d{2}|8(?:14|3[129]))\\d{4}","\\d{7,8}",,,"2012345"]
+,[,,"5(?:2[59]\\d|4(?:2[1-389]|4\\d|7[1-9]|9\\d)|7\\d{2}|8(?:[256]\\d|7[15-8])|9[0-8]\\d)\\d{4}","\\d{8}",,,"52512345"]
 ,[,,"80[012]\\d{4}","\\d{7}",,,"8001234"]
 ,[,,"30\\d{5}","\\d{7}",,,"3012345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"3(?:20|9\\d)\\d{4}","\\d{7}",,,"3201234"]
-,"MU",230,"0(?:[2-7]0|33)",,,,,,"020",,[[,"([2-9]\\d{2})(\\d{4})","$1 $2",,"",""]
+,"MU",230,"0(?:0|[2-7]0|33)",,,,,,"020",,[[,"([2-46-9]\\d{2})(\\d{4})","$1 $2",["[2-46-9]"]
+,"","",0]
+,[,"(5\\d{3})(\\d{4})","$1 $2",["5"]
+,"","",0]
 ]
-,,[,,"2(?:1[89]|2\\d)\\d{4}","\\d{7}",,,"2181234"]
+,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"11[45]|99\\d","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
 ]
-,"MV":[,[,,"[367]\\d{6}|9(?:00\\d{7}|\\d{6})","\\d{7,10}"]
-,[,,"(?:3(?:0[01]|3[0-59]|)|6(?:[567][02468]|8[024689]|90))\\d{4}","\\d{7}",,,"6701234"]
-,[,,"(?:7[3-9]|9[6-9])\\d{5}","\\d{7}",,,"7712345"]
+,"MV":[,[,,"[3467]\\d{6}|9(?:00\\d{7}|\\d{6})","\\d{7,10}"]
+,[,,"(?:3(?:0[01]|3[0-59])|6(?:[567][02468]|8[024689]|90))\\d{4}","\\d{7}",,,"6701234"]
+,[,,"(?:46[46]|7[3-9]\\d|9[16-9]\\d)\\d{4}","\\d{7}",,,"7712345"]
 ,[,,"NA","NA"]
 ,[,,"900\\d{7}","\\d{10}",,,"9001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"MV",960,"0(?:0|19)",,,,,,"00",,[[,"(\\d{3})(\\d{4})","$1-$2",["[367]|9(?:[1-9]|0[1-9])"]
-,"",""]
+,"MV",960,"0(?:0|19)",,,,,,"00",,[[,"(\\d{3})(\\d{4})","$1-$2",["[3467]|9(?:[1-9]|0[1-9])"]
+,"","",0]
 ,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["900"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"781\\d{4}","\\d{7}",,,"7812345"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:02|19)","\\d{3}",,,"102"]
+,,,[,,"NA","NA"]
 ]
-,"MW":[,[,,"(?:[13-5]|[27]\\d{2}|[89](?:\\d{2})?)\\d{6}","\\d{7,9}"]
+,"MW":[,[,,"(?:1(?:\\d{2})?|[2789]\\d{2})\\d{6}","\\d{7,9}"]
 ,[,,"(?:1[2-9]|21\\d{2})\\d{5}","\\d{7,9}",,,"1234567"]
-,[,,"(?:[3-5]|77|8(?:8\\d)?|9(?:9\\d)?)\\d{6}","\\d{7,9}",,,"991234567"]
+,[,,"(?:111|77\\d|88\\d|99\\d)\\d{6}","\\d{9}",,,"991234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"MW",265,"00","0",,,"0",,,,[[,"(\\d)(\\d{3})(\\d{3})","$1 $2 $3",["[13-5]"]
-,"0$1",""]
+,"MW",265,"00","0",,,"0",,,,[[,"(\\d)(\\d{3})(\\d{3})","$1 $2 $3",["1"]
+,"0$1","",0]
 ,[,"(2\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["2"]
-,"0$1",""]
-,[,"(\\d)(\\d{4})(\\d{4})","$1 $2 $3",["7"]
-,"0$1",""]
-,[,"(\\d)(\\d{3,4})(\\d{3,4})","$1 $2 $3",["[89]"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[1789]"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"MX":[,[,,"[1-9]\\d{9,10}","\\d{7,11}"]
-,[,,"(?:33|55|81)\\d{8}|(?:2(?:2[2-9]|3[1-35-8]|4[13-9]|7[1-689]|8[1-58]|9[467])|3(?:1[1-79]|[2458][1-9]|7[1-8]|9[1-5])|4(?:1[1-57-9]|[24-6][1-9]|[37][1-8]|8[1-35-9]|9[2-689])|5(?:88|9[1-79])|6(?:1[2-68]|[234][1-9]|5[1-3689]|6[12457-9]|7[1-7]|8[67]|9[4-8])|7(?:[13467][1-9]|2[1-8]|5[13-9]|8[1-69]|9[17])|8(?:2[13-689]|3[1-6]|4[124-6]|6[1246-9]|7[1-378]|9[12479])|9(?:1[346-9]|2[1-4]|3[2-46-8]|5[1348]|[69][1-9]|7[12]|8[1-8]))\\d{7}","\\d{7,10}",,,"2221234567"]
-,[,,"1(?:(?:33|55|81)\\d{8}|(?:2(?:2[2-9]|3[1-35-8]|4[13-9]|7[1-689]|8[1-58]|9[467])|3(?:1[1-79]|[2458][1-9]|7[1-8]|9[1-5])|4(?:1[1-57-9]|[24-6][1-9]|[37][1-8]|8[1-35-9]|9[2-689])|5(?:88|9[1-79])|6(?:1[2-68]|[2-4][1-9]|5[1-3689]|6[12457-9]|7[1-7]|8[67]|9[4-8])|7(?:[13467][1-9]|2[1-8]|5[13-9]|8[1-69]|9[17])|8(?:2[13-689]|3[1-6]|4[124-6]|6[1246-9]|7[1-378]|9[12479])|9(?:1[346-9]|2[1-4]|3[2-46-8]|5[1348]|[69][1-9]|7[12]|8[1-8]))\\d{7})","\\d{11}",,,"12221234567"]
+,[,,"(?:33|55|81)\\d{8}|(?:2(?:2[2-9]|3[1-35-8]|4[13-9]|7[1-689]|8[1-578]|9[467])|3(?:1[1-79]|[2458][1-9]|7[1-8]|9[1-5])|4(?:1[1-57-9]|[24-6][1-9]|[37][1-8]|8[1-35-9]|9[2-689])|5(?:88|9[1-79])|6(?:1[2-68]|[234][1-9]|5[1-3689]|6[12457-9]|7[1-7]|8[67]|9[4-8])|7(?:[13467][1-9]|2[1-8]|5[13-9]|8[1-69]|9[17])|8(?:2[13-689]|3[1-6]|4[124-6]|6[1246-9]|7[1-378]|9[12479])|9(?:1[346-9]|2[1-4]|3[2-46-8]|5[1348]|[69][1-9]|7[12]|8[1-8]))\\d{7}","\\d{7,10}",,,"2221234567"]
+,[,,"1(?:(?:33|55|81)\\d{8}|(?:2(?:2[2-9]|3[1-35-8]|4[13-9]|7[1-689]|8[1-578]|9[467])|3(?:1[1-79]|[2458][1-9]|7[1-8]|9[1-5])|4(?:1[1-57-9]|[24-6][1-9]|[37][1-8]|8[1-35-9]|9[2-689])|5(?:88|9[1-79])|6(?:1[2-68]|[2-4][1-9]|5[1-3689]|6[12457-9]|7[1-7]|8[67]|9[4-8])|7(?:[13467][1-9]|2[1-8]|5[13-9]|8[1-69]|9[17])|8(?:2[13-689]|3[1-6]|4[124-6]|6[1246-9]|7[1-378]|9[12479])|9(?:1[346-9]|2[1-4]|3[2-46-8]|5[1348]|[69][1-9]|7[12]|8[1-8]))\\d{7})","\\d{11}",,,"12221234567"]
 ,[,,"800\\d{7}","\\d{10}",,,"8001234567"]
 ,[,,"900\\d{7}","\\d{10}",,,"9001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"MX",52,"0[09]","01",,,"0[12]|04[45](\\d{10})","1$1",,,[[,"([358]\\d)(\\d{4})(\\d{4})","$1 $2 $3",["33|55|81"]
-,"01 $1",""]
+,"01 $1","",1]
 ,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["[2467]|3[12457-9]|5[89]|8[02-9]|9[0-35-9]"]
-,"01 $1",""]
+,"01 $1","",1]
 ,[,"(1)([358]\\d)(\\d{4})(\\d{4})","044 $2 $3 $4",["1(?:33|55|81)"]
-,"$1",""]
+,"$1","",1]
 ,[,"(1)(\\d{3})(\\d{3})(\\d{4})","044 $2 $3 $4",["1(?:[2467]|3[12457-9]|5[89]|8[2-9]|9[1-35-9])"]
-,"$1",""]
+,"$1","",1]
 ]
 ,[[,"([358]\\d)(\\d{4})(\\d{4})","$1 $2 $3",["33|55|81"]
-]
+,"01 $1","",1]
 ,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["[2467]|3[12457-9]|5[89]|8[02-9]|9[0-35-9]"]
-]
+,"01 $1","",1]
 ,[,"(1)([358]\\d)(\\d{4})(\\d{4})","$1 $2 $3 $4",["1(?:33|55|81)"]
 ]
 ,[,"(1)(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3 $4",["1(?:[2467]|3[12457-9]|5[89]|8[2-9]|9[1-35-9])"]
@@ -11544,225 +13835,230 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"06[568]|911","\\d{3}",,,"066"]
+,1,,[,,"NA","NA"]
 ]
 ,"MY":[,[,,"[13-9]\\d{7,9}","\\d{6,10}"]
-,[,,"(?:3\\d{2}|[4-79]\\d|8[2-9])\\d{6}","\\d{6,9}",,,"312345678"]
-,[,,"1(?:[02-46-9][2-9]|11\\d)\\d{6}","\\d{9,10}",,,"123456789"]
-,[,,"1[38]00\\d{6}","\\d{10}",,,"1300123456"]
+,[,,"(?:3[2-9]\\d|[4-9][2-9])\\d{6}","\\d{6,9}",,,"323456789"]
+,[,,"1(?:1[1-35]\\d{2}|[02-4679][2-9]\\d|59\\d{2}|8(?:1[23]|[2-9]\\d))\\d{5}","\\d{9,10}",,,"123456789"]
+,[,,"1[378]00\\d{6}","\\d{10}",,,"1300123456"]
 ,[,,"1600\\d{6}","\\d{10}",,,"1600123456"]
 ,[,,"NA","NA"]
-,[,,"1700\\d{6}","\\d{10}",,,"1700123456"]
+,[,,"NA","NA"]
 ,[,,"154\\d{7}","\\d{10}",,,"1541234567"]
 ,"MY",60,"00","0",,,"0",,,,[[,"([4-79])(\\d{3})(\\d{4})","$1-$2 $3",["[4-79]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(3)(\\d{4})(\\d{4})","$1-$2 $3",["3"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([18]\\d)(\\d{3})(\\d{3,4})","$1-$2 $3",["1[02-46-9][1-9]|8"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(1)([36-8]00)(\\d{2})(\\d{4})","$1-$2-$3-$4",["1[36-8]0"]
-,"",""]
+,"","",0]
 ,[,"(11)(\\d{4})(\\d{4})","$1-$2 $3",["11"]
-,"0$1",""]
-,[,"(154)(\\d{3})(\\d{4})","$1-$2 $3",["15"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(15[49])(\\d{3})(\\d{4})","$1-$2 $3",["15"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"112|999","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
 ]
 ,"MZ":[,[,,"[28]\\d{7,8}","\\d{8,9}"]
 ,[,,"2(?:[1346]\\d|5[0-2]|[78][12]|93)\\d{5}","\\d{8}",,,"21123456"]
-,[,,"8[24]\\d{7}","\\d{9}",,,"821234567"]
+,[,,"8[23467]\\d{7}","\\d{9}",,,"821234567"]
 ,[,,"800\\d{6}","\\d{9}",,,"800123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"MZ",258,"00",,,,,,,,[[,"([28]\\d)(\\d{3})(\\d{3,4})","$1 $2 $3",["2|8[24]"]
-,"",""]
+,"MZ",258,"00",,,,,,,,[[,"([28]\\d)(\\d{3})(\\d{3,4})","$1 $2 $3",["2|8[2-7]"]
+,"","",0]
 ,[,"(80\\d)(\\d{3})(\\d{3})","$1 $2 $3",["80"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"NA":[,[,,"[68]\\d{7,8}","\\d{8,9}"]
-,[,,"6(?:1(?:17|2(?:[0189]\\d|[23-6]|7\\d?)|3(?:2\\d|3[378])|4[01]|69|7[014])|2(?:17|25|5(?:[0-36-8]|4\\d?)|69|70)|3(?:17|2(?:[0237]\\d?|[14-689])|34|6[29]|7[01]|81)|4(?:17|2(?:[012]|7?)|4(?:[06]|1\\d)|5(?:[01357]|[25]\\d?)|69|7[01])|5(?:17|2(?:[0459]|[23678]\\d?)|69|7[01])|6(?:17|2(?:5|6\\d?)|38|42|69|7[01])|7(?:17|2(?:[569]|[234]\\d?)|3(?:0\\d?|[13])|69|7[01]))\\d{4}","\\d{8,9}",,,"612012345"]
+,[,,"6(?:1(?:17|2(?:[0189]\\d|[2-6]|7\\d?)|3(?:[01378]|2\\d)|4[01]|69|7[014])|2(?:17|5(?:[0-36-8]|4\\d?)|69|70)|3(?:17|2(?:[0237]\\d?|[14-689])|34|6[29]|7[01]|81)|4(?:17|2(?:[012]|7?)|4(?:[06]|1\\d)|5(?:[01357]|[25]\\d?)|69|7[01])|5(?:17|2(?:[0459]|[23678]\\d?)|69|7[01])|6(?:17|2(?:5|6\\d?)|38|42|69|7[01])|7(?:17|2(?:[569]|[234]\\d?)|3(?:0\\d?|[13])|69|7[01]))\\d{4}","\\d{8,9}",,,"61221234"]
 ,[,,"(?:60|8[125])\\d{7}","\\d{9}",,,"811234567"]
 ,[,,"NA","NA"]
 ,[,,"8701\\d{5}","\\d{9}",,,"870123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"886\\d{5}","\\d{8}",,,"88612345"]
-,"NA",264,"00","0",,,"0",,,,[[,"(8\\d)(\\d{3})(\\d{4})","$1 $2 $3",["8[125]"]
-,"0$1",""]
+,[,,"8(?:3\\d{2}|86)\\d{5}","\\d{8,9}",,,"88612345"]
+,"NA",264,"00","0",,,"0",,,,[[,"(8\\d)(\\d{3})(\\d{4})","$1 $2 $3",["8[1235]"]
+,"0$1","",0]
 ,[,"(6\\d)(\\d{2,3})(\\d{4})","$1 $2 $3",["6"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(88)(\\d{3})(\\d{3})","$1 $2 $3",["88"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(870)(\\d{3})(\\d{3})","$1 $2 $3",["870"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"NC":[,[,,"[2-47-9]\\d{5}","\\d{6}"]
+,"NC":[,[,,"[2-57-9]\\d{5}","\\d{6}"]
 ,[,,"(?:2[03-9]|3[0-5]|4[1-7]|88)\\d{4}","\\d{6}",,,"201234"]
-,[,,"(?:7[3-9]|8[0-79]|9\\d)\\d{4}","\\d{6}",,,"751234"]
+,[,,"(?:5[0-4]|[79]\\d|8[0-79])\\d{4}","\\d{6}",,,"751234"]
+,[,,"NA","NA"]
+,[,,"36\\d{4}","\\d{6}",,,"366711"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"NC",687,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})","$1.$2.$3",,"",""]
+,"NC",687,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})","$1.$2.$3",["[2-46-9]|5[0-4]"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"NE":[,[,,"[029]\\d{7}","\\d{8}"]
+,"NE":[,[,,"[0289]\\d{7}","\\d{8}"]
 ,[,,"2(?:0(?:20|3[1-7]|4[134]|5[14]|6[14578]|7[1-578])|1(?:4[145]|5[14]|6[14-68]|7[169]|88))\\d{4}","\\d{8}",,,"20201234"]
-,[,,"9[0134678]\\d{6}","\\d{8}",,,"93123456"]
+,[,,"(?:89|9\\d)\\d{6}","\\d{8}",,,"93123456"]
 ,[,,"08\\d{6}","\\d{8}",,,"08123456"]
 ,[,,"09\\d{6}","\\d{8}",,,"09123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"NE",227,"00",,,,,,,,[[,"([029]\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[29]|09"]
-,"",""]
+,"NE",227,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[289]|09"]
+,"","",0]
 ,[,"(08)(\\d{3})(\\d{3})","$1 $2 $3",["08"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,1,[,,"NA","NA"]
+,1,,[,,"NA","NA"]
 ]
 ,"NF":[,[,,"[13]\\d{5}","\\d{5,6}"]
 ,[,,"(?:1(?:06|17|28|39)|3[012]\\d)\\d{3}","\\d{5,6}",,,"106609"]
-,[,,"38\\d{4}","\\d{5,6}",,,"381234"]
+,[,,"3[58]\\d{4}","\\d{5,6}",,,"381234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"NF",672,"00",,,,,,,,[[,"(\\d{2})(\\d{4})","$1 $2",["1"]
-,"",""]
+,"","",0]
 ,[,"(\\d)(\\d{5})","$1 $2",["3"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"NG":[,[,,"[1-69]\\d{5,8}|[78]\\d{5,13}","\\d{5,14}"]
-,[,,"[12]\\d{6,7}|9\\d{7}|(?:4[023568]|5[02368]|6[02-469]|7[569]|8[2-9])\\d{6}|(?:4[47]|5[14579]|6[1578]|7[0-357])\\d{5,6}|(?:78|41)\\d{5}","\\d{5,9}",,,"12345678"]
-,[,,"(?:70(?:[3-9]\\d|2[1-9])|8(?:0[2-9]|1[0235689])\\d)\\d{6}","\\d{10}",,,"8021234567"]
+,"NG":[,[,,"[1-6]\\d{5,8}|9\\d{5,9}|[78]\\d{5,13}","\\d{5,14}"]
+,[,,"[12]\\d{6,7}|9(?:0[3-9]|[1-9]\\d)\\d{5}|(?:3\\d|4[023568]|5[02368]|6[02-469]|7[4-69]|8[2-9])\\d{6}|(?:4[47]|5[14579]|6[1578]|7[0-357])\\d{5,6}|(?:78|41)\\d{5}","\\d{5,9}",,,"12345678"]
+,[,,"(?:1(?:7[34]\\d|8(?:04|[124579]\\d|8[0-3])|95\\d)|287[0-7]|3(?:18[1-8]|88[0-7]|9(?:8[5-9]|6[1-5]))|4(?:28[0-2]|6(?:7[1-9]|8[02-47])|88[0-2])|5(?:2(?:7[7-9]|8\\d)|38[1-79]|48[0-7]|68[4-7])|6(?:2(?:7[7-9]|8\\d)|4(?:3[7-9]|[68][129]|7[04-69]|9[1-8])|58[0-2]|98[7-9])|7(?:38[0-7]|69[1-8]|78[2-4])|8(?:28[3-9]|38[0-2]|4(?:2[12]|3[147-9]|5[346]|7[4-9]|8[014-689]|90)|58[1-8]|78[2-9]|88[5-7])|98[07]\\d)\\d{4}|(?:70(?:[13-9]\\d|2[1-9])|8(?:0[2-9]|1\\d)\\d|90[2359]\\d)\\d{6}","\\d{8,10}",,,"8021234567"]
 ,[,,"800\\d{7,11}","\\d{10,14}",,,"80017591759"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"700\\d{7,11}","\\d{10,14}",,,"7001234567"]
+,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"NG",234,"009","0",,,"0",,,,[[,"([129])(\\d{3})(\\d{3,4})","$1 $2 $3",["[129]"]
-,"0$1",""]
-,[,"([3-8]\\d)(\\d{3})(\\d{2,3})","$1 $2 $3",["[3-6]|7(?:[1-79]|0[1-9])|8[2-9]"]
-,"0$1",""]
-,[,"([78]\\d{2})(\\d{3})(\\d{3,4})","$1 $2 $3",["70|8[01]"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{3})(\\d{2,3})","$1 $2 $3",["[3-6]|7(?:[1-79]|0[1-9])|8[2-9]"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{3})(\\d{3,4})","$1 $2 $3",["70|8[01]|90[2359]"]
+,"0$1","",0]
 ,[,"([78]00)(\\d{4})(\\d{4,5})","$1 $2 $3",["[78]00"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([78]00)(\\d{5})(\\d{5,6})","$1 $2 $3",["[78]00"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(78)(\\d{2})(\\d{3})","$1 $2 $3",["78"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"199","\\d{3}",,,"199"]
+,[,,"700\\d{7,11}","\\d{10,14}",,,"7001234567"]
+,,,[,,"NA","NA"]
 ]
-,"NI":[,[,,"[128]\\d{7}","\\d{8}"]
+,"NI":[,[,,"[12578]\\d{7}","\\d{8}"]
 ,[,,"2\\d{7}","\\d{8}",,,"21234567"]
-,[,,"8\\d{7}","\\d{8}",,,"81234567"]
+,[,,"5(?:5[0-7]\\d{5}|[78]\\d{6})|7[5-8]\\d{6}|8\\d{7}","\\d{8}",,,"81234567"]
 ,[,,"1800\\d{4}","\\d{8}",,,"18001234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"NI",505,"00",,,,,,,,[[,"(\\d{4})(\\d{4})","$1 $2",,"",""]
+,"NI",505,"00",,,,,,,,[[,"(\\d{4})(\\d{4})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"118","\\d{3}",,,"118"]
+,,,[,,"NA","NA"]
 ]
-,"NL":[,[,,"[1-9]\\d{6,9}","\\d{7,10}"]
+,"NL":[,[,,"1\\d{4,8}|[2-7]\\d{8}|[89]\\d{6,9}","\\d{5,10}"]
 ,[,,"(?:1[0135-8]|2[02-69]|3[0-68]|4[0135-9]|[57]\\d|8[478])\\d{7}","\\d{9}",,,"101234567"]
 ,[,,"6[1-58]\\d{7}","\\d{9}",,,"612345678"]
 ,[,,"800\\d{4,7}","\\d{7,10}",,,"8001234"]
-,[,,"90[069]\\d{4,7}","\\d{7,10}",,,"9001234"]
+,[,,"90[069]\\d{4,7}","\\d{7,10}",,,"9061234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"85\\d{7}","\\d{9}"]
-,"NL",31,"00","0",,,"0",,,,[[,"([1-578]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["1[035]|2[0346]|3[03568]|4[0356]|5[0358]|7|8[458]"]
-,"0$1",""]
+,[,,"85\\d{7}","\\d{9}",,,"851234567"]
+,"NL",31,"00","0",,,"0",,,,[[,"([1-578]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["1[035]|2[0346]|3[03568]|4[0356]|5[0358]|7|8[4578]"]
+,"0$1","",0]
 ,[,"([1-5]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["1[16-8]|2[259]|3[124]|4[17-9]|5[124679]"]
-,"0$1",""]
-,[,"(6)(\\d{8})","$1 $2",["6"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(6)(\\d{8})","$1 $2",["6[0-57-9]"]
+,"0$1","",0]
+,[,"(66)(\\d{7})","$1 $2",["66"]
+,"0$1","",0]
+,[,"(14)(\\d{3,4})","$1 $2",["14"]
+,"$1","",0]
 ,[,"([89]0\\d)(\\d{4,7})","$1 $2",["80|9"]
-,"0$1",""]
+,"0$1","",0]
 ]
-,,[,,"NA","NA"]
+,,[,,"66\\d{7}","\\d{9}",,,"662345678"]
+,,,[,,"14\\d{3,4}","\\d{5,6}"]
+,[,,"140(?:1(?:[035]|[16-8]\\d)|2(?:[0346]|[259]\\d)|3(?:[03568]|[124]\\d)|4(?:[0356]|[17-9]\\d)|5(?:[0358]|[124679]\\d)|7\\d|8[458])","\\d{5,6}",,,"14020"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"112|911","\\d{3}",,,"112"]
 ]
 ,"NO":[,[,,"0\\d{4}|[2-9]\\d{7}","\\d{5}(?:\\d{3})?"]
 ,[,,"(?:2[1-4]|3[1-3578]|5[1-35-7]|6[1-4679]|7[0-8])\\d{6}","\\d{8}",,,"21234567"]
-,[,,"(?:4[015-8]|9\\d)\\d{6}","\\d{8}",,,"41234567"]
+,[,,"(?:4[015-8]|5[89]|9\\d)\\d{6}","\\d{8}",,,"40612345"]
 ,[,,"80[01]\\d{5}","\\d{8}",,,"80012345"]
 ,[,,"82[09]\\d{5}","\\d{8}",,,"82012345"]
 ,[,,"810(?:0[0-6]|[2-8]\\d)\\d{3}","\\d{8}",,,"81021234"]
 ,[,,"880\\d{5}","\\d{8}",,,"88012345"]
-,[,,"NA","NA"]
+,[,,"85[0-5]\\d{5}","\\d{8}",,,"85012345"]
 ,"NO",47,"00",,,,,,,,[[,"([489]\\d{2})(\\d{2})(\\d{3})","$1 $2 $3",["[489]"]
-,"",""]
+,"","",0]
 ,[,"([235-7]\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[235-7]"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,1,,[,,"NA","NA"]
 ,[,,"0\\d{4}|81(?:0(?:0[7-9]|1\\d)|5\\d{2})\\d{3}","\\d{5}(?:\\d{3})?",,,"01234"]
-,1,[,,"11[023]","\\d{3}",,,"112"]
+,1,,[,,"81[23]\\d{5}","\\d{8}",,,"81212345"]
 ]
-,"NP":[,[,,"[1-8]\\d{7}|9(?:[1-69]\\d{6}|7[2-6]\\d{5,7}|8\\d{8})","\\d{6,10}"]
-,[,,"(?:1[0124-6]|2[13-79]|3[135-8]|4[146-9]|5[135-7]|6[13-9]|7[15-9]|8[1-46-9]|9[1-79])\\d{6}","\\d{6,8}",,,"14567890"]
-,[,,"9(?:7[45]|8[0145])\\d{7}","\\d{10}",,,"9841234567"]
+,"NP":[,[,,"[1-8]\\d{7}|9(?:[1-69]\\d{6,8}|7[2-6]\\d{5,7}|8\\d{8})","\\d{6,10}"]
+,[,,"(?:1[0-6]\\d|2[13-79][2-6]|3[135-8][2-6]|4[146-9][2-6]|5[135-7][2-6]|6[13-9][2-6]|7[15-9][2-6]|8[1-46-9][2-6]|9[1-79][2-6])\\d{5}","\\d{6,8}",,,"14567890"]
+,[,,"9(?:6[013]|7[245]|8[01456])\\d{7}","\\d{10}",,,"9841234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"NP",977,"00","0",,,"0",,,,[[,"(1)(\\d{7})","$1-$2",["1[2-6]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{2})(\\d{6})","$1-$2",["1[01]|[2-8]|9(?:[1-69]|7[15-9])"]
-,"0$1",""]
-,[,"(9\\d{2})(\\d{7})","$1-$2",["9(?:7[45]|8)"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(9\\d{2})(\\d{7})","$1-$2",["9(?:6[013]|7[245]|8)"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:0[0-3]|12)","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"NR":[,[,,"[458]\\d{6}","\\d{7}"]
 ,[,,"(?:444|888)\\d{4}","\\d{7}",,,"4441234"]
@@ -11772,12 +14068,12 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"NR",674,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"",""]
+,"NR",674,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"NU":[,[,,"[1-5]\\d{3}","\\d{4}"]
 ,[,,"[34]\\d{3}","\\d{4}",,,"4002"]
@@ -11790,69 +14086,71 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"NU",683,"00",,,,,,,,,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"NZ":[,[,,"6[235-9]\\d{6}|[2-57-9]\\d{7,10}","\\d{7,11}"]
-,[,,"(?:3[2-79]|[49][2-689]|6[235-9]|7[2-589])\\d{6}|24099\\d{3}","\\d{7,8}",,,"32345678"]
-,[,,"2(?:[079]\\d{7}|1(?:0\\d{5,7}|[12]\\d{5,6}|[3-9]\\d{5})|[28]\\d{7,8}|4[1-9]\\d{6})","\\d{8,10}",,,"211234567"]
+,[,,"(?:3[2-79]|[49][2-689]|6[235-9]|7[2-5789])\\d{6}|24099\\d{3}","\\d{7,8}",,,"32345678"]
+,[,,"2(?:[028]\\d{7,8}|1(?:[03]\\d{5,7}|[12457]\\d{5,6}|[689]\\d{5})|[79]\\d{7})","\\d{8,10}",,,"211234567"]
 ,[,,"508\\d{6,7}|80\\d{6,8}","\\d{8,10}",,,"800123456"]
 ,[,,"90\\d{7,9}","\\d{9,11}",,,"900123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"NZ",64,"0(?:0|161)","0",,,"0",,"00",,[[,"([34679])(\\d{3})(\\d{4})","$1-$2 $3",["[3467]|9[1-9]"]
-,"0$1",""]
-,[,"(21)(\\d{4})(\\d{3,4})","$1 $2 $3",["21"]
-,"0$1",""]
-,[,"([2589]\\d{2})(\\d{3})(\\d{3,4})","$1 $2 $3",["2[0247-9]|5|[89]00"]
-,"0$1",""]
-,[,"(\\d{2})(\\d{3})(\\d{3,4})","$1 $2 $3",["2[0169]|86"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(24099)(\\d{3})","$1 $2",["240","2409","24099"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["21"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{3})(\\d{3,5})","$1 $2 $3",["2(?:1[1-9]|[69]|7[0-35-9])|86"]
+,"0$1","",0]
+,[,"(2\\d)(\\d{3,4})(\\d{4})","$1 $2 $3",["2[028]"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{3})(\\d{3,4})","$1 $2 $3",["2(?:10|74)|5|[89]0"]
+,"0$1","",0]
 ]
 ,,[,,"[28]6\\d{6,7}","\\d{8,9}",,,"26123456"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"111","\\d{3}",,,"111"]
+,,,[,,"NA","NA"]
 ]
-,"OM":[,[,,"(?:2[3-6]|5|9[2-9])\\d{6}|800\\d{5,6}","\\d{7,9}"]
-,[,,"2[3-6]\\d{6}","\\d{8}",,,"23123456"]
-,[,,"9[2-9]\\d{6}","\\d{8}",,,"92123456"]
+,"OM":[,[,,"(?:2[2-6]|5|9[1-9])\\d{6}|800\\d{5,6}","\\d{7,9}"]
+,[,,"2[2-6]\\d{6}","\\d{8}",,,"23123456"]
+,[,,"9[1-9]\\d{6}","\\d{8}",,,"92123456"]
 ,[,,"8007\\d{4,5}|500\\d{4}","\\d{7,9}",,,"80071234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"OM",968,"00",,,,,,,,[[,"(2\\d)(\\d{6})","$1 $2",["2"]
-,"",""]
+,"","",0]
 ,[,"(9\\d{3})(\\d{4})","$1 $2",["9"]
-,"",""]
+,"","",0]
 ,[,"([58]00)(\\d{4,6})","$1 $2",["[58]"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"9999","\\d{4}",,,"9999"]
+,,,[,,"NA","NA"]
 ]
 ,"PA":[,[,,"[1-9]\\d{6,7}","\\d{7,8}"]
-,[,,"(?:1(?:0[02-579]|19|23|3[03]|4[479]|5[57]|65|7[016-8]|8[58]|9[1-49])|2(?:[0235679]\\d|1[0-7]|4[04-9]|8[028])|3(?:0[0-7]|1[14-7]|2[0-3]|3[03]|4[0457]|5[56]|6[068]|7[078]|80|9[0-79])|4(?:3[013-59]|4\\d|7[0-689])|5(?:[01]\\d|2[0-7]|[56]0|79)|7(?:09|2[0-267]|[34]0|5[6-9]|7[0-24-7]|8[89]|99)|8(?:[34]\\d|5[0-5]|8[02])|9(?:0[78]|1[0178]|2[0378]|3[379]|40|5[0489]|6[06-9]|7[046-9]|8[36-8]|9[1-9]))\\d{4}","\\d{7}",,,"2001234"]
-,[,,"(?:161|21[89]|8(?:1[01]|7[23]))\\d{4}|6(?:[04-8]\\d|1[0-5]|2[0-4]|3[7-9]|9[0-8])\\d{5}","\\d{7,8}",,,"60012345"]
+,[,,"(?:1(?:0[02-579]|19|2[37]|3[03]|4[479]|57|65|7[016-8]|8[58]|9[1349])|2(?:[0235679]\\d|1[0-7]|4[04-9]|8[028])|3(?:[09]\\d|1[14-7]|2[0-3]|3[03]|4[0457]|5[56]|6[068]|7[06-8]|8[089])|4(?:3[013-69]|4\\d|7[0-689])|5(?:[01]\\d|2[0-7]|[56]0|79)|7(?:0[09]|2[0-267]|3[06]|[49]0|5[06-9]|7[0-24-7]|8[89])|8(?:[34]\\d|5[0-4]|8[02])|9(?:0[6-8]|1[016-8]|2[036-8]|3[3679]|40|5[0489]|6[06-9]|7[046-9]|8[36-8]|9[1-9]))\\d{4}","\\d{7}",,,"2001234"]
+,[,,"(?:1[16]1|21[89]|8(?:1[01]|7[23]))\\d{4}|6(?:[024-9]\\d|1[0-5]|3[0-24-9])\\d{5}","\\d{7,8}",,,"60012345"]
 ,[,,"80[09]\\d{4}","\\d{7}",,,"8001234"]
-,[,,"(?:779|8(?:2[235]|60|7[578]|86|95)|9(?:0[0-2]|81))\\d{4}","\\d{7}",,,"8601234"]
+,[,,"(?:779|8(?:2[235]|55|60|7[578]|86|95)|9(?:0[0-2]|81))\\d{4}","\\d{7}",,,"8601234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"PA",507,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1-$2",["[1-57-9]"]
-,"",""]
+,"","",0]
 ,[,"(\\d{4})(\\d{4})","$1-$2",["6"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"911","\\d{3}",,,"911"]
+,,,[,,"NA","NA"]
 ]
 ,"PE":[,[,,"[14-9]\\d{7,8}","\\d{6,9}"]
 ,[,,"(?:1\\d|4[1-4]|5[1-46]|6[1-7]|7[2-46]|8[2-4])\\d{6}","\\d{6,8}",,,"11234567"]
@@ -11863,127 +14161,138 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"80[24]\\d{5}","\\d{8}",,,"80212345"]
 ,[,,"NA","NA"]
 ,"PE",51,"19(?:1[124]|77|90)00","0"," Anexo ",,"0",,,,[[,"(1)(\\d{7})","$1 $2",["1"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"([4-8]\\d)(\\d{6})","$1 $2",["[4-7]|8[2-4]"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"(\\d{3})(\\d{5})","$1 $2",["80"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"(9\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["9"]
-,"$1",""]
+,"$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:05|1[67])","\\d{3}",,,"105"]
+,,,[,,"NA","NA"]
 ]
-,"PF":[,[,,"[2-9]\\d{5}","\\d{6}"]
-,[,,"(?:36\\d|4(?:[02-9]\\d|1[02-9])|[5689]\\d{2})\\d{3}","\\d{6}",,,"401234"]
-,[,,"(?:[27]\\d{3}|3[0-59]\\d{2}|411[3-6])\\d{2}","\\d{6}",,,"212345"]
+,"PF":[,[,,"4\\d{5,7}|8\\d{7}","\\d{6}(?:\\d{2})?"]
+,[,,"4(?:[09][45689]\\d|4)\\d{4}","\\d{6}(?:\\d{2})?",,,"40412345"]
+,[,,"8[79]\\d{6}","\\d{8}",,,"87123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"PF",689,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3",,"",""]
+,"PF",689,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["4[09]|8[79]"]
+,"","",0]
+,[,"(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3",["44"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
-,,,[,,"(?:36|44)\\d{4}","\\d{6}",,,"441234"]
+,,,[,,"44\\d{4}","\\d{6}",,,"441234"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"PG":[,[,,"[1-9]\\d{6,7}","\\d{7,8}"]
-,[,,"(?:3\\d{2}|4[257]\\d|5[34]\\d|6(?:29|4[1-9])|85[02-46-9]|9[78]\\d)\\d{4}","\\d{7}",,,"3123456"]
-,[,,"(?:68|7[1236]\\d)\\d{5}","\\d{7,8}",,,"6812345"]
+,[,,"(?:3[0-2]\\d|4[25]\\d|5[34]\\d|64[1-9]|77(?:[0-24]\\d|30)|85[02-46-9]|9[78]\\d)\\d{4}","\\d{7}",,,"3123456"]
+,[,,"(?:20150|68\\d{2}|7(?:[0-369]\\d|75)\\d{2})\\d{3}","\\d{7,8}",,,"6812345"]
 ,[,,"180\\d{4}","\\d{7}",,,"1801234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"275\\d{4}","\\d{7}",,,"2751234"]
-,"PG",675,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",["[1-689]"]
-,"",""]
-,[,"(7[1-36]\\d)(\\d{2})(\\d{3})","$1 $2 $3",["7[1-36]"]
-,"",""]
+,"PG",675,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",["[13-689]|27"]
+,"","",0]
+,[,"(\\d{4})(\\d{4})","$1 $2",["20|7"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"PH":[,[,,"[2-9]\\d{7,9}|1800\\d{7,9}","\\d{7,13}"]
-,[,,"(?:2|3[2-68]|4[2-9]|5[2-6]|6[2-58]|7[24578]|8[2-8])\\d{7}","\\d{7,9}",,,"21234567"]
-,[,,"9(?:0[5-9]|1[025-9]|2[0-36-9]|3[02-9]|4[236-9]|7[349]|89|9[49])\\d{7}","\\d{10}",,,"9051234567"]
+,"PH":[,[,,"2\\d{5,7}|[3-9]\\d{7,9}|1800\\d{7,9}","\\d{5,13}"]
+,[,,"2\\d{5}(?:\\d{2})?|(?:3[2-68]|4[2-9]|5[2-6]|6[2-58]|7[24578]|8[2-8])\\d{7}|88(?:22\\d{6}|42\\d{4})","\\d{5,10}",,,"21234567"]
+,[,,"(?:81[37]|9(?:0[5-9]|1[024-9]|2[0-35-9]|3[02-9]|4[236-9]|7[34-79]|89|9[4-9]))\\d{7}","\\d{10}",,,"9051234567"]
 ,[,,"1800\\d{7,9}","\\d{11,13}",,,"180012345678"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"PH",63,"00","0",,,"0",,,,[[,"(2)(\\d{3})(\\d{4})","$1 $2 $3",["2"]
-,"(0$1)",""]
-,[,"(\\d{4})(\\d{5})","$1 $2",["3(?:23|39|46)|4(?:2[3-6]|[35]9|4[26]|76)|5(?:22|44)|642|8(?:62|8[245])","3(?:230|397|461)|4(?:2(?:35|[46]4|51)|396|4(?:22|63)|59[347]|76[15])|5(?:221|446)|642[23]|8(?:622|8(?:[24]2|5[13]))"]
-,"(0$1)",""]
+,"(0$1)","",0]
+,[,"(2)(\\d{5})","$1 $2",["2"]
+,"(0$1)","",0]
+,[,"(\\d{4})(\\d{4,6})","$1 $2",["3(?:23|39|46)|4(?:2[3-6]|[35]9|4[26]|76)|5(?:22|44)|642|8(?:62|8[245])","3(?:230|397|461)|4(?:2(?:35|[46]4|51)|396|4(?:22|63)|59[347]|76[15])|5(?:221|446)|642[23]|8(?:622|8(?:[24]2|5[13]))"]
+,"(0$1)","",0]
 ,[,"(\\d{5})(\\d{4})","$1 $2",["346|4(?:27|9[35])|883","3469|4(?:279|9(?:30|56))|8834"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"([3-8]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["[3-8]"]
-,"(0$1)",""]
-,[,"(9\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["9"]
-,"0$1",""]
+,"(0$1)","",0]
+,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["81|9"]
+,"0$1","",0]
 ,[,"(1800)(\\d{3})(\\d{4})","$1 $2 $3",["1"]
-,"",""]
+,"","",0]
 ,[,"(1800)(\\d{1,2})(\\d{3})(\\d{4})","$1 $2 $3 $4",["1"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"11[27]|911","\\d{3}",,,"117"]
+,,,[,,"NA","NA"]
 ]
 ,"PK":[,[,,"1\\d{8}|[2-8]\\d{5,11}|9(?:[013-9]\\d{4,9}|2\\d(?:111\\d{6}|\\d{3,7}))","\\d{6,12}"]
 ,[,,"(?:21|42)[2-9]\\d{7}|(?:2[25]|4[0146-9]|5[1-35-7]|6[1-8]|7[14]|8[16]|91)[2-9]\\d{6}|(?:2(?:3[2358]|4[2-4]|9[2-8])|45[3479]|54[2-467]|60[468]|72[236]|8(?:2[2-689]|3[23578]|4[3478]|5[2356])|9(?:1|2[2-8]|3[27-9]|4[2-6]|6[3569]|9[25-8]))[2-9]\\d{5,6}|58[126]\\d{7}","\\d{6,10}",,,"2123456789"]
-,[,,"3(?:0\\d|1[2-5]|2[1-5]|3[1-6]|4[1-7]|64)\\d{7}","\\d{10}",,,"3012345678"]
+,[,,"3(?:0\\d|1[0-6]|2[0-5]|[34][0-7]|55|64)\\d{7}","\\d{10}",,,"3012345678"]
 ,[,,"800\\d{5}","\\d{8}",,,"80012345"]
 ,[,,"900\\d{5}","\\d{8}",,,"90012345"]
 ,[,,"NA","NA"]
 ,[,,"122\\d{6}","\\d{9}",,,"122044444"]
 ,[,,"NA","NA"]
 ,"PK",92,"00","0",,,"0",,,,[[,"(\\d{2})(111)(\\d{3})(\\d{3})","$1 $2 $3 $4",["(?:2[125]|4[0-246-9]|5[1-35-7]|6[1-8]|7[14]|8[16]|91)1","(?:2[125]|4[0-246-9]|5[1-35-7]|6[1-8]|7[14]|8[16]|91)11","(?:2[125]|4[0-246-9]|5[1-35-7]|6[1-8]|7[14]|8[16]|91)111"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"(\\d{3})(111)(\\d{3})(\\d{3})","$1 $2 $3 $4",["2[349]|45|54|60|72|8[2-5]|9[2-9]","(?:2[349]|45|54|60|72|8[2-5]|9[2-9])\\d1","(?:2[349]|45|54|60|72|8[2-5]|9[2-9])\\d11","(?:2[349]|45|54|60|72|8[2-5]|9[2-9])\\d111"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"(\\d{2})(\\d{7,8})","$1 $2",["(?:2[125]|4[0-246-9]|5[1-35-7]|6[1-8]|7[14]|8[16]|91)[2-9]"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"(\\d{3})(\\d{6,7})","$1 $2",["2[349]|45|54|60|72|8[2-5]|9[2-9]","(?:2[349]|45|54|60|72|8[2-5]|9[2-9])\\d[2-9]"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"(3\\d{2})(\\d{7})","$1 $2",["3"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([15]\\d{3})(\\d{5,6})","$1 $2",["58[12]|1"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"(586\\d{2})(\\d{5})","$1 $2",["586"]
-,"(0$1)",""]
+,"(0$1)","",0]
 ,[,"([89]00)(\\d{3})(\\d{2})","$1 $2 $3",["[89]00"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"(?:2(?:[125]|3[2358]|4[2-4]|9[2-8])|4(?:[0-246-9]|5[3479])|5(?:[1-35-7]|4[2-467])|6(?:[1-8]|0[468])|7(?:[14]|2[236])|8(?:[16]|2[2-689]|3[23578]|4[3478]|5[2356])|9(?:1|22|3[27-9]|4[2-6]|6[3569]|9[2-7]))111\\d{6}","\\d{11,12}",,,"21111825888"]
-,,[,,"1(?:1(?:22?|5)|[56])","\\d{2,4}",,,"112"]
+,,,[,,"NA","NA"]
 ]
-,"PL":[,[,,"[1-9]\\d{8}","\\d{9}"]
-,[,,"(?:1[2-8]|2[2-59]|3[2-4]|4[1-468]|5[24-689]|6[1-3578]|7[14-7]|8[1-79]|9[145])\\d{7}","\\d{9}",,,"123456789"]
-,[,,"(?:5[013]|6[069]|7[289]|88)\\d{7}","\\d{9}",,,"512345678"]
+,"PL":[,[,,"[12]\\d{6,8}|[3-57-9]\\d{8}|6\\d{5,8}","\\d{6,9}"]
+,[,,"(?:1[2-8]|2[2-59]|3[2-4]|4[1-468]|5[24-689]|6[1-3578]|7[14-7]|8[1-79]|9[145])\\d{7}|[12]2\\d{5}","\\d{6,9}",,,"123456789"]
+,[,,"(?:5[0137]|6[069]|7[2389]|88)\\d{7}","\\d{9}",,,"512345678"]
 ,[,,"800\\d{6}","\\d{9}",,,"800123456"]
 ,[,,"70\\d{7}","\\d{9}",,,"701234567"]
 ,[,,"801\\d{6}","\\d{9}",,,"801234567"]
 ,[,,"NA","NA"]
 ,[,,"39\\d{7}","\\d{9}",,,"391234567"]
 ,"PL",48,"00",,,,,,,,[[,"(\\d{2})(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[124]|3[2-4]|5[24-689]|6[1-3578]|7[14-7]|8[1-79]|9[145]"]
-,"",""]
-,[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["39|5[013]|6[069]|7[0289]|8[08]"]
-,"",""]
+,"","",0]
+,[,"(\\d{2})(\\d{1})(\\d{4})","$1 $2 $3",["[12]2"]
+,"","",0]
+,[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["39|5[0137]|6[0469]|7[02389]|8[08]"]
+,"","",0]
+,[,"(\\d{3})(\\d{2})(\\d{2,3})","$1 $2 $3",["64"]
+,"","",0]
+,[,"(\\d{3})(\\d{3})","$1 $2",["64"]
+,"","",0]
 ]
-,,[,,"NA","NA"]
+,,[,,"64\\d{4,7}","\\d{6,9}",,,"641234567"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"112|99[789]","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"PM":[,[,,"[45]\\d{5}","\\d{6}"]
 ,[,,"41\\d{4}","\\d{6}",,,"411234"]
@@ -11993,25 +14302,25 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"PM",508,"00","0",,,"0",,,,[[,"([45]\\d)(\\d{2})(\\d{2})","$1 $2 $3",,"0$1",""]
+,"PM",508,"00","0",,,"0",,,,[[,"([45]\\d)(\\d{2})(\\d{2})","$1 $2 $3",,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1[578]","\\d{2}",,,"17"]
+,,,[,,"NA","NA"]
 ]
 ,"PR":[,[,,"[5789]\\d{9}","\\d{7}(?:\\d{3})?"]
 ,[,,"(?:787|939)[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"7872345678"]
 ,[,,"(?:787|939)[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"7872345678"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002345678"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"PR",1,"011","1",,,"1",,,1,,,[,,"NA","NA"]
 ,,"787|939",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"PS":[,[,,"[24589]\\d{7,8}|1(?:[78]\\d{8}|[49]\\d{2,3})","\\d{4,10}"]
 ,[,,"(?:22[234789]|42[45]|82[01458]|92[369])\\d{5}","\\d{7,8}",,,"22234567"]
@@ -12022,31 +14331,34 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"PS",970,"00","0",,,"0",,,,[[,"([2489])(2\\d{2})(\\d{4})","$1 $2 $3",["[2489]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(5[69]\\d)(\\d{3})(\\d{3})","$1 $2 $3",["5"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(1[78]00)(\\d{3})(\\d{3})","$1 $2 $3",["1[78]"]
-,"$1",""]
+,"$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"PT":[,[,,"[2-46-9]\\d{8}","\\d{9}"]
 ,[,,"2(?:[12]\\d|[35][1-689]|4[1-59]|6[1-35689]|7[1-9]|8[1-69]|9[1256])\\d{6}","\\d{9}",,,"212345678"]
-,[,,"9(?:[136]\\d{2}|2[124-79]\\d|4(?:80|9\\d))\\d{5}","\\d{9}",,,"912345678"]
-,[,,"4\\d{8}|80[02]\\d{6}","\\d{9}",,,"800123456"]
-,[,,"71\\d{7}","\\d{9}",,,"712345678"]
-,[,,"808\\d{6}","\\d{9}",,,"808123456"]
-,[,,"NA","NA"]
+,[,,"9(?:[136]\\d{2}|2[0-79]\\d|480)\\d{5}","\\d{9}",,,"912345678"]
+,[,,"80[02]\\d{6}","\\d{9}",,,"800123456"]
+,[,,"76(?:0[1-57]|1[2-47]|2[237])\\d{5}","\\d{9}",,,"760123456"]
+,[,,"80(?:8\\d|9[1579])\\d{5}","\\d{9}",,,"808123456"]
+,[,,"884[128]\\d{5}","\\d{9}",,,"884123456"]
 ,[,,"30\\d{7}","\\d{9}",,,"301234567"]
-,"PT",351,"00",,,,,,,,[[,"([2-46-9]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",,"",""]
+,"PT",351,"00",,,,,,,,[[,"(2\\d)(\\d{3})(\\d{4})","$1 $2 $3",["2[12]"]
+,"","",0]
+,[,"([2-46-9]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["2[3-9]|[346-9]"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"112","\\d{3}",,,"112"]
+,[,,"70(?:7\\d|8[17])\\d{5}","\\d{9}",,,"707123456"]
+,,,[,,"NA","NA"]
 ]
 ,"PW":[,[,,"[2-8]\\d{6}","\\d{7}"]
 ,[,,"2552255|(?:277|345|488|5(?:35|44|87)|6(?:22|54|79)|7(?:33|47)|8(?:24|55|76))\\d{4}","\\d{7}",,,"2771234"]
@@ -12056,39 +14368,39 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"PW",680,"01[12]",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"",""]
+,"PW",680,"01[12]",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"PY":[,[,,"5[0-5]\\d{4,7}|[2-46-9]\\d{5,8}","\\d{5,9}"]
 ,[,,"(?:[26]1|3[289]|4[124678]|7[123]|8[1236])\\d{5,7}|(?:2(?:2[4568]|7[15]|9[1-5])|3(?:18|3[167]|4[2357]|51)|4(?:18|2[45]|3[12]|5[13]|64|71|9[1-47])|5(?:[1-4]\\d|5[0234])|6(?:3[1-3]|44|7[1-4678])|7(?:17|4[0-4]|6[1-578]|75|8[0-8])|858)\\d{5,6}","\\d{5,9}",,,"212345678"]
-,[,,"9(?:61|7[1-6]|8[1-5]|9[1-5])\\d{6}","\\d{9}",,,"961456789"]
+,[,,"9(?:6[12]|[78][1-6]|9[1-5])\\d{6}","\\d{9}",,,"961456789"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"8700[0-4]\\d{4}","\\d{9}",,,"870012345"]
 ,"PY",595,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{5,7})","$1 $2",["(?:[26]1|3[289]|4[124678]|7[123]|8[1236])"]
-,"($1)",""]
+,"($1)","",0]
 ,[,"(\\d{3})(\\d{3,6})","$1 $2",["[2-9]0"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{3})(\\d{6})","$1 $2",["9[1-9]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["8700"]
-,"",""]
+,"","",0]
 ,[,"(\\d{3})(\\d{4,6})","$1 $2",["[2-8][1-9]"]
-,"($1)",""]
+,"($1)","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"[2-9]0\\d{4,7}","\\d{6,9}",,,"201234567"]
-,,[,,"128|911","\\d{3}",,,"911"]
+,,,[,,"NA","NA"]
 ]
 ,"QA":[,[,,"[2-8]\\d{6,7}","\\d{7,8}"]
-,[,,"44\\d{6}","\\d{7,8}",,,"44123456"]
+,[,,"4[04]\\d{6}","\\d{7,8}",,,"44123456"]
 ,[,,"[3567]\\d{7}","\\d{7,8}",,,"33123456"]
 ,[,,"800\\d{4}","\\d{7,8}",,,"8001234"]
 ,[,,"NA","NA"]
@@ -12096,14 +14408,14 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"QA",974,"00",,,,,,,,[[,"([28]\\d{2})(\\d{4})","$1 $2",["[28]"]
-,"",""]
+,"","",0]
 ,[,"([3-7]\\d{3})(\\d{4})","$1 $2",["[3-7]"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"2(?:[12]\\d|61)\\d{4}","\\d{7}",,,"2123456"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"999","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
 ]
 ,"RE":[,[,,"[268]\\d{8}","\\d{9}"]
 ,[,,"262\\d{6}","\\d{9}",,,"262161234"]
@@ -12113,33 +14425,37 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"8(?:1[019]|2[0156]|84|90)\\d{6}","\\d{9}",,,"810123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"RE",262,"00","0",,,"0",,,,[[,"([268]\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"0$1",""]
+,"RE",262,"00","0",,,"0",,,,[[,"([268]\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,1,"262|6[49]|8",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"RO":[,[,,"[237-9]\\d{8}","\\d{9}"]
-,[,,"[23][13-6]\\d{7}","\\d{9}",,,"211234567"]
-,[,,"7[1-8]\\d{7}","\\d{9}",,,"712345678"]
+,"RO":[,[,,"2\\d{5,8}|[37-9]\\d{8}","\\d{6,9}"]
+,[,,"2(?:1(?:\\d{7}|9\\d{3})|[3-6](?:\\d{7}|\\d9\\d{2}))|3[13-6]\\d{7}","\\d{6,9}",,,"211234567"]
+,[,,"7(?:000|[1-8]\\d{2}|99\\d)\\d{5}","\\d{9}",,,"712345678"]
 ,[,,"800\\d{6}","\\d{9}",,,"800123456"]
 ,[,,"90[036]\\d{6}","\\d{9}",,,"900123456"]
 ,[,,"801\\d{6}","\\d{9}",,,"801123456"]
 ,[,,"802\\d{6}","\\d{9}",,,"802123456"]
 ,[,,"NA","NA"]
-,"RO",40,"00","0"," int ",,"0",,,,[[,"([237]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["[23]1|7"]
-,"0$1",""]
-,[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["[23][02-9]|[89]"]
-,"0$1",""]
+,"RO",40,"00","0"," int ",,"0",,,,[[,"([237]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["[23]1"]
+,"0$1","",0]
+,[,"(21)(\\d{4})","$1 $2",["21"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["[23][3-7]|[7-9]"]
+,"0$1","",0]
+,[,"(2\\d{2})(\\d{3})","$1 $2",["2[3-6]"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"112","\\d{3}",,,"112"]
+,[,,"37\\d{7}","\\d{9}",,,"372123456"]
+,,,[,,"NA","NA"]
 ]
-,"RS":[,[,,"[1-36-9]\\d{4,11}","\\d{5,12}"]
-,[,,"[1-3]\\d{6,11}","\\d{5,12}",,,"101234567"]
+,"RS":[,[,,"[126-9]\\d{4,11}|3(?:[0-79]\\d{3,10}|8[2-9]\\d{2,9})","\\d{5,12}"]
+,[,,"(?:1(?:[02-9][2-9]|1[1-9])\\d|2(?:[0-24-7][2-9]\\d|[389](?:0[2-9]|[2-9]\\d))|3(?:[0-8][2-9]\\d|9(?:[2-9]\\d|0[2-9])))\\d{3,8}","\\d{5,12}",,,"10234567"]
 ,[,,"6(?:[0-689]|7\\d)\\d{6,7}","\\d{8,10}",,,"601234567"]
 ,[,,"800\\d{3,9}","\\d{6,12}",,,"80012345"]
 ,[,,"(?:90[0169]|78\\d)\\d{3,7}","\\d{6,12}",,,"90012345"]
@@ -12147,22 +14463,22 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"RS",381,"00","0",,,"0",,,,[[,"([23]\\d{2})(\\d{4,9})","$1 $2",["(?:2[389]|39)0"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([1-3]\\d)(\\d{5,10})","$1 $2",["1|2(?:[0-24-7]|[389][1-9])|3(?:[0-8]|9[1-9])"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(6\\d)(\\d{6,8})","$1 $2",["6"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([89]\\d{2})(\\d{3,9})","$1 $2",["[89]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(7[26])(\\d{4,9})","$1 $2",["7[26]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(7[08]\\d)(\\d{4,9})","$1 $2",["7[08]"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"7[06]\\d{4,10}","\\d{6,12}",,,"700123456"]
-,,[,,"112|9[234]","\\d{2,3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"RU":[,[,,"[3489]\\d{9}","\\d{10}"]
 ,[,,"(?:3(?:0[12]|4[1-35-79]|5[1-3]|8[1-58]|9[0145])|4(?:01|1[1356]|2[13467]|7[1-5]|8[1-7]|9[1-689])|8(?:1[1-8]|2[01]|3[13-6]|4[0-8]|5[15]|6[1-35-7]|7[1-37-9]))\\d{7}","\\d{10}",,,"3011234567"]
@@ -12172,133 +14488,146 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"RU",7,"810","8",,,"8",,"8~10",,[[,"([3489]\\d{2})(\\d{3})(\\d{2})(\\d{2})","$1 $2-$3-$4",["[34689]"]
-,"8 ($1)",""]
+,"RU",7,"810","8",,,"8",,"8~10",,[[,"(\\d{3})(\\d{2})(\\d{2})","$1-$2-$3",["[1-79]"]
+,"$1","",1]
+,[,"([3489]\\d{2})(\\d{3})(\\d{2})(\\d{2})","$1 $2-$3-$4",["[34689]"]
+,"8 ($1)","",1]
 ,[,"(7\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["7"]
-,"8 ($1)",""]
+,"8 ($1)","",1]
 ]
-,,[,,"NA","NA"]
+,[[,"([3489]\\d{2})(\\d{3})(\\d{2})(\\d{2})","$1 $2-$3-$4",["[34689]"]
+,"8 ($1)","",1]
+,[,"(7\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["7"]
+,"8 ($1)","",1]
+]
+,[,,"NA","NA"]
 ,1,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"0[123]|112","\\d{2,3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"RW":[,[,,"[027-9]\\d{7,8}","\\d{8,9}"]
 ,[,,"2[258]\\d{7}|06\\d{6}","\\d{8,9}",,,"250123456"]
-,[,,"7[258]\\d{7}","\\d{9}",,,"720123456"]
+,[,,"7[238]\\d{7}","\\d{9}",,,"720123456"]
 ,[,,"800\\d{6}","\\d{9}",,,"800123456"]
 ,[,,"900\\d{6}","\\d{9}",,,"900123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"RW",250,"00","0",,,"0",,,,[[,"(2\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["2"]
-,"$1",""]
+,"$1","",0]
 ,[,"([7-9]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["[7-9]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(0\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["0"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,1,[,,"112","\\d{3}",,,"112"]
+,1,,[,,"NA","NA"]
 ]
-,"SA":[,[,,"[1-9]\\d{7,10}","\\d{7,11}"]
-,[,,"(?:1[24-7]|2[24-8]|3[35-8]|4[34-68]|6[2-5]|7[235-7])\\d{6}","\\d{7,8}",,,"12345678"]
-,[,,"(?:5[013-689]\\d|8111)\\d{6}","\\d{9,10}",,,"512345678"]
+,"SA":[,[,,"1\\d{7,8}|(?:[2-467]|92)\\d{7}|5\\d{8}|8\\d{9}","\\d{7,10}"]
+,[,,"11\\d{7}|1?(?:2[24-8]|3[35-8]|4[3-68]|6[2-5]|7[235-7])\\d{6}","\\d{7,9}",,,"112345678"]
+,[,,"(?:5(?:[013-689]\\d|7[0-26-8])|811\\d)\\d{6}","\\d{9,10}",,,"512345678"]
 ,[,,"800\\d{7}","\\d{10}",,,"8001234567"]
-,[,,"9200\\d{7}","\\d{11}",,,"92001234567"]
 ,[,,"NA","NA"]
+,[,,"92[05]\\d{6}","\\d{9}",,,"920012345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"SA",966,"00","0",,,"0",,,,[[,"([1-467])(\\d{3})(\\d{4})","$1 $2 $3",["[1-467]"]
-,"0$1",""]
-,[,"(9200)(\\d{3})(\\d{4})","$1 $2 $3",["9"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(1\\d)(\\d{3})(\\d{4})","$1 $2 $3",["1[1-467]"]
+,"0$1","",0]
 ,[,"(5\\d)(\\d{3})(\\d{4})","$1 $2 $3",["5"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(92\\d{2})(\\d{5})","$1 $2",["92"]
+,"$1","",0]
 ,[,"(800)(\\d{3})(\\d{4})","$1 $2 $3",["80"]
-,"0$1",""]
-,[,"(8111)(\\d{3})(\\d{3})","$1 $2 $3",["81"]
-,"0$1",""]
+,"$1","",0]
+,[,"(811)(\\d{3})(\\d{3,4})","$1 $2 $3",["81"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"99[7-9]","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
 ]
-,"SB":[,[,,"[1-8]\\d{4,6}","\\d{5,7}"]
+,"SB":[,[,,"[1-9]\\d{4,6}","\\d{5,7}"]
 ,[,,"(?:1[4-79]|[23]\\d|4[01]|5[03]|6[0-37])\\d{3}","\\d{5}",,,"40123"]
-,[,,"7(?:4\\d|5[025-8]|6[01])\\d{4}|8[4-8]\\d{5}","\\d{7}",,,"7421234"]
+,[,,"48\\d{3}|7(?:[46-8]\\d|5[025-9]|9[0-4])\\d{4}|8[4-8]\\d{5}|9(?:1[2-9]|2[013-9]|3[0-2]|[46]\\d|5[0-46-9]|7[0-689]|8[0-79]|9[0-8])\\d{4}","\\d{5,7}",,,"7421234"]
 ,[,,"1[38]\\d{3}","\\d{5}",,,"18123"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"5[12]\\d{3}","\\d{5}",,,"51123"]
-,"SB",677,"0[01]",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",["[78]"]
-,"",""]
+,"SB",677,"0[01]",,,,,,,,[[,"(\\d{2})(\\d{5})","$1 $2",["[7-9]"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"999","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
 ]
-,"SC":[,[,,"[2-9]\\d{5,6}","\\d{6,7}"]
-,[,,"(?:2?(?:55[0-5]|78[013])|4?(?:2(?:0[589]|1[03-9]|[2-9]\\d)|[36]\\d{2})|44\\d{2})\\d{3}","\\d{6,7}",,,"4217123"]
-,[,,"2?(?:5(?:[0-46-9]\\d|5[6-9])|7(?:[0-79]\\d|8[24-9]))\\d{3}","\\d{6,7}",,,"2510123"]
+,"SC":[,[,,"[24689]\\d{5,6}","\\d{6,7}"]
+,[,,"4[2-46]\\d{5}","\\d{7}",,,"4217123"]
+,[,,"2[5-8]\\d{5}","\\d{7}",,,"2510123"]
 ,[,,"8000\\d{2}","\\d{6}",,,"800000"]
 ,[,,"98\\d{4}","\\d{6}",,,"981234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"64\\d{5}","\\d{7}",,,"6412345"]
-,"SC",248,"0[0-2]",,,,,,"00",,[[,"(\\d{3})(\\d{3})","$1 $2",["[35789]|2[1-4689]|6[0-35-9]"]
-,"",""]
-,[,"(\\d)(\\d{3})(\\d{3})","$1 $2 $3",["2[57]|4|64"]
-,"",""]
+,"SC",248,"0[0-2]",,,,,,"00",,[[,"(\\d{3})(\\d{3})","$1 $2",["[89]"]
+,"","",0]
+,[,"(\\d)(\\d{3})(\\d{3})","$1 $2 $3",["[246]"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"SD":[,[,,"[19]\\d{8}","\\d{9}"]
-,[,,"1(?:[25]\\d|8[3567])\\d{6}","\\d{9}",,,"121231234"]
+,[,,"1(?:[125]\\d|8[3567])\\d{6}","\\d{9}",,,"121231234"]
 ,[,,"9[012569]\\d{7}","\\d{9}",,,"911231234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"SD",249,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",,"0$1",""]
+,"SD",249,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"999","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
 ]
-,"SE":[,[,,"[1-9]\\d{6,9}","\\d{5,10}"]
-,[,,"1(?:0[1-8]\\d{6}|[136]\\d{5,7}|(?:2[0-35]|4[0-4]|5[0-25-9]|7[13-6]|[89]\\d)\\d{5,6})|2(?:[136]\\d{5,7}|(?:2[0-7]|4[0136-8]|5[0-38]|7[018]|8[01]|9[0-57])\\d{5,6})|3(?:[356]\\d{5,7}|(?:0[0-4]|1\\d|2[0-25]|4[056]|7[0-2]|8[0-3]|9[023])\\d{5,6})|4(?:[0246]\\d{5,7}|(?:1[01-8]|3[0135]|5[14-79]|7[0-246-9]|8[0156]|9[0-689])\\d{5,6})|5(?:0[0-6]|1[0-5]|2[0-68]|3[0-4]|4\\d|5[0-5]|6[03-5]|7[013]|8[0-79]|9[01])\\d{5,6}|6(?:[03]\\d{5,7}|(?:1[1-3]|2[0-4]|4[02-57]|5[0-37]|6[0-3]|7[0-2]|8[0247]|9[0-356])\\d{5,6})|8\\d{6,8}|9(?:0\\d{5,7}|(?:1[0-68]|2\\d|3[02-59]|4[0-4]|5[0-4]|6[01]|7[0135-8]|8[01])\\d{5,6})","\\d{5,9}",,,"8123456"]
-,[,,"7[02-46]\\d{7}","\\d{9}",,,"701234567"]
-,[,,"20\\d{4,7}","\\d{6,9}",,,"201234567"]
-,[,,"9(?:00|39|44)\\d{7}","\\d{10}",,,"9001234567"]
-,[,,"77\\d{7}","\\d{9}",,,"771234567"]
-,[,,"NA","NA"]
+,"SE":[,[,,"[1-9]\\d{5,9}","\\d{5,10}"]
+,[,,"1(?:0[1-8]\\d{6}|[136]\\d{5,7}|(?:2[0-35]|4[0-4]|5[0-25-9]|7[13-6]|[89]\\d)\\d{5,6})|2(?:[136]\\d{5,7}|(?:2[0-7]|4[0136-8]|5[0138]|7[018]|8[01]|9[0-57])\\d{5,6})|3(?:[356]\\d{5,7}|(?:0[0-4]|1\\d|2[0-25]|4[056]|7[0-2]|8[0-3]|9[023])\\d{5,6})|4(?:0[1-9]\\d{4,6}|[246]\\d{5,7}|(?:1[013-8]|3[0135]|5[14-79]|7[0-246-9]|8[0156]|9[0-689])\\d{5,6})|5(?:0[0-6]|[15][0-5]|2[0-68]|3[0-4]|4\\d|6[03-5]|7[013]|8[0-79]|9[01])\\d{5,6}|6(?:0[1-9]\\d{4,6}|3\\d{5,7}|(?:1[1-3]|2[0-4]|4[02-57]|5[0-37]|6[0-3]|7[0-2]|8[0247]|9[0-356])\\d{5,6})|8[1-9]\\d{5,7}|9(?:0[1-9]\\d{4,6}|(?:1[0-68]|2\\d|3[02-5]|4[0-3]|5[0-4]|[68][01]|7[0135-8])\\d{5,6})","\\d{5,9}",,,"8123456"]
+,[,,"7[0236]\\d{7}","\\d{9}",,,"701234567"]
+,[,,"20(?:0(?:0\\d{2}|[1-9](?:0\\d{1,4}|[1-9]\\d{4}))|1(?:0\\d{4}|[1-9]\\d{4,5})|[2-9]\\d{5})","\\d{6,9}",,,"20123456"]
+,[,,"9(?:00|39|44)(?:1(?:[0-26]\\d{5}|[3-57-9]\\d{2})|2(?:[0-2]\\d{5}|[3-9]\\d{2})|3(?:[0139]\\d{5}|[24-8]\\d{2})|4(?:[045]\\d{5}|[1-36-9]\\d{2})|5(?:5\\d{5}|[0-46-9]\\d{2})|6(?:[679]\\d{5}|[0-58]\\d{2})|7(?:[078]\\d{5}|[1-69]\\d{2})|8(?:[578]\\d{5}|[0-469]\\d{2}))","\\d{7}(?:\\d{3})?",,,"9001234567"]
+,[,,"77(?:0(?:0\\d{2}|[1-9](?:0\\d|[1-9]\\d{4}))|[1-6][1-9]\\d{5})","\\d{6}(?:\\d{3})?",,,"771234567"]
+,[,,"75[1-8]\\d{6}","\\d{9}",,,"751234567"]
 ,[,,"NA","NA"]
 ,"SE",46,"00","0",,,"0",,,,[[,"(8)(\\d{2,3})(\\d{2,3})(\\d{2})","$1-$2 $3 $4",["8"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([1-69]\\d)(\\d{2,3})(\\d{2})(\\d{2})","$1-$2 $3 $4",["1[013689]|2[0136]|3[1356]|4[0246]|54|6[03]|90"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([1-69]\\d)(\\d{3})(\\d{2})","$1-$2 $3",["1[13689]|2[136]|3[1356]|4[0246]|54|6[03]|90"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{3})(\\d{2})(\\d{2})(\\d{2})","$1-$2 $3 $4",["1[2457]|2[2457-9]|3[0247-9]|4[1357-9]|5[0-35-9]|6[124-9]|9(?:[125-8]|3[0-5]|4[0-3])"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{3})(\\d{2,3})(\\d{2})","$1-$2 $3",["1[2457]|2[2457-9]|3[0247-9]|4[1357-9]|5[0-35-9]|6[124-9]|9(?:[125-8]|3[0-5]|4[0-3])"]
-,"0$1",""]
-,[,"(7[02-467])(\\d{3})(\\d{2})(\\d{2})","$1-$2 $3 $4",["7[02-467]"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(7\\d)(\\d{3})(\\d{2})(\\d{2})","$1-$2 $3 $4",["7"]
+,"0$1","",0]
+,[,"(77)(\\d{2})(\\d{2})","$1-$2$3",["7"]
+,"0$1","",0]
 ,[,"(20)(\\d{2,3})(\\d{2})","$1-$2 $3",["20"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(9[034]\\d)(\\d{2})(\\d{2})(\\d{3})","$1-$2 $3 $4",["9[034]"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(9[034]\\d)(\\d{4})","$1-$2",["9[034]"]
+,"0$1","",0]
 ]
 ,[[,"(8)(\\d{2,3})(\\d{2,3})(\\d{2})","$1 $2 $3 $4",["8"]
 ]
@@ -12310,87 +14639,91 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ]
 ,[,"(\\d{3})(\\d{2,3})(\\d{2})","$1 $2 $3",["1[2457]|2[2457-9]|3[0247-9]|4[1357-9]|5[0-35-9]|6[124-9]|9(?:[125-8]|3[0-5]|4[0-3])"]
 ]
-,[,"(7[02-467])(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4",["7[02-467]"]
+,[,"(7\\d)(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4",["7"]
+]
+,[,"(77)(\\d{2})(\\d{2})","$1 $2 $3",["7"]
 ]
 ,[,"(20)(\\d{2,3})(\\d{2})","$1 $2 $3",["20"]
 ]
 ,[,"(9[034]\\d)(\\d{2})(\\d{2})(\\d{3})","$1 $2 $3 $4",["9[034]"]
 ]
+,[,"(9[034]\\d)(\\d{4})","$1 $2",["9[034]"]
 ]
-,[,,"NA","NA"]
+]
+,[,,"74[02-9]\\d{6}","\\d{9}",,,"740123456"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"112|90000","\\d{3,5}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"SG":[,[,,"[36]\\d{7}|[17-9]\\d{7,10}","\\d{8,11}"]
-,[,,"6[1-8]\\d{6}","\\d{8}",,,"61234567"]
-,[,,"(?:8[1-6]|9[0-8])\\d{6}","\\d{8}",,,"81234567"]
+,[,,"6[1-9]\\d{6}","\\d{8}",,,"61234567"]
+,[,,"(?:8[1-7]|9[0-8])\\d{6}","\\d{8}",,,"81234567"]
 ,[,,"1?800\\d{7}","\\d{10,11}",,,"18001234567"]
 ,[,,"1900\\d{7}","\\d{11}",,,"19001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"3[0-2]\\d{6}","\\d{8}",,,"31234567"]
-,"SG",65,"0[0-3][0-9]",,,,,,,,[[,"([3689]\\d{3})(\\d{4})","$1 $2",["[369]|8[1-9]"]
-,"",""]
+,[,,"3[12]\\d{6}","\\d{8}",,,"31234567"]
+,"SG",65,"0[0-3]\\d",,,,,,,,[[,"([3689]\\d{3})(\\d{4})","$1 $2",["[369]|8[1-9]"]
+,"","",0]
 ,[,"(1[89]00)(\\d{3})(\\d{4})","$1 $2 $3",["1[89]"]
-,"",""]
+,"","",0]
 ,[,"(7000)(\\d{4})(\\d{3})","$1 $2 $3",["70"]
-,"",""]
+,"","",0]
 ,[,"(800)(\\d{3})(\\d{4})","$1 $2 $3",["80"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"7000\\d{7}","\\d{11}",,,"70001234567"]
-,,[,,"112|9(?:11|9[59])","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
 ]
-,"SH":[,[,,"[2-9]\\d{3}","\\d{4}"]
-,[,,"(?:[2-468]\\d|7[01])\\d{2}","\\d{4}",,,"2158"]
+,"SH":[,[,,"[2-79]\\d{3,4}","\\d{4,5}"]
+,[,,"2(?:[0-57-9]\\d|6[4-9])\\d{2}|(?:[2-46]\\d|7[01])\\d{2}","\\d{4,5}",,,"2158"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"(?:[59]\\d|7[2-9])\\d{2}","\\d{4}",,,"5012"]
+,[,,"(?:[59]\\d|7[2-9])\\d{2}","\\d{4,5}",,,"5012"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"SH",290,"00",,,,,,,,,,[,,"NA","NA"]
-,,,[,,"NA","NA"]
+,1,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"SI":[,[,,"[1-7]\\d{6,7}|[89]\\d{4,7}","\\d{5,8}"]
-,[,,"(?:1\\d|2[2-8]|3[4-8]|4[24-8]|[57][3-8])\\d{6}","\\d{7,8}",,,"11234567"]
-,[,,"(?:[37][01]|4[019]|51|64)\\d{6}","\\d{8}",,,"31234567"]
+,[,,"(?:1\\d|[25][2-8]|3[4-8]|4[24-8]|7[3-8])\\d{6}","\\d{7,8}",,,"11234567"]
+,[,,"(?:[37][01]|4[0139]|51|6[48])\\d{6}","\\d{8}",,,"31234567"]
 ,[,,"80\\d{4,6}","\\d{6,8}",,,"80123456"]
 ,[,,"90\\d{4,6}|89[1-3]\\d{2,5}","\\d{5,8}",,,"90123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"(?:59|8[1-3])\\d{6}","\\d{8}",,,"59012345"]
-,"SI",386,"00","0",,,"0",,,,[[,"(\\d)(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[12]|3[4-8]|4[24-8]|5[3-8]|7[3-8]"]
-,"(0$1)",""]
-,[,"([3-7]\\d)(\\d{3})(\\d{3})","$1 $2 $3",["[37][01]|4[019]|51|64"]
-,"0$1",""]
+,"SI",386,"00","0",,,"0",,,,[[,"(\\d)(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[12]|3[4-8]|4[24-8]|5[2-8]|7[3-8]"]
+,"(0$1)","",0]
+,[,"([3-7]\\d)(\\d{3})(\\d{3})","$1 $2 $3",["[37][01]|4[0139]|51|6"]
+,"0$1","",0]
 ,[,"([89][09])(\\d{3,6})","$1 $2",["[89][09]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([58]\\d{2})(\\d{5})","$1 $2",["59|8[1-3]"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"11[23]","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"SJ":[,[,,"0\\d{4}|[4789]\\d{7}","\\d{5}(?:\\d{3})?"]
 ,[,,"79\\d{6}","\\d{8}",,,"79123456"]
-,[,,"(?:4[015-8]|9\\d)\\d{6}","\\d{8}",,,"41234567"]
+,[,,"(?:4[015-8]|5[89]|9\\d)\\d{6}","\\d{8}",,,"41234567"]
 ,[,,"80[01]\\d{5}","\\d{8}",,,"80012345"]
 ,[,,"82[09]\\d{5}","\\d{8}",,,"82012345"]
 ,[,,"810(?:0[0-6]|[2-8]\\d)\\d{3}","\\d{8}",,,"81021234"]
 ,[,,"880\\d{5}","\\d{8}",,,"88012345"]
-,[,,"NA","NA"]
+,[,,"85[0-5]\\d{5}","\\d{8}",,,"85012345"]
 ,"SJ",47,"00",,,,,,,,,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"0\\d{4}|81(?:0(?:0[7-9]|1\\d)|5\\d{2})\\d{3}","\\d{5}(?:\\d{3})?",,,"01234"]
-,1,[,,"NA","NA"]
+,1,,[,,"81[23]\\d{5}","\\d{8}",,,"81212345"]
 ]
 ,"SK":[,[,,"[2-689]\\d{8}","\\d{9}"]
 ,[,,"[2-5]\\d{8}","\\d{9}",,,"212345678"]
@@ -12401,31 +14734,31 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"6(?:5[0-4]|9[0-6])\\d{6}","\\d{9}",,,"690123456"]
 ,"SK",421,"00","0",,,"0",,,,[[,"(2)(\\d{3})(\\d{3})(\\d{2})","$1/$2 $3 $4",["2"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([3-5]\\d)(\\d{3})(\\d{2})(\\d{2})","$1/$2 $3 $4",["[3-5]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([689]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["[689]"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
+,,,[,,"(?:8(?:00|[5-9]\\d)|9(?:00|[78]\\d))\\d{6}","\\d{9}",,,"800123456"]
+,[,,"96\\d{7}","\\d{9}",,,"961234567"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"1(?:12|5[058])","\\d{3}",,,"112"]
 ]
 ,"SL":[,[,,"[2-578]\\d{7}","\\d{6,8}"]
 ,[,,"[235]2[2-4][2-9]\\d{4}","\\d{6,8}",,,"22221234"]
-,[,,"(?:25|3[03]|44|5[056]|7[6-8]|88)[1-9]\\d{5}","\\d{6,8}",,,"25123456"]
+,[,,"(?:2[15]|3[034]|4[04]|5[05]|7[6-9]|88)\\d{6}","\\d{6,8}",,,"25123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"SL",232,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{6})","$1 $2",,"(0$1)",""]
+,"SL",232,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{6})","$1 $2",,"(0$1)","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"(?:01|99)9","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
 ]
 ,"SM":[,[,,"[05-7]\\d{7,9}","\\d{6,10}"]
 ,[,,"0549(?:8[0157-9]|9\\d)\\d{4}","\\d{6,10}",,,"0549886377"]
@@ -12436,14 +14769,14 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"5[158]\\d{6}","\\d{8}",,,"58001110"]
 ,"SM",378,"00",,,,"(?:0549)?([89]\\d{5})","0549$1",,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[5-7]"]
-,"",""]
+,"","",0]
 ,[,"(0549)(\\d{6})","$1 $2",["0"]
-,"",""]
+,"","",0]
 ,[,"(\\d{6})","0549 $1",["[89]"]
-,"",""]
+,"","",0]
 ]
 ,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[5-7]"]
-]
+,"","",0]
 ,[,"(0549)(\\d{6})","($1) $2",["0"]
 ]
 ,[,"(\\d{6})","(0549) $1",["[89]"]
@@ -12452,66 +14785,84 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,1,[,,"11[358]","\\d{3}",,,"113"]
+,1,,[,,"NA","NA"]
 ]
-,"SN":[,[,,"[37]\\d{8}","\\d{9}"]
-,[,,"3(?:010|3(?:8[1-9]|9[2-9]))\\d{5}","\\d{9}",,,"301012345"]
-,[,,"7(?:0[1256]0|6(?:1[23]|2[89]|3[3489]|4[6-9]|5[1-9]|6[3-9]|7[45]|8[3-8])|7(?:01|[12-79]\\d|8[0139]))\\d{5}","\\d{9}",,,"701012345"]
+,"SN":[,[,,"[3789]\\d{8}","\\d{9}"]
+,[,,"3(?:0(?:1[0-2]|80)|282|3(?:8[1-9]|9[3-9])|611|90[1-5])\\d{5}","\\d{9}",,,"301012345"]
+,[,,"7(?:[067]\\d|21|8[0-26]|90)\\d{6}","\\d{9}",,,"701234567"]
+,[,,"800\\d{6}","\\d{9}",,,"800123456"]
+,[,,"88[4689]\\d{6}","\\d{9}",,,"884123456"]
+,[,,"81[02468]\\d{6}","\\d{9}",,,"810123456"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"33301\\d{4}","\\d{9}",,,"333011234"]
-,"SN",221,"00",,,,,,,,[[,"(\\d{2})(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"",""]
-]
-,,[,,"NA","NA"]
-,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"NA","NA"]
-]
-,"SO":[,[,,"[1-69]\\d{6,8}","\\d{7,9}"]
-,[,,"(?:5[57-9]|6[19]\\d{2}|[134]\\d)\\d{5}","\\d{7,9}",,,"5522010"]
-,[,,"(?:15|24|62|9[01])\\d{6}","\\d{8}",,,"90792024"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"SO",252,"00",,,,,,,,[[,"(\\d)(\\d{6})","$1 $2",["[13-5]"]
-,"",""]
-,[,"(2)(\\d{7})","$1 $2",["2"]
-,"",""]
-,[,"([169]\\d)(\\d{6})","$1 $2",["15|62|9"]
-,"",""]
-,[,"(61)(\\d{7})","$1 $2",["61"]
-,"",""]
-,[,"(699)(\\d{6})","$1 $2",["699"]
-,"",""]
+,[,,"3392\\d{5}|93330\\d{4}","\\d{9}",,,"933301234"]
+,"SN",221,"00",,,,,,,,[[,"(\\d{2})(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4",["[379]"]
+,"","",0]
+,[,"(\\d{3})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",["8"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+]
+,"SO":[,[,,"[1-79]\\d{6,8}","\\d{7,9}"]
+,[,,"(?:1\\d|2[0-79]|3[0-46-8]|4[0-7]|59)\\d{5}","\\d{7}",,,"4012345"]
+,[,,"(?:15\\d|2(?:4\\d|8)|6[137-9]?\\d{2}|7[1-9]\\d|907\\d)\\d{5}","\\d{7,9}",,,"71123456"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"SO",252,"00","0",,,"0",,,,[[,"(\\d)(\\d{6})","$1 $2",["2[0-79]|[13-5]"]
+,"","",0]
+,[,"(\\d)(\\d{7})","$1 $2",["24|[67]"]
+,"","",0]
+,[,"(\\d{2})(\\d{5,7})","$1 $2",["15|28|6[1378]"]
+,"","",0]
+,[,"(69\\d)(\\d{6})","$1 $2",["69"]
+,"","",0]
+,[,"(90\\d)(\\d{3})(\\d{3})","$1 $2 $3",["90"]
+,"","",0]
+]
 ,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"SR":[,[,,"[2-8]\\d{5,6}","\\d{6,7}"]
 ,[,,"(?:2[1-3]|3[0-7]|4\\d|5[2-58]|68\\d)\\d{4}","\\d{6,7}",,,"211234"]
-,[,,"(?:7[1245]|8[1-9])\\d{5}","\\d{7}",,,"7412345"]
+,[,,"(?:7[124-7]|8[1-9])\\d{5}","\\d{7}",,,"7412345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"56\\d{4}","\\d{6}",,,"561234"]
+,[,,"5(?:6\\d{4}|90[0-4]\\d{3})","\\d{6,7}",,,"561234"]
 ,"SR",597,"00",,,,,,,,[[,"(\\d{3})(\\d{3})","$1-$2",["[2-4]|5[2-58]"]
-,"",""]
+,"","",0]
 ,[,"(\\d{2})(\\d{2})(\\d{2})","$1-$2-$3",["56"]
-,"",""]
-,[,"(\\d{3})(\\d{4})","$1-$2",["[6-8]"]
-,"",""]
+,"","",0]
+,[,"(\\d{3})(\\d{4})","$1-$2",["59|[6-8]"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"115","\\d{3}",,,"115"]
+,,,[,,"NA","NA"]
+]
+,"SS":[,[,,"[19]\\d{8}","\\d{9}"]
+,[,,"18\\d{7}","\\d{9}",,,"181234567"]
+,[,,"(?:12|9[1257])\\d{7}","\\d{9}",,,"977123456"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"SS",211,"00","0",,,"0",,,,[[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",,"0$1","",0]
+]
+,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"ST":[,[,,"[29]\\d{6}","\\d{7}"]
 ,[,,"22\\d{5}","\\d{7}",,,"2221234"]
@@ -12521,50 +14872,63 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"ST",239,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"",""]
+,"ST",239,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"SV":[,[,,"[27]\\d{7}|[89]\\d{6}(?:\\d{4})?","\\d{7,8}|\\d{11}"]
+,"SV":[,[,,"[267]\\d{7}|[89]\\d{6}(?:\\d{4})?","\\d{7,8}|\\d{11}"]
 ,[,,"2[1-6]\\d{6}","\\d{8}",,,"21234567"]
-,[,,"7\\d{7}","\\d{8}",,,"70123456"]
+,[,,"[67]\\d{7}","\\d{8}",,,"70123456"]
 ,[,,"800\\d{4}(?:\\d{4})?","\\d{7}(?:\\d{4})?",,,"8001234"]
 ,[,,"900\\d{4}(?:\\d{4})?","\\d{7}(?:\\d{4})?",,,"9001234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"SV",503,"00",,,,,,,,[[,"(\\d{4})(\\d{4})","$1 $2",["[27]"]
-,"",""]
+,"SV",503,"00",,,,,,,,[[,"(\\d{4})(\\d{4})","$1 $2",["[267]"]
+,"","",0]
 ,[,"(\\d{3})(\\d{4})","$1 $2",["[89]"]
-,"",""]
+,"","",0]
 ,[,"(\\d{3})(\\d{4})(\\d{4})","$1 $2 $3",["[89]"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"911","\\d{3}",,,"911"]
+,,,[,,"NA","NA"]
+]
+,"SX":[,[,,"[5789]\\d{9}","\\d{7}(?:\\d{3})?"]
+,[,,"7215(?:4[2-8]|8[239]|9[056])\\d{4}","\\d{7}(?:\\d{3})?",,,"7215425678"]
+,[,,"7215(?:1[02]|2\\d|5[034679]|8[014-8])\\d{4}","\\d{10}",,,"7215205678"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002123456"]
+,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002123456"]
+,[,,"NA","NA"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"NA","NA"]
+,"SX",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
+,,"721",[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"SY":[,[,,"[1-59]\\d{7,8}","\\d{6,9}"]
-,[,,"(?:1(?:1\\d?|4\\d|[2356])|2[1-35]|3(?:[13]\\d|4)|4[13]|5[1-3])\\d{6}","\\d{6,9}",,,"112345678"]
-,[,,"9(?:3[23]|4[457]|55|6[67]|88|9[1-49])\\d{6}","\\d{9}",,,"944567890"]
+,[,,"(?:1(?:1\\d?|4\\d|[2356])|2(?:1\\d?|[235])|3(?:[13]\\d|4)|4[13]|5[1-3])\\d{6}","\\d{6,9}",,,"112345678"]
+,[,,"9(?:22|[35][0-8]|4\\d|6[024-9]|88|9[0-489])\\d{6}","\\d{9}",,,"944567890"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"SY",963,"00","0",,,"0",,,,[[,"(\\d{2})(\\d{3})(\\d{3,4})","$1 $2 $3",["[1-5]"]
-,"0$1",""]
-,[,"(9[3-689])(\\d{4})(\\d{3})","$1 $2 $3",["9"]
-,"0$1",""]
+,"0$1","",1]
+,[,"(9\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["9"]
+,"0$1","",1]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"11[023]","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"SZ":[,[,,"[027]\\d{7}","\\d{8}"]
 ,[,,"2(?:2(?:0[07]|[13]7|2[57])|3(?:0[34]|[1278]3|3[23]|[46][34])|(?:40[4-69]|67)|5(?:0[5-7]|1[6-9]|[23][78]|48|5[01]))\\d{4}","\\d{8}",,,"22171234"]
@@ -12575,210 +14939,229 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"SZ",268,"00",,,,,,,,[[,"(\\d{4})(\\d{4})","$1 $2",["[027]"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"0800\\d{4}","\\d{8}",,,"08001234"]
 ,[,,"NA","NA"]
-,1,[,,"NA","NA"]
+,1,,[,,"NA","NA"]
+]
+,"TA":[,[,,"8\\d{3}","\\d{4}"]
+,[,,"8\\d{3}","\\d{4}",,,"8999"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"TA",290,"00",,,,,,,,,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"TC":[,[,,"[5689]\\d{9}","\\d{7}(?:\\d{3})?"]
 ,[,,"649(?:712|9(?:4\\d|50))\\d{4}","\\d{7}(?:\\d{3})?",,,"6497121234"]
-,[,,"649(?:2(?:3[12]|4[1-5])|3(?:3[1-39]|4[1-57])|4[34][12])\\d{4}","\\d{10}",,,"6492311234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
+,[,,"649(?:2(?:3[129]|4[1-7])|3(?:3[1-389]|4[1-7])|4[34][1-3])\\d{4}","\\d{10}",,,"6492311234"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002345678"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"64971[01]\\d{4}","\\d{10}",,,"6497101234"]
 ,"TC",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"649",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"TD":[,[,,"[2679]\\d{7}","\\d{8}"]
 ,[,,"22(?:[3789]0|5[0-5]|6[89])\\d{4}","\\d{8}",,,"22501234"]
-,[,,"(?:6[36]\\d|77\\d|9(?:5[0-4]|9\\d))\\d{5}","\\d{8}",,,"63012345"]
+,[,,"(?:6[02368]\\d|77\\d|9(?:5[0-4]|9\\d))\\d{5}","\\d{8}",,,"63012345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"TD",235,"00|16",,,,,,"00",,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"",""]
+,"TD",235,"00|16",,,,,,"00",,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1[78]","\\d{2}",,,"17"]
+,,,[,,"NA","NA"]
 ]
 ,"TG":[,[,,"[29]\\d{7}","\\d{8}"]
 ,[,,"2(?:2[2-7]|3[23]|44|55|66|77)\\d{5}","\\d{8}",,,"22212345"]
-,[,,"9[0-289]\\d{6}","\\d{8}",,,"90112345"]
+,[,,"9[0-389]\\d{6}","\\d{8}",,,"90112345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"TG",228,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"",""]
+,"TG",228,"00",,,,,,,,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"TH":[,[,,"[2-9]\\d{7,8}|1\\d{9}","\\d{8,10}"]
-,[,,"(?:2[1-9]|3[2-9]|4[2-5]|5[2-6]|7[3-7])\\d{6}","\\d{8}",,,"21234567"]
-,[,,"[89]\\d{8}","\\d{9}",,,"812345678"]
+,"TH":[,[,,"[2-9]\\d{7,8}|1\\d{3}(?:\\d{5,6})?","\\d{4}|\\d{8,10}"]
+,[,,"(?:2\\d|3[2-9]|4[2-5]|5[2-6]|7[3-7])\\d{6}","\\d{8}",,,"21234567"]
+,[,,"(?:14|6[1-3]|[89]\\d)\\d{7}","\\d{9}",,,"812345678"]
 ,[,,"1800\\d{6}","\\d{10}",,,"1800123456"]
 ,[,,"1900\\d{6}","\\d{10}",,,"1900123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"60\\d{7}","\\d{9}",,,"601234567"]
+,[,,"6[08]\\d{7}","\\d{9}",,,"601234567"]
 ,"TH",66,"00","0",,,"0",,,,[[,"(2)(\\d{3})(\\d{4})","$1 $2 $3",["2"]
-,"0$1",""]
-,[,"([3-7]\\d)(\\d{3})(\\d{3,4})","$1 $2 $3",["[3-7]"]
-,"0$1",""]
-,[,"([89])(\\d{4})(\\d{4})","$1 $2 $3",["[89]"]
-,"0$1",""]
+,"0$1","",0]
+,[,"([13-9]\\d)(\\d{3})(\\d{3,4})","$1 $2 $3",["14|[3-9]"]
+,"0$1","",0]
 ,[,"(1[89]00)(\\d{3})(\\d{3})","$1 $2 $3",["1"]
-,"$1",""]
+,"$1","",0]
 ]
 ,,[,,"NA","NA"]
+,,,[,,"1\\d{3}","\\d{4}",,,"1100"]
+,[,,"1\\d{3}","\\d{4}",,,"1100"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"1(?:669|9[19])","\\d{3,4}",,,"191"]
 ]
 ,"TJ":[,[,,"[3-59]\\d{8}","\\d{3,9}"]
 ,[,,"(?:3(?:1[3-5]|2[245]|3[12]|4[24-7]|5[25]|72)|4(?:46|74|87))\\d{6}","\\d{3,9}",,,"372123456"]
-,[,,"(?:505|9[0-35-9]\\d)\\d{6}","\\d{9}",,,"917123456"]
+,[,,"(?:50[125]|9[0-35-9]\\d)\\d{6}","\\d{9}",,,"917123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"TJ",992,"810","8",,,"8",,"8~10",,[[,"([349]\\d{2})(\\d{2})(\\d{4})","$1 $2 $3",["[34]7|91[78]"]
-,"(8) $1",""]
+,"(8) $1","",1]
 ,[,"([459]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["4[48]|5|9(?:1[59]|[0235-9])"]
-,"(8) $1",""]
+,"(8) $1","",1]
 ,[,"(331700)(\\d)(\\d{2})","$1 $2 $3",["331","3317","33170","331700"]
-,"(8) $1",""]
+,"(8) $1","",1]
 ,[,"(\\d{4})(\\d)(\\d{4})","$1 $2 $3",["3[1-5]","3(?:[1245]|3(?:[02-9]|1[0-589]))"]
-,"(8) $1",""]
+,"(8) $1","",1]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:0[1-3]|12)","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
-,"TK":[,[,,"[1-9]\\d{3}","\\d{4}",,,"3190"]
-,[,,"[1-9]\\d{3}","\\d{4}",,,"3190"]
-,[,,"[1-9]\\d{3}","\\d{4}",,,"3190"]
+,"TK":[,[,,"[2-9]\\d{3}","\\d{4}"]
+,[,,"[2-4]\\d{3}","\\d{4}",,,"3010"]
+,[,,"[5-9]\\d{3}","\\d{4}",,,"5190"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"TK",690,"00",,,,,,,1,,,[,,"NA","NA"]
+,"TK",690,"00",,,,,,,,,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"TL":[,[,,"[2-47-9]\\d{6}","\\d{7}"]
+,"TL":[,[,,"[2-489]\\d{6}|7\\d{6,7}","\\d{7,8}"]
 ,[,,"(?:2[1-5]|3[1-9]|4[1-4])\\d{5}","\\d{7}",,,"2112345"]
-,[,,"7[2-4]\\d{5}","\\d{7}",,,"7212345"]
+,[,,"7[3-8]\\d{6}","\\d{8}",,,"77212345"]
 ,[,,"80\\d{5}","\\d{7}",,,"8012345"]
 ,[,,"90\\d{5}","\\d{7}",,,"9012345"]
 ,[,,"NA","NA"]
 ,[,,"70\\d{5}","\\d{7}",,,"7012345"]
 ,[,,"NA","NA"]
-,"TL",670,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",,"",""]
+,"TL",670,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",["[2-489]"]
+,"","",0]
+,[,"(\\d{4})(\\d{4})","$1 $2",["7"]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"TM":[,[,,"[1-6]\\d{7}","\\d{8}"]
-,[,,"(?:12\\d|243|[3-5]22)\\d{5}","\\d{8}",,,"12345678"]
-,[,,"6[6-8]\\d{6}","\\d{8}",,,"66123456"]
+,[,,"(?:1(?:2\\d|3[1-9])|2(?:22|4[0-35-8])|3(?:22|4[03-9])|4(?:22|3[128]|4\\d|6[15])|5(?:22|5[7-9]|6[014-689]))\\d{5}","\\d{8}",,,"12345678"]
+,[,,"6[2-8]\\d{6}","\\d{8}",,,"66123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"TM",993,"810","8",,,"8",,"8~10",,[[,"([1-6]\\d)(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"8 $1",""]
+,"TM",993,"810","8",,,"8",,"8~10",,[[,"(\\d{2})(\\d{2})(\\d{2})(\\d{2})","$1 $2-$3-$4",["12"]
+,"(8 $1)","",0]
+,[,"(\\d{2})(\\d{6})","$1 $2",["6"]
+,"8 $1","",0]
+,[,"(\\d{3})(\\d)(\\d{2})(\\d{2})","$1 $2-$3-$4",["13|[2-5]"]
+,"(8 $1)","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"TN":[,[,,"[2457-9]\\d{7}","\\d{8}"]
-,[,,"7\\d{7}","\\d{8}",,,"71234567"]
-,[,,"(?:[29]\\d|4[01]|5[01258]|)\\d{6}","\\d{8}",,,"20123456"]
+,"TN":[,[,,"[2-57-9]\\d{7}","\\d{8}"]
+,[,,"3[012]\\d{6}|7\\d{7}|81200\\d{3}","\\d{8}",,,"71234567"]
+,[,,"(?:[259]\\d|4[0-24])\\d{6}","\\d{8}",,,"20123456"]
+,[,,"8010\\d{4}","\\d{8}",,,"80101234"]
+,[,,"88\\d{6}","\\d{8}",,,"88123456"]
+,[,,"8[12]10\\d{4}","\\d{8}",,,"81101234"]
 ,[,,"NA","NA"]
-,[,,"8[028]\\d{6}","\\d{8}",,,"80123456"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"TN",216,"00",,,,,,,,[[,"(\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",,"",""]
+,"TN",216,"00",,,,,,,,[[,"(\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"19[078]","\\d{3}",,,"197"]
+,,,[,,"NA","NA"]
 ]
 ,"TO":[,[,,"[02-8]\\d{4,6}","\\d{5,7}"]
 ,[,,"(?:2\\d|3[1-8]|4[1-4]|[56]0|7[0149]|8[05])\\d{3}","\\d{5}",,,"20123"]
-,[,,"(?:7[578]|8[7-9])\\d{5}","\\d{7}",,,"7715123"]
+,[,,"(?:7[578]|8[47-9])\\d{5}","\\d{7}",,,"7715123"]
 ,[,,"0800\\d{3}","\\d{7}",,,"0800222"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"TO",676,"00",,,,,,,,[[,"(\\d{2})(\\d{3})","$1-$2",["[1-6]|7[0-4]|8[05]"]
-,"",""]
-,[,"(\\d{3})(\\d{4})","$1 $2",["7[5-9]|8[7-9]"]
-,"",""]
+,"","",0]
+,[,"(\\d{3})(\\d{4})","$1 $2",["7[5-9]|8[47-9]"]
+,"","",0]
 ,[,"(\\d{4})(\\d{3})","$1 $2",["0"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,1,[,,"NA","NA"]
+,1,,[,,"NA","NA"]
 ]
 ,"TR":[,[,,"[2-589]\\d{9}|444\\d{4}","\\d{7,10}"]
 ,[,,"(?:2(?:[13][26]|[28][2468]|[45][268]|[67][246])|3(?:[13][28]|[24-6][2468]|[78][02468]|92)|4(?:[16][246]|[23578][2468]|4[26]))\\d{7}","\\d{10}",,,"2123456789"]
-,[,,"5(?:0[1-35-7]|22|3\\d|4[1-79]|5[1-5]|9[246])\\d{7}","\\d{10}",,,"5012345678"]
+,[,,"5(?:0[1-7]|22|[34]\\d|5[1-59]|9[246])\\d{7}","\\d{10}",,,"5012345678"]
 ,[,,"800\\d{7}","\\d{10}",,,"8001234567"]
 ,[,,"900\\d{7}","\\d{10}",,,"9001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"TR",90,"00","0",,,"0",,,,[[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["[23]|4(?:[0-35-9]|4[0-35-9])"]
-,"(0$1)",""]
+,"(0$1)","",1]
 ,[,"(\\d{3})(\\d{3})(\\d{4})","$1 $2 $3",["[589]"]
-,"0$1",""]
+,"0$1","",1]
 ,[,"(444)(\\d{1})(\\d{3})","$1 $2 $3",["444"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"512\\d{7}","\\d{10}",,,"5123456789"]
 ,,,[,,"444\\d{4}","\\d{7}",,,"4441444"]
 ,[,,"444\\d{4}|850\\d{7}","\\d{7,10}",,,"4441444"]
-,,[,,"1(?:1[02]|55)","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"TT":[,[,,"[589]\\d{9}","\\d{7}(?:\\d{3})?"]
-,[,,"868(?:2(?:01|2[1-5])|6(?:07|1[4-6]|2[1-9]|[3-6]\\d|7[0-79]|9[0-8])|82[12])\\d{4}","\\d{7}(?:\\d{3})?",,,"8682211234"]
-,[,,"868(?:29\\d|3(?:0[1-9]|1[02-9]|[2-9]\\d)|4(?:[679]\\d|8[0-4])|6(?:20|78|8\\d)|7(?:03|1[02-9]|[2-9]\\d))\\d{4}","\\d{10}",,,"8682911234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
+,[,,"868(?:2(?:[03]1|2[1-5])|6(?:0[79]|1[02-9]|2[1-9]|[3-69]\\d|7[0-79])|82[124])\\d{4}","\\d{7}(?:\\d{3})?",,,"8682211234"]
+,[,,"868(?:2(?:[89]\\d)|3(?:0[1-9]|1[02-9]|[2-9]\\d)|4[6-9]\\d|6(?:20|78|8\\d)|7(?:0[1-9]|1[02-9]|[2-9]\\d))\\d{4}","\\d{10}",,,"8682911234"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002345678"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"TT",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"868",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"99[09]","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
 ]
 ,"TV":[,[,,"[29]\\d{4,5}","\\d{5,6}"]
 ,[,,"2[02-9]\\d{3}","\\d{5}",,,"20123"]
@@ -12791,45 +15174,47 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"TV",688,"00",,,,,,,,,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"TW":[,[,,"[2-9]\\d{7,8}","\\d{8,9}"]
+,"TW":[,[,,"[2-689]\\d{7,8}|7\\d{7,9}","\\d{8,10}"]
 ,[,,"[2-8]\\d{7,8}","\\d{8,9}",,,"21234567"]
 ,[,,"9\\d{8}","\\d{9}",,,"912345678"]
 ,[,,"800\\d{6}","\\d{9}",,,"800123456"]
 ,[,,"900\\d{6}","\\d{9}",,,"900123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"TW",886,"0(?:0[25679]|19)","0","#",,"0",,,,[[,"([2-8])(\\d{3,4})(\\d{4})","$1 $2 $3",["[2-7]|8[1-9]"]
-,"0$1",""]
+,[,,"70\\d{8}","\\d{10}",,,"7012345678"]
+,"TW",886,"0(?:0[25679]|19)","0","#",,"0",,,,[[,"([2-8])(\\d{3,4})(\\d{4})","$1 $2 $3",["[2-6]|[78][1-9]"]
+,"0$1","",0]
 ,[,"([89]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["80|9"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(70)(\\d{4})(\\d{4})","$1 $2 $3",["70"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"11[029]","\\d{3}",,,"110"]
+,,,[,,"NA","NA"]
 ]
 ,"TZ":[,[,,"\\d{9}","\\d{7,9}"]
 ,[,,"2[2-8]\\d{7}","\\d{7,9}",,,"222345678"]
-,[,,"(?:6[158]|7[1-9])\\d{7}","\\d{9}",,,"612345678"]
+,[,,"(?:6[1578]|7[1-9])\\d{7}","\\d{9}",,,"612345678"]
 ,[,,"80[08]\\d{6}","\\d{9}",,,"800123456"]
 ,[,,"90\\d{7}","\\d{9}",,,"900123456"]
 ,[,,"8(?:40|6[01])\\d{6}","\\d{9}",,,"840123456"]
 ,[,,"NA","NA"]
 ,[,,"41\\d{7}","\\d{9}",,,"412345678"]
 ,"TZ",255,"00[056]","0",,,"0",,,,[[,"([24]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["[24]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([67]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["[67]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([89]\\d{2})(\\d{2})(\\d{4})","$1 $2 $3",["[89]"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"UA":[,[,,"[3-689]\\d{8}","\\d{5,9}"]
 ,[,,"(?:3[1-8]|4[13-8]|5[1-7]|6[12459])\\d{7}","\\d{5,9}",,,"311234567"]
@@ -12838,119 +15223,119 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"900\\d{6}","\\d{9}",,,"900123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,"UA",380,"00","0",,,"0",,"0~0",,[[,"([3-69]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["39|4(?:[45][0-5]|87)|5(?:0|6[37]|7[37])|6[36-8]|9[1-9]","39|4(?:[45][0-5]|87)|5(?:0|6(?:3[14-7]|7)|7[37])|6[36-8]|9[1-9]"]
-,"0$1",""]
-,[,"([3-689]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["3[1-8]2|4[1378]2|5(?:[12457]2|6[24])|6(?:[49]2|[12][29]|5[24])|8|90","3(?:[1-46-8]2[013-9]|52)|4[1378]2|5(?:[12457]2|6[24])|6(?:[49]2|[12][29]|5[24])|8|90"]
-,"0$1",""]
-,[,"([3-6]\\d{3})(\\d{5})","$1 $2",["3(?:5[013-9]|[1-46-8])|4(?:[137][013-9]|6|[45][6-9]|8[4-6])|5(?:[1245][013-9]|6[0135-9]|3|7[4-6])|6(?:[49][013-9]|5[0135-9]|[12][13-8])","3(?:5[013-9]|[1-46-8](?:22|[013-9]))|4(?:[137][013-9]|6|[45][6-9]|8[4-6])|5(?:[1245][013-9]|6(?:3[02389]|[015689])|3|7[4-6])|6(?:[49][013-9]|5[0135-9]|[12][13-8])"]
-,"0$1",""]
+,[,,"89\\d{7}","\\d{9}",,,"891234567"]
+,"UA",380,"00","0",,,"0",,"0~0",,[[,"([3-689]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["[38]9|4(?:[45][0-5]|87)|5(?:0|6[37]|7[37])|6[36-8]|9[1-9]","[38]9|4(?:[45][0-5]|87)|5(?:0|6(?:3[14-7]|7)|7[37])|6[36-8]|9[1-9]"]
+,"0$1","",0]
+,[,"([3-689]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["3[1-8]2|4[13678]2|5(?:[12457]2|6[24])|6(?:[49]2|[12][29]|5[24])|8[0-8]|90","3(?:[1-46-8]2[013-9]|52)|4(?:[1378]2|62[013-9])|5(?:[12457]2|6[24])|6(?:[49]2|[12][29]|5[24])|8[0-8]|90"]
+,"0$1","",0]
+,[,"([3-6]\\d{3})(\\d{5})","$1 $2",["3(?:5[013-9]|[1-46-8])|4(?:[137][013-9]|6|[45][6-9]|8[4-6])|5(?:[1245][013-9]|6[0135-9]|3|7[4-6])|6(?:[49][013-9]|5[0135-9]|[12][13-8])","3(?:5[013-9]|[1-46-8](?:22|[013-9]))|4(?:[137][013-9]|6(?:[013-9]|22)|[45][6-9]|8[4-6])|5(?:[1245][013-9]|6(?:3[02389]|[015689])|3|7[4-6])|6(?:[49][013-9]|5[0135-9]|[12][13-8])"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"1(?:0[123]|12)","\\d{3}",,,"112"]
+,,,[,,"NA","NA"]
 ]
 ,"UG":[,[,,"\\d{9}","\\d{5,9}"]
-,[,,"3\\d{8}|4(?:[1-6]\\d|7[136]|8[1356]|96)\\d{6}|20(?:[04]\\d|24)\\d{5}","\\d{5,9}",,,"312345678"]
-,[,,"7(?:[15789]\\d|0[0-7])\\d{6}","\\d{9}",,,"712345678"]
+,[,,"20(?:[0147]\\d{2}|2(?:40|[5-9]\\d)|3[23]\\d|5[0-4]\\d|6[03]\\d|8[0-2]\\d)\\d{4}|[34]\\d{8}","\\d{5,9}",,,"312345678"]
+,[,,"2030\\d{5}|7(?:0[0-7]|[15789]\\d|2[03]|30|[46][0-4])\\d{6}","\\d{9}",,,"712345678"]
 ,[,,"800[123]\\d{5}","\\d{9}",,,"800123456"]
 ,[,,"90[123]\\d{6}","\\d{9}",,,"901123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"UG",256,"00[057]","0",,,"0",,,,[[,"(\\d{3})(\\d{6})","$1 $2",["[7-9]|200|4(?:6[45]|[7-9])"]
-,"0$1",""]
-,[,"(\\d{2})(\\d{7})","$1 $2",["204|3|4(?:[1-5]|6[0-36-9])"]
-,"0$1",""]
-,[,"(2024)(\\d{5})","$1 $2",["202"]
-,"0$1",""]
+,"UG",256,"00[057]","0",,,"0",,,,[[,"(\\d{3})(\\d{6})","$1 $2",["[7-9]|20(?:[013-8]|2[5-9])|4(?:6[45]|[7-9])"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{7})","$1 $2",["3|4(?:[1-5]|6[0-36-9])"]
+,"0$1","",0]
+,[,"(2024)(\\d{5})","$1 $2",["2024"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"999","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
 ]
 ,"US":[,[,,"[2-9]\\d{9}","\\d{7}(?:\\d{3})?"]
-,[,,"(?:2(?:0[1-35-9]|1[02-9]|2[4589]|3[149]|4[08]|5[1-46]|6[0279]|7[06]|8[13])|3(?:0[1-57-9]|1[02-9]|2[0135]|3[014679]|47|5[12]|6[01]|8[056])|4(?:0[124-9]|1[02-579]|2[3-5]|3[0245]|4[0235]|58|69|7[0589]|8[04])|5(?:0[1-57-9]|1[0235-8]|20|3[0149]|4[01]|5[19]|6[1-37]|7[013-5]|8[056])|6(?:0[1-35-9]|1[024-9]|2[036]|3[016]|4[16]|5[017]|6[0-29]|78|8[12])|7(?:0[1-46-8]|1[02-9]|2[047]|3[124]|4[07]|5[47]|6[02359]|7[02-59]|8[156])|8(?:0[1-68]|1[02-8]|28|3[0-25]|4[3578]|5[06-9]|6[02-5]|7[028])|9(?:0[1346-9]|1[02-9]|2[0589]|3[1678]|4[0179]|5[1246]|7[0-3589]|8[059]))[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"2012345678"]
-,[,,"(?:2(?:0[1-35-9]|1[02-9]|2[4589]|3[149]|4[08]|5[1-46]|6[0279]|7[06]|8[13])|3(?:0[1-57-9]|1[02-9]|2[0135]|3[014679]|47|5[12]|6[01]|8[056])|4(?:0[124-9]|1[02-579]|2[3-5]|3[0245]|4[0235]|58|69|7[0589]|8[04])|5(?:0[1-57-9]|1[0235-8]|20|3[0149]|4[01]|5[19]|6[1-37]|7[013-5]|8[056])|6(?:0[1-35-9]|1[024-9]|2[036]|3[016]|4[16]|5[017]|6[0-29]|78|8[12])|7(?:0[1-46-8]|1[02-9]|2[047]|3[124]|4[07]|5[47]|6[02359]|7[02-59]|8[156])|8(?:0[1-68]|1[02-8]|28|3[0-25]|4[3578]|5[06-9]|6[02-5]|7[028])|9(?:0[1346-9]|1[02-9]|2[0589]|3[1678]|4[0179]|5[1246]|7[0-3589]|8[059]))[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"2012345678"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
+,[,,"(?:2(?:0[1-35-9]|1[02-9]|2[4589]|3[149]|4[08]|5[1-46]|6[0279]|7[026]|8[13])|3(?:0[1-57-9]|1[02-9]|2[0135]|3[014679]|4[67]|5[12]|6[014]|8[56])|4(?:0[124-9]|1[02-579]|2[3-5]|3[0245]|4[0235]|58|69|7[0589]|8[04])|5(?:0[1-57-9]|1[0235-8]|20|3[0149]|4[01]|5[19]|6[1-37]|7[013-5]|8[056])|6(?:0[1-35-9]|1[024-9]|2[036]|3[016]|4[16]|5[017]|6[0-279]|78|8[12])|7(?:0[1-46-8]|1[02-9]|2[0457]|3[1247]|4[07]|5[47]|6[02359]|7[02-59]|8[156])|8(?:0[1-68]|1[02-8]|28|3[0-25]|4[3578]|5[06-9]|6[02-5]|7[028])|9(?:0[1346-9]|1[02-9]|2[0589]|3[01678]|4[0179]|5[12469]|7[0-3589]|8[0459]))[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"2015555555"]
+,[,,"(?:2(?:0[1-35-9]|1[02-9]|2[4589]|3[149]|4[08]|5[1-46]|6[0279]|7[026]|8[13])|3(?:0[1-57-9]|1[02-9]|2[0135]|3[014679]|4[67]|5[12]|6[014]|8[56])|4(?:0[124-9]|1[02-579]|2[3-5]|3[0245]|4[0235]|58|69|7[0589]|8[04])|5(?:0[1-57-9]|1[0235-8]|20|3[0149]|4[01]|5[19]|6[1-37]|7[013-5]|8[056])|6(?:0[1-35-9]|1[024-9]|2[036]|3[016]|4[16]|5[017]|6[0-279]|78|8[12])|7(?:0[1-46-8]|1[02-9]|2[0457]|3[1247]|4[07]|5[47]|6[02359]|7[02-59]|8[156])|8(?:0[1-68]|1[02-8]|28|3[0-25]|4[3578]|5[06-9]|6[02-5]|7[028])|9(?:0[1346-9]|1[02-9]|2[0589]|3[01678]|4[0179]|5[12469]|7[0-3589]|8[0459]))[2-9]\\d{6}","\\d{7}(?:\\d{3})?",,,"2015555555"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002345678"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
-,"US",1,"011","1",,,"1",,,1,[[,"(\\d{3})(\\d{4})","$1-$2",,"",""]
-,[,"(\\d{3})(\\d{3})(\\d{4})","($1) $2-$3",,"",""]
+,"US",1,"011","1",,,"1",,,1,[[,"(\\d{3})(\\d{4})","$1-$2",,"","",1]
+,[,"(\\d{3})(\\d{3})(\\d{4})","($1) $2-$3",,"","",1]
 ]
 ,[[,"(\\d{3})(\\d{3})(\\d{4})","$1-$2-$3"]
 ]
 ,[,,"NA","NA"]
 ,1,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"112|911","\\d{3}",,,"911"]
+,,,[,,"NA","NA"]
 ]
 ,"UY":[,[,,"[2489]\\d{6,7}","\\d{7,8}"]
 ,[,,"2\\d{7}|4[2-7]\\d{6}","\\d{7,8}",,,"21231234"]
-,[,,"9[13-9]\\d{6}","\\d{8}",,,"94231234"]
+,[,,"9[1-9]\\d{6}","\\d{8}",,,"94231234"]
 ,[,,"80[05]\\d{4}","\\d{7}",,,"8001234"]
 ,[,,"90[0-8]\\d{4}","\\d{7}",,,"9001234"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"UY",598,"0(?:1[3-9]\\d|0)","0"," int. ",,"0",,"00",,[[,"(\\d{4})(\\d{4})","$1 $2",["[24]"]
-,"",""]
+,"","",0]
 ,[,"(\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["9[1-9]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(\\d{3})(\\d{4})","$1 $2",["[89]0"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"128|911","\\d{3}",,,"911"]
+,,,[,,"NA","NA"]
 ]
 ,"UZ":[,[,,"[679]\\d{8}","\\d{7,9}"]
-,[,,"(?:6(?:1(?:22|3[124]|4[1-4]|5[123578]|64)|2(?:22|3[0-57-9]|41)|5(?:22|3[3-7]|5[024-8])|6\\d{2}|7(?:[23]\\d|7[69]|)|9(?:4[1-8]|6[135]))|7(?:0(?:5[4-9]|6[0146]|7[12456]|9[135-8])|12\\d|2(?:22|3[1345789]|4[123579]|5[14])|3(?:2\\d|3[1578]|4[1-35-7]|5[1-57]|61)|4(?:2\\d|3[1-4579]|7[1-79])|5(?:22|5[1-9]|6[1457])|6(?:22|3[12457]|4[13-8])|9(?:22|5[1-9])))\\d{5}","\\d{7,9}",,,"662345678"]
-,[,,"6(?:1(?:2(?:98|2[01])|35[0-4]|50\\d|61[23]|7(?:[01][017]|4\\d|55|9[5-9]))|2(?:11\\d|2(?:[12]1|9[01379])|5(?:[126]\\d|3[0-4])|7\\d{2})|5(?:19[01]|2(?:27|9[26])|30\\d|59\\d|7\\d{2})|6(?:2(?:1[5-9]|2[0367]|38|41|52|60)|3[79]\\d|4(?:56|83)|7(?:[07]\\d|1[017]|3[07]|4[047]|5[057]|67|8[0178]|9[79])|9[0-3]\\d)|7(?:2(?:24|3[237]|4[5-9]|7[15-8])|5(?:7[12]|8[0589])|7(?:0\\d|[39][07])|9(?:0\\d|7[079]))|9(2(?:1[1267]|5\\d|3[01]|7[0-4])|5[67]\\d|6(?:2[0-26]|8\\d)|7\\d{2}))\\d{4}|7(?:0\\d{3}|1(?:13[01]|6(?:0[47]|1[67]|66)|71[3-69]|98\\d)|2(?:2(?:2[79]|95)|3(?:2[5-9]|6[0-6])|57\\d|7(?:0\\d|1[17]|2[27]|3[37]|44|5[057]|66|88))|3(?:2(?:1[0-6]|21|3[469]|7[159])|33\\d|5(?:0[0-4]|5[579]|9\\d)|7(?:[0-3579]\\d|4[0467]|6[67]|8[078])|9[4-6]\\d)|4(?:2(?:29|5[0257]|6[0-7]|7[1-57])|5(?:1[0-4]|8\\d|9[5-9])|7(?:0\\d|1[024589]|2[0127]|3[0137]|[46][07]|5[01]|7[5-9]|9[079])|9(?:7[015-9]|[89]\\d))|5(?:112|2(?:0\\d|2[29]|[49]4)|3[1568]\\d|52[6-9]|7(?:0[01578]|1[017]|[23]7|4[047]|[5-7]\\d|8[78]|9[079]))|6(?:2(?:2[1245]|4[2-4])|39\\d|41[179]|5(?:[349]\\d|5[0-2])|7(?:0[017]|[13]\\d|22|44|55|67|88))|9(?:22[128]|3(?:2[0-4]|7\\d)|57[05629]|7(?:2[05-9]|3[37]|4\\d|60|7[2579]|87|9[07])))\\d{4}|9[0-57-9]\\d{7}","\\d{7,9}",,,"912345678"]
+,[,,"(?:6(?:1(?:22|3[124]|4[1-4]|5[123578]|64)|2(?:22|3[0-57-9]|41)|5(?:22|3[3-7]|5[024-8])|6\\d{2}|7(?:[23]\\d|7[69])|9(?:22|4[1-8]|6[135]))|7(?:0(?:5[4-9]|6[0146]|7[12456]|9[135-8])|1[12]\\d|2(?:22|3[1345789]|4[123579]|5[14])|3(?:2\\d|3[1578]|4[1-35-7]|5[1-57]|61)|4(?:2\\d|3[1-579]|7[1-79])|5(?:22|5[1-9]|6[1457])|6(?:22|3[12457]|4[13-8])|9(?:22|5[1-9])))\\d{5}","\\d{7,9}",,,"662345678"]
+,[,,"6(?:1(?:2(?:98|2[01])|35[0-4]|50\\d|61[23]|7(?:[01][017]|4\\d|55|9[5-9]))|2(?:11\\d|2(?:[12]1|9[01379])|5(?:[126]\\d|3[0-4])|7\\d{2})|5(?:19[01]|2(?:27|9[26])|30\\d|59\\d|7\\d{2})|6(?:2(?:1[5-9]|2[0367]|38|41|52|60)|3[79]\\d|4(?:56|83)|7(?:[07]\\d|1[017]|3[07]|4[047]|5[057]|67|8[0178]|9[79])|9[0-3]\\d)|7(?:2(?:24|3[237]|4[5-9]|7[15-8])|5(?:7[12]|8[0589])|7(?:0\\d|[39][07])|9(?:0\\d|7[079]))|9(?:2(?:1[1267]|5\\d|3[01]|7[0-4])|5[67]\\d|6(?:2[0-26]|8\\d)|7\\d{2}))\\d{4}|7(?:0\\d{3}|1(?:13[01]|6(?:0[47]|1[67]|66)|71[3-69]|98\\d)|2(?:2(?:2[79]|95)|3(?:2[5-9]|6[0-6])|57\\d|7(?:0\\d|1[17]|2[27]|3[37]|44|5[057]|66|88))|3(?:2(?:1[0-6]|21|3[469]|7[159])|33\\d|5(?:0[0-4]|5[579]|9\\d)|7(?:[0-3579]\\d|4[0467]|6[67]|8[078])|9[4-6]\\d)|4(?:2(?:29|5[0257]|6[0-7]|7[1-57])|5(?:1[0-4]|8\\d|9[5-9])|7(?:0\\d|1[024589]|2[0127]|3[0137]|[46][07]|5[01]|7[5-9]|9[079])|9(?:7[015-9]|[89]\\d))|5(?:112|2(?:0\\d|2[29]|[49]4)|3[1568]\\d|52[6-9]|7(?:0[01578]|1[017]|[23]7|4[047]|[5-7]\\d|8[78]|9[079]))|6(?:2(?:2[1245]|4[2-4])|39\\d|41[179]|5(?:[349]\\d|5[0-2])|7(?:0[017]|[13]\\d|22|44|55|67|88))|9(?:22[128]|3(?:2[0-4]|7\\d)|57[05629]|7(?:2[05-9]|3[37]|4\\d|60|7[2579]|87|9[07])))\\d{4}|9[0-57-9]\\d{7}","\\d{7,9}",,,"912345678"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"UZ",998,"810","8",,,"8",,"8~10",,[[,"([679]\\d)(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"8$1",""]
+,"UZ",998,"810","8",,,"8",,"8~10",,[[,"([679]\\d)(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4",,"8 $1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"VA":[,[,,"06\\d{8}","\\d{10}"]
 ,[,,"06698\\d{5}","\\d{10}",,,"0669812345"]
-,[,,"N/A","N/A"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"VA",379,"00",,,,,,,,[[,"(06)(\\d{4})(\\d{4})","$1 $2 $3",,"",""]
+,[,,"NA","NA"]
+,"VA",379,"00",,,,,,,,[[,"(06)(\\d{4})(\\d{4})","$1 $2 $3",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,1,[,,"11[2358]","\\d{3}",,,"113"]
+,1,,[,,"NA","NA"]
 ]
 ,"VC":[,[,,"[5789]\\d{9}","\\d{7}(?:\\d{3})?"]
-,[,,"784(?:266|3(?:6[6-9]|7\\d|8[0-24-6])|4(?:38|5[0-36-8]|8\\d|9[01])|555|638|784)\\d{4}","\\d{7}(?:\\d{3})?",,,"7842661234"]
-,[,,"784(?:4(?:3[0-4]|5[45]|9[2-5])|5(?:2[6-9]|3[0-4]|93))\\d{4}","\\d{10}",,,"7844301234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
+,[,,"784(?:266|3(?:6[6-9]|7\\d|8[0-24-6])|4(?:38|5[0-36-8]|8[0-8])|5(?:55|7[0-2]|93)|638|784)\\d{4}","\\d{7}(?:\\d{3})?",,,"7842661234"]
+,[,,"784(?:4(?:3[0-4]|5[45]|89|9[0-5])|5(?:2[6-9]|3[0-4]))\\d{4}","\\d{10}",,,"7844301234"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002345678"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"VC",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"784",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"VE":[,[,,"[24589]\\d{9}","\\d{7,10}"]
 ,[,,"(?:2(?:12|3[457-9]|[58][1-9]|[467]\\d|9[1-6])|50[01])\\d{7}","\\d{7,10}",,,"2121234567"]
@@ -12960,71 +15345,73 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"VE",58,"00","0",,,"(1\\d{2})|0",,,,[[,"(\\d{3})(\\d{7})","$1-$2",,"0$1","$CC $1"]
+,"VE",58,"00","0",,,"0",,,,[[,"(\\d{3})(\\d{7})","$1-$2",,"0$1","$CC $1",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"171","\\d{3}",,,"171"]
+,,,[,,"NA","NA"]
 ]
 ,"VG":[,[,,"[2589]\\d{9}","\\d{7}(?:\\d{3})?"]
 ,[,,"284(?:(?:229|4(?:22|9[45])|774|8(?:52|6[459]))\\d{4}|496[0-5]\\d{3})","\\d{7}(?:\\d{3})?",,,"2842291234"]
 ,[,,"284(?:(?:3(?:0[0-3]|4[0-367])|4(?:4[0-6]|68|99)|54[0-57])\\d{4}|496[6-9]\\d{3})","\\d{10}",,,"2843001234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002345678"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"VG",1,"011","1",,,"1",,,,,,[,,"NA","NA"]
 ,,"284",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"VI":[,[,,"[3589]\\d{9}","\\d{7}(?:\\d{3})?"]
-,[,,"340(?:2(?:01|2[067]|36|44|77)|3(?:32|44)|4(?:4[38]|7[34])|5(?:1[34]|55)|6(?:26|4[23]|9[023])|7(?:[17]\\d|27)|884|998)\\d{4}","\\d{7}(?:\\d{3})?",,,"3406421234"]
-,[,,"340(?:2(?:01|2[067]|36|44|77)|3(?:32|44)|4(?:4[38]|7[34])|5(?:1[34]|55)|6(?:26|4[23]|9[023])|7(?:[17]\\d|27)|884|998)\\d{4}","\\d{7}(?:\\d{3})?",,,"3406421234"]
-,[,,"8(?:00|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
+,[,,"340(?:2(?:01|2[0678]|44|77)|3(?:32|44)|4(?:22|7[34])|5(?:1[34]|55)|6(?:26|4[23]|77|9[023])|7(?:1[2-589]|27|7\\d)|884|998)\\d{4}","\\d{7}(?:\\d{3})?",,,"3406421234"]
+,[,,"340(?:2(?:01|2[0678]|44|77)|3(?:32|44)|4(?:22|7[34])|5(?:1[34]|55)|6(?:26|4[23]|77|9[023])|7(?:1[2-589]|27|7\\d)|884|998)\\d{4}","\\d{7}(?:\\d{3})?",,,"3406421234"]
+,[,,"8(?:00|44|55|66|77|88)[2-9]\\d{6}","\\d{10}",,,"8002345678"]
 ,[,,"900[2-9]\\d{6}","\\d{10}",,,"9002345678"]
 ,[,,"NA","NA"]
-,[,,"5(?:00|33|44)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
+,[,,"5(?:00|33|44|66|77)[2-9]\\d{6}","\\d{10}",,,"5002345678"]
 ,[,,"NA","NA"]
 ,"VI",1,"011","1",,,"1",,,1,,,[,,"NA","NA"]
 ,,"340",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"VN":[,[,,"8\\d{5,8}|[1-79]\\d{7,9}","\\d{7,10}"]
-,[,,"(?:2(?:[025-79]|1[0189]|[348][01])|3(?:[0136-9]|[25][01])|[48]\\d|5(?:[01][01]|[2-9])|6(?:[0-46-8]|5[01])|7(?:[02-79]|[18][01]))\\d{7}|69\\d{5,6}|80\\d{5}","\\d{7,10}",,,"2101234567"]
-,[,,"(?:9\\d|1(?:2\\d|6[3-9]|88|99))\\d{7}","\\d{9,10}",,,"912345678"]
+,"VN":[,[,,"[17]\\d{6,9}|[2-69]\\d{7,9}|8\\d{6,8}","\\d{7,10}"]
+,[,,"(?:2(?:[025-79]|1[0189]|[348][01])|3(?:[0136-9]|[25][01])|4\\d|5(?:[01][01]|[2-9])|6(?:[0-46-8]|5[01])|7(?:[02-79]|[18][01])|8[1-9])\\d{7}","\\d{9,10}",,,"2101234567"]
+,[,,"(?:9\\d|1(?:2\\d|6[2-9]|8[68]|99))\\d{7}","\\d{9,10}",,,"912345678"]
 ,[,,"1800\\d{4,6}","\\d{8,10}",,,"1800123456"]
 ,[,,"1900\\d{4,6}","\\d{8,10}",,,"1900123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"VN",84,"00","0",,,"0",,,,[[,"([48])(\\d{4})(\\d{4})","$1 $2 $3",["[48]"]
-,"0$1",""]
-,[,"([235-7]\\d)(\\d{4})(\\d{3})","$1 $2 $3",["2[025-79]|3[0136-9]|5[2-9]|6[0-46-9]|7[02-79]"]
-,"0$1",""]
+,"VN",84,"00","0",,,"0",,,,[[,"([17]99)(\\d{4})","$1 $2",["[17]99"]
+,"0$1","",1]
+,[,"([48])(\\d{4})(\\d{4})","$1 $2 $3",["[48]"]
+,"0$1","",1]
+,[,"([235-7]\\d)(\\d{4})(\\d{3})","$1 $2 $3",["2[025-79]|3[0136-9]|5[2-9]|6[0-46-8]|7[02-79]"]
+,"0$1","",1]
 ,[,"(80)(\\d{5})","$1 $2",["80"]
-,"0$1",""]
+,"0$1","",1]
 ,[,"(69\\d)(\\d{4,5})","$1 $2",["69"]
-,"0$1",""]
+,"0$1","",1]
 ,[,"([235-7]\\d{2})(\\d{4})(\\d{3})","$1 $2 $3",["2[1348]|3[25]|5[01]|65|7[18]"]
-,"0$1",""]
+,"0$1","",1]
 ,[,"(9\\d)(\\d{3})(\\d{2})(\\d{2})","$1 $2 $3 $4",["9"]
-,"0$1",""]
-,[,"(1[2689]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["1(?:[26]|88|99)"]
-,"0$1",""]
+,"0$1","",1]
+,[,"(1[2689]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["1(?:[26]|8[68]|99)"]
+,"0$1","",1]
 ,[,"(1[89]00)(\\d{4,6})","$1 $2",["1[89]0"]
-,"$1",""]
+,"$1","",1]
 ]
 ,,[,,"NA","NA"]
+,,,[,,"[17]99\\d{4}|69\\d{5,6}","\\d{7,8}",,,"1992000"]
+,[,,"[17]99\\d{4}|69\\d{5,6}|80\\d{5}","\\d{7,8}",,,"1992000"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"11[345]","\\d{3}",,,"113"]
 ]
 ,"VU":[,[,,"[2-57-9]\\d{4,6}","\\d{5,7}"]
-,[,,"(?:2[2-9]\\d|3(?:[67]\\d|8[0-8])|48[4-9]|88\\d)\\d{2}","\\d{5}",,,"22123"]
+,[,,"(?:2[02-9]\\d|3(?:[5-7]\\d|8[0-8])|48[4-9]|88\\d)\\d{2}","\\d{5}",,,"22123"]
 ,[,,"(?:5(?:7[2-5]|[3-69]\\d)|7[013-7]\\d)\\d{4}","\\d{7}",,,"5912345"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
@@ -13032,12 +15419,12 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"VU",678,"00",,,,,,,,[[,"(\\d{3})(\\d{4})","$1 $2",["[579]"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"30\\d{3}|900\\d{4}","\\d{5,7}",,,"30123"]
-,,[,,"112","\\d{3}",,,"112"]
+,[,,"3[03]\\d{3}|900\\d{4}","\\d{5,7}",,,"30123"]
+,,,[,,"NA","NA"]
 ]
 ,"WF":[,[,,"[5-7]\\d{5}","\\d{6}"]
 ,[,,"(?:50|68|72)\\d{4}","\\d{6}",,,"501234"]
@@ -13047,12 +15434,12 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,"WF",681,"00",,,,,,,1,[[,"(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3",,"",""]
+,"WF",681,"00",,,,,,,1,[[,"(\\d{2})(\\d{2})(\\d{2})","$1 $2 $3",,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"WS":[,[,,"[2-8]\\d{4,6}","\\d{5,7}"]
 ,[,,"(?:[2-5]\\d|6[1-9]|84\\d{2})\\d{3}","\\d{5,7}",,,"22123"]
@@ -13063,14 +15450,14 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"WS",685,"0",,,,,,,,[[,"(8\\d{2})(\\d{3,4})","$1 $2",["8"]
-,"",""]
+,"","",0]
 ,[,"(7\\d)(\\d{5})","$1 $2",["7"]
-,"",""]
+,"","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"YE":[,[,,"[1-7]\\d{6,8}","\\d{6,9}"]
 ,[,,"(?:1(?:7\\d|[2-68])|2[2-68]|3[2358]|4[2-58]|5[2-6]|6[3-58]|7[24-68])\\d{5}","\\d{6,8}",,,"1234567"]
@@ -13081,14 +15468,14 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"YE",967,"00","0",,,"0",,,,[[,"([1-7])(\\d{3})(\\d{3,4})","$1 $2 $3",["[1-6]|7[24-68]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(7\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["7[0137]"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
 ,"YT":[,[,,"[268]\\d{8}","\\d{9}"]
 ,[,,"2696[0-4]\\d{4}","\\d{9}",,,"269601234"]
@@ -13101,81 +15488,238 @@ i18n.phonenumbers.metadata.countryToMetadata = {
 ,"YT",262,"00","0",,,"0",,,,,,[,,"NA","NA"]
 ,,"269|63",[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
 ]
-,"ZA":[,[,,"[1-5]\\d{8}|(?:7\\d{4,8}|8[1-5789]\\d{3,7})|8[06]\\d{7}","\\d{5,9}"]
-,[,,"(?:1[0-8]|2[1-478]|3[1-69]|4\\d|5[1346-8])\\d{7}","\\d{8,9}",,,"101234567"]
-,[,,"(?:7[1-4689]|8[1-5789])\\d{3,7}","\\d{5,9}",,,"711234567"]
+,"ZA":[,[,,"[1-79]\\d{8}|8(?:[067]\\d{7}|[1-4]\\d{3,7})","\\d{5,9}"]
+,[,,"(?:1[0-8]|2[0-378]|3[1-69]|4\\d|5[1346-8])\\d{7}","\\d{9}",,,"101234567"]
+,[,,"(?:6[0-5]|7[0-46-9])\\d{7}|8[1-4]\\d{3,7}","\\d{5,9}",,,"711234567"]
 ,[,,"80\\d{7}","\\d{9}",,,"801234567"]
-,[,,"86[1-9]\\d{6}","\\d{9}",,,"861234567"]
+,[,,"86[2-9]\\d{6}|90\\d{7}","\\d{9}",,,"862345678"]
 ,[,,"860\\d{6}","\\d{9}",,,"860123456"]
 ,[,,"NA","NA"]
 ,[,,"87\\d{7}","\\d{9}",,,"871234567"]
 ,"ZA",27,"00","0",,,"0",,,,[[,"(860)(\\d{3})(\\d{3})","$1 $2 $3",["860"]
-,"0$1",""]
-,[,"([1-578]\\d)(\\d{3})(\\d{4})","$1 $2 $3",["[1-57]|8(?:[0-57-9]|6[1-9])"]
-,"0$1",""]
-,[,"(\\d{2})(\\d{3,4})","$1 $2",["7|8[1-5789]"]
-,"0$1",""]
-,[,"(\\d{2})(\\d{3})(\\d{2,3})","$1 $2 $3",["7|8[1-5789]"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{3})(\\d{4})","$1 $2 $3",["[1-79]|8(?:[0-47]|6[1-9])"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{3,4})","$1 $2",["8[1-4]"]
+,"0$1","",0]
+,[,"(\\d{2})(\\d{3})(\\d{2,3})","$1 $2 $3",["8[1-4]"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
-,[,,"NA","NA"]
-,,[,,"1(?:01(?:11|77)|12)","\\d{3,5}",,,"10111"]
+,[,,"861\\d{6}","\\d{9}",,,"861123456"]
+,,,[,,"NA","NA"]
 ]
 ,"ZM":[,[,,"[289]\\d{8}","\\d{9}"]
 ,[,,"21[1-8]\\d{6}","\\d{9}",,,"211234567"]
-,[,,"9(?:5[05]|6[1-9]|7[13-9])\\d{6}","\\d{9}",,,"955123456"]
+,[,,"9(?:5[05]|6\\d|7[1-9])\\d{6}","\\d{9}",,,"955123456"]
 ,[,,"800\\d{6}","\\d{9}",,,"800123456"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,"ZM",260,"00","0",,,"0",,,,[[,"([29]\\d)(\\d{7})","$1 $2",["[29]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"(800)(\\d{3})(\\d{3})","$1 $2 $3",["8"]
-,"0$1",""]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"(?:112|99[139])","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
 ]
-,"ZW":[,[,,"2(?:[012457-9]\\d{3,8}|6\\d{3,6})|[13-79]\\d{4,8}|86\\d{8}","\\d{3,10}"]
-,[,,"(?:1[3-9]|2(?:0[45]|[16]|2[28]|[49]8?|58[23]|7[246]|8[1346-9])|3(?:08?|17?|3[78]|[2456]|7[1569]|8[379])|5(?:[07-9]|1[78]|483|5(?:7?|8))|6(?:0|28|37?|[45][68][78]|98?)|848)\\d{3,6}|(?:2(?:27|5|7[135789]|8[25])|3[39]|5[1-46]|6[126-8])\\d{4,6}|2(?:0|70)\\d{5,6}|(?:4\\d|9[2-8])\\d{4,7}","\\d{3,10}",,,"1312345"]
-,[,,"7[137]\\d{7}","\\d{9}",,,"711234567"]
+,"ZW":[,[,,"2(?:[012457-9]\\d{3,8}|6\\d{3,6})|[13-79]\\d{4,8}|8[06]\\d{8}","\\d{3,10}"]
+,[,,"(?:1[3-9]|2(?:0[45]|[16]|2[28]|[49]8?|58[23]|7[246]|8[1346-9])|3(?:08?|17?|3[78]|[2456]|7[1569]|8[379])|5(?:[07-9]|1[78]|483|5(?:7?|8))|6(?:0|28|37?|[45][68][78]|98?)|848)\\d{3,6}|(?:2(?:27|5|7[135789]|8[25])|3[39]|5[1-46]|6[126-8])\\d{4,6}|2(?:(?:0|70)\\d{5,6}|2[05]\\d{7})|(?:4\\d|9[2-8])\\d{4,7}","\\d{3,10}",,,"1312345"]
+,[,,"7[1378]\\d{7}|86(?:22|44)\\d{6}","\\d{9,10}",,,"711234567"]
+,[,,"800\\d{7}","\\d{10}",,,"8001234567"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,[,,"NA","NA"]
-,[,,"86(?:1[12]|22|30|44|8[367]|99)\\d{6}","\\d{10}",,,"8686123456"]
+,[,,"86(?:1[12]|30|55|77|8[367]|99)\\d{6}","\\d{10}",,,"8686123456"]
 ,"ZW",263,"00","0",,,"0",,,,[[,"([49])(\\d{3})(\\d{2,5})","$1 $2 $3",["4|9[2-9]"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([179]\\d)(\\d{3})(\\d{3,4})","$1 $2 $3",["[19]1|7"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(86\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["86[24]"]
+,"0$1","",0]
+,[,"([2356]\\d{2})(\\d{3,5})","$1 $2",["2(?:[278]|0[45]|[49]8)|3(?:08|17|3[78]|[78])|5[15][78]|6(?:[29]8|37|[68][78])"]
+,"0$1","",0]
+,[,"(\\d{3})(\\d{3})(\\d{3,4})","$1 $2 $3",["2(?:[278]|0[45]|48)|3(?:08|17|3[78]|[78])|5[15][78]|6(?:[29]8|37|[68][78])|80"]
+,"0$1","",0]
 ,[,"([1-356]\\d)(\\d{3,5})","$1 $2",["1[3-9]|2(?:[1-469]|0[0-35-9]|[45][0-79])|3(?:0[0-79]|1[0-689]|[24-69]|3[0-69])|5(?:[02-46-9]|[15][0-69])|6(?:[0145]|[29][0-79]|3[0-689]|[68][0-69])"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([1-356]\\d)(\\d{3})(\\d{3})","$1 $2 $3",["1[3-9]|2(?:[1-469]|0[0-35-9]|[45][0-79])|3(?:0[0-79]|1[0-689]|[24-69]|3[0-69])|5(?:[02-46-9]|[15][0-69])|6(?:[0145]|[29][0-79]|3[0-689]|[68][0-69])"]
-,"0$1",""]
-,[,"([2356]\\d{2})(\\d{3,5})","$1 $2",["2(?:[278]|0[45]|48)|3(?:08|17|3[78]|[78])|5[15][78]|6(?:[29]8|37|[68][78])"]
-,"0$1",""]
-,[,"([2356]\\d{2})(\\d{3})(\\d{3})","$1 $2 $3",["2(?:[278]|0[45]|48)|3(?:08|17|3[78]|[78])|5[15][78]|6(?:[29]8|37|[68][78])"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([25]\\d{3})(\\d{3,5})","$1 $2",["(?:25|54)8","258[23]|5483"]
-,"0$1",""]
+,"0$1","",0]
 ,[,"([25]\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["(?:25|54)8","258[23]|5483"]
-,"0$1",""]
-,[,"(8\\d{3})(\\d{6})","$1 $2",["8"]
-,"0$1",""]
+,"0$1","",0]
+,[,"(8\\d{3})(\\d{6})","$1 $2",["86"]
+,"0$1","",0]
 ]
 ,,[,,"NA","NA"]
 ,,,[,,"NA","NA"]
 ,[,,"NA","NA"]
-,,[,,"(?:112|99[3459])","\\d{3}",,,"999"]
+,,,[,,"NA","NA"]
+]
+,"800":[,[,,"\\d{8}","\\d{8}",,,"12345678"]
+,[,,"NA","NA",,,"12345678"]
+,[,,"NA","NA",,,"12345678"]
+,[,,"\\d{8}","\\d{8}",,,"12345678"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"001",800,"",,,,,,,1,[[,"(\\d{4})(\\d{4})","$1 $2",,"","",0]
+]
+,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,1,,[,,"NA","NA"]
+]
+,"808":[,[,,"\\d{8}","\\d{8}",,,"12345678"]
+,[,,"NA","NA",,,"12345678"]
+,[,,"NA","NA",,,"12345678"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"\\d{8}","\\d{8}",,,"12345678"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"001",808,"",,,,,,,1,[[,"(\\d{4})(\\d{4})","$1 $2",,"","",0]
+]
+,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,1,,[,,"NA","NA"]
+]
+,"870":[,[,,"[35-7]\\d{8}","\\d{9}",,,"301234567"]
+,[,,"NA","NA",,,"301234567"]
+,[,,"(?:[356]\\d|7[6-8])\\d{7}","\\d{9}",,,"301234567"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"001",870,"",,,,,,,,[[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",,"","",0]
+]
+,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+]
+,"878":[,[,,"1\\d{11}","\\d{12}",,,"101234567890"]
+,[,,"NA","NA",,,"101234567890"]
+,[,,"NA","NA",,,"101234567890"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"10\\d{10}","\\d{12}",,,"101234567890"]
+,"001",878,"",,,,,,,1,[[,"(\\d{2})(\\d{5})(\\d{5})","$1 $2 $3",,"","",0]
+]
+,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+]
+,"881":[,[,,"[67]\\d{8}","\\d{9}",,,"612345678"]
+,[,,"NA","NA",,,"612345678"]
+,[,,"[67]\\d{8}","\\d{9}",,,"612345678"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"001",881,"",,,,,,,,[[,"(\\d)(\\d{3})(\\d{5})","$1 $2 $3",["[67]"]
+,"","",0]
+]
+,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+]
+,"882":[,[,,"[13]\\d{6,11}","\\d{7,12}",,,"3451234567"]
+,[,,"NA","NA",,,"3451234567"]
+,[,,"3(?:2\\d{3}|37\\d{2}|4(?:2|7\\d{3}))\\d{4}","\\d{7,10}",,,"3451234567"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"1(?:3(?:0[0347]|[13][0139]|2[035]|4[013568]|6[0459]|7[06]|8[15678]|9[0689])\\d{4}|6\\d{5,10})|345\\d{7}","\\d{7,12}",,,"3451234567"]
+,"001",882,"",,,,,,,,[[,"(\\d{2})(\\d{4})(\\d{3})","$1 $2 $3",["3[23]"]
+,"","",0]
+,[,"(\\d{2})(\\d{5})","$1 $2",["16|342"]
+,"","",0]
+,[,"(\\d{2})(\\d{4})(\\d{4})","$1 $2 $3",["34[57]"]
+,"","",0]
+,[,"(\\d{3})(\\d{4})(\\d{4})","$1 $2 $3",["348"]
+,"","",0]
+,[,"(\\d{2})(\\d{2})(\\d{4})","$1 $2 $3",["1"]
+,"","",0]
+,[,"(\\d{2})(\\d{3,4})(\\d{4})","$1 $2 $3",["16"]
+,"","",0]
+,[,"(\\d{2})(\\d{4,5})(\\d{5})","$1 $2 $3",["16"]
+,"","",0]
+]
+,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"348[57]\\d{7}","\\d{11}",,,"3451234567"]
+]
+,"883":[,[,,"51\\d{7}(?:\\d{3})?","\\d{9}(?:\\d{3})?",,,"510012345"]
+,[,,"NA","NA",,,"510012345"]
+,[,,"NA","NA",,,"510012345"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"51(?:00\\d{5}(?:\\d{3})?|[13]0\\d{8})","\\d{9}(?:\\d{3})?",,,"510012345"]
+,"001",883,"",,,,,,,1,[[,"(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3",["510"]
+,"","",0]
+,[,"(\\d{3})(\\d{3})(\\d{3})(\\d{3})","$1 $2 $3 $4",["510"]
+,"","",0]
+,[,"(\\d{4})(\\d{4})(\\d{4})","$1 $2 $3",["51[13]"]
+,"","",0]
+]
+,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+]
+,"888":[,[,,"\\d{11}","\\d{11}",,,"12345678901"]
+,[,,"NA","NA",,,"12345678901"]
+,[,,"NA","NA",,,"12345678901"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"001",888,"",,,,,,,1,[[,"(\\d{3})(\\d{3})(\\d{5})","$1 $2 $3",,"","",0]
+]
+,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"\\d{11}","\\d{11}",,,"12345678901"]
+,1,,[,,"NA","NA"]
+]
+,"979":[,[,,"\\d{9}","\\d{9}",,,"123456789"]
+,[,,"NA","NA",,,"123456789"]
+,[,,"NA","NA",,,"123456789"]
+,[,,"NA","NA"]
+,[,,"\\d{9}","\\d{9}",,,"123456789"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,[,,"NA","NA"]
+,"001",979,"",,,,,,,1,[[,"(\\d)(\\d{4})(\\d{4})","$1 $2 $3",,"","",0]
+]
+,,[,,"NA","NA"]
+,,,[,,"NA","NA"]
+,[,,"NA","NA"]
+,1,,[,,"NA","NA"]
 ]
 };
+
 /**
  * @license
  * Protocol Buffer 2 Copyright 2008 Google Inc.
@@ -13431,6 +15975,57 @@ i18n.phonenumbers.PhoneNumber.prototype.clearItalianLeadingZero = function() {
 
 
 /**
+ * Gets the value of the number_of_leading_zeros field.
+ * @return {?number} The value.
+ */
+i18n.phonenumbers.PhoneNumber.prototype.getNumberOfLeadingZeros = function() {
+  return /** @type {?number} */ (this.get$Value(8));
+};
+
+
+/**
+ * Gets the value of the number_of_leading_zeros field or the default value if not set.
+ * @return {number} The value.
+ */
+i18n.phonenumbers.PhoneNumber.prototype.getNumberOfLeadingZerosOrDefault = function() {
+  return /** @type {number} */ (this.get$ValueOrDefault(8));
+};
+
+
+/**
+ * Sets the value of the number_of_leading_zeros field.
+ * @param {number} value The value.
+ */
+i18n.phonenumbers.PhoneNumber.prototype.setNumberOfLeadingZeros = function(value) {
+  this.set$Value(8, value);
+};
+
+
+/**
+ * @return {boolean} Whether the number_of_leading_zeros field has a value.
+ */
+i18n.phonenumbers.PhoneNumber.prototype.hasNumberOfLeadingZeros = function() {
+  return this.has$Value(8);
+};
+
+
+/**
+ * @return {number} The number of values in the number_of_leading_zeros field.
+ */
+i18n.phonenumbers.PhoneNumber.prototype.numberOfLeadingZerosCount = function() {
+  return this.count$Values(8);
+};
+
+
+/**
+ * Clears the values in the number_of_leading_zeros field.
+ */
+i18n.phonenumbers.PhoneNumber.prototype.clearNumberOfLeadingZeros = function() {
+  this.clear$Field(8);
+};
+
+
+/**
  * Gets the value of the raw_input field.
  * @return {?string} The value.
  */
@@ -13622,6 +16217,12 @@ goog.proto2.Message.set$Metadata(i18n.phonenumbers.PhoneNumber, {
     fieldType: goog.proto2.Message.FieldType.BOOL,
     type: Boolean
   },
+  8: {
+    name: 'number_of_leading_zeros',
+    fieldType: goog.proto2.Message.FieldType.INT32,
+    defaultValue: 1,
+    type: Number
+  },
   5: {
     name: 'raw_input',
     fieldType: goog.proto2.Message.FieldType.STRING,
@@ -13639,267 +16240,7 @@ goog.proto2.Message.set$Metadata(i18n.phonenumbers.PhoneNumber, {
     type: String
   }
 });
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
-/**
- * @fileoverview Detection of JScript version.
- *
- */
-
-
-goog.provide('goog.userAgent.jscript');
-
-goog.require('goog.string');
-
-
-/**
- * @define {boolean} True if it is known at compile time that the runtime
- *     environment will not be using JScript.
- */
-goog.userAgent.jscript.ASSUME_NO_JSCRIPT = false;
-
-
-/**
- * Initializer for goog.userAgent.jscript.  Detects if the user agent is using
- * Microsoft JScript and which version of it.
- *
- * This is a named function so that it can be stripped via the jscompiler
- * option for stripping types.
- * @private
- */
-goog.userAgent.jscript.init_ = function() {
-  var hasScriptEngine = 'ScriptEngine' in goog.global;
-
-  /**
-   * @type {boolean}
-   * @private
-   */
-  goog.userAgent.jscript.DETECTED_HAS_JSCRIPT_ =
-      hasScriptEngine && goog.global['ScriptEngine']() == 'JScript';
-
-  /**
-   * @type {string}
-   * @private
-   */
-  goog.userAgent.jscript.DETECTED_VERSION_ =
-      goog.userAgent.jscript.DETECTED_HAS_JSCRIPT_ ?
-      (goog.global['ScriptEngineMajorVersion']() + '.' +
-       goog.global['ScriptEngineMinorVersion']() + '.' +
-       goog.global['ScriptEngineBuildVersion']()) :
-      '0';
-};
-
-if (!goog.userAgent.jscript.ASSUME_NO_JSCRIPT) {
-  goog.userAgent.jscript.init_();
-}
-
-
-/**
- * Whether we detect that the user agent is using Microsoft JScript.
- * @type {boolean}
- */
-goog.userAgent.jscript.HAS_JSCRIPT = goog.userAgent.jscript.ASSUME_NO_JSCRIPT ?
-    false : goog.userAgent.jscript.DETECTED_HAS_JSCRIPT_;
-
-
-/**
- * The installed version of JScript.
- * @type {string}
- */
-goog.userAgent.jscript.VERSION = goog.userAgent.jscript.ASSUME_NO_JSCRIPT ?
-    '0' : goog.userAgent.jscript.DETECTED_VERSION_;
-
-
-/**
- * Whether the installed version of JScript is as new or newer than a given
- * version.
- * @param {string} version The version to check.
- * @return {boolean} Whether the installed version of JScript is as new or
- *     newer than the given version.
- */
-goog.userAgent.jscript.isVersion = function(version) {
-  return goog.string.compareVersions(goog.userAgent.jscript.VERSION,
-                                     version) >= 0;
-};
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Utility for fast string concatenation.
- */
-
-goog.provide('goog.string.StringBuffer');
-
-goog.require('goog.userAgent.jscript');
-
-
-
-/**
- * Utility class to facilitate much faster string concatenation in IE,
- * using Array.join() rather than the '+' operator.  For other browsers
- * we simply use the '+' operator.
- *
- * @param {Object|number|string|boolean=} opt_a1 Optional first initial item
- *     to append.
- * @param {...Object|number|string|boolean} var_args Other initial items to
- *     append, e.g., new goog.string.StringBuffer('foo', 'bar').
- * @constructor
- */
-goog.string.StringBuffer = function(opt_a1, var_args) {
-  /**
-   * Internal buffer for the string to be concatenated.
-   * @type {string|Array}
-   * @private
-   */
-  this.buffer_ = goog.userAgent.jscript.HAS_JSCRIPT ? [] : '';
-
-  if (opt_a1 != null) {
-    this.append.apply(this, arguments);
-  }
-};
-
-
-/**
- * Sets the contents of the string buffer object, replacing what's currently
- * there.
- *
- * @param {string} s String to set.
- */
-goog.string.StringBuffer.prototype.set = function(s) {
-  this.clear();
-  this.append(s);
-};
-
-
-if (goog.userAgent.jscript.HAS_JSCRIPT) {
-  /**
-   * Length of internal buffer (faster than calling buffer_.length).
-   * Only used if buffer_ is an array.
-   * @type {number}
-   * @private
-   */
-  goog.string.StringBuffer.prototype.bufferLength_ = 0;
-
-  /**
-   * Appends one or more items to the buffer.
-   *
-   * Calling this with null, undefined, or empty arguments is an error.
-   *
-   * @param {Object|number|string|boolean} a1 Required first string.
-   * @param {Object|number|string|boolean=} opt_a2 Optional second string.
-   * @param {...Object|number|string|boolean} var_args Other items to append,
-   *     e.g., sb.append('foo', 'bar', 'baz').
-   * @return {goog.string.StringBuffer} This same StringBuffer object.
-   */
-  goog.string.StringBuffer.prototype.append = function(a1, opt_a2, var_args) {
-    // IE version.
-
-    if (opt_a2 == null) { // second argument is undefined (null == undefined)
-      // Array assignment is 2x faster than Array push.  Also, use a1
-      // directly to avoid arguments instantiation, another 2x improvement.
-      this.buffer_[this.bufferLength_++] = a1;
-    } else {
-      this.buffer_.push.apply(/** @type {Array} */ (this.buffer_), arguments);
-      this.bufferLength_ = this.buffer_.length;
-    }
-    return this;
-  };
-} else {
-
-  /**
-   * Appends one or more items to the buffer.
-   *
-   * Calling this with null, undefined, or empty arguments is an error.
-   *
-   * @param {Object|number|string|boolean} a1 Required first string.
-   * @param {Object|number|string|boolean=} opt_a2 Optional second string.
-   * @param {...Object|number|string|boolean} var_args Other items to append,
-   *     e.g., sb.append('foo', 'bar', 'baz').
-   * @return {goog.string.StringBuffer} This same StringBuffer object.
-   * @suppress {duplicate}
-   */
-  goog.string.StringBuffer.prototype.append = function(a1, opt_a2, var_args) {
-    // W3 version.
-
-    // Use a1 directly to avoid arguments instantiation for single-arg case.
-    this.buffer_ += a1;
-    if (opt_a2 != null) { // second argument is undefined (null == undefined)
-      for (var i = 1; i < arguments.length; i++) {
-        this.buffer_ += arguments[i];
-      }
-    }
-    return this;
-  };
-}
-
-
-/**
- * Clears the internal buffer.
- */
-goog.string.StringBuffer.prototype.clear = function() {
-  if (goog.userAgent.jscript.HAS_JSCRIPT) {
-     this.buffer_.length = 0;  // Reuse the array to avoid creating new object.
-     this.bufferLength_ = 0;
-   } else {
-     this.buffer_ = '';
-   }
-};
-
-
-/**
- * Returns the length of the current contents of the buffer.  In IE, this is
- * O(n) where n = number of appends, so to avoid quadratic behavior, do not call
- * this after every append.
- *
- * @return {number} the length of the current contents of the buffer.
- */
-goog.string.StringBuffer.prototype.getLength = function() {
-   return this.toString().length;
-};
-
-
-/**
- * Returns the concatenated string.
- *
- * @return {string} The concatenated string.
- */
-goog.string.StringBuffer.prototype.toString = function() {
-  if (goog.userAgent.jscript.HAS_JSCRIPT) {
-    var str = this.buffer_.join('');
-    // Given a string with the entire contents, simplify the StringBuffer by
-    // setting its contents to only be this string, rather than many fragments.
-    this.clear();
-    if (str) {
-      this.append(str);
-    }
-    return str;
-  } else {
-    return /** @type {string} */ (this.buffer_);
-  }
-};
 // Copyright 2008 The Closure Library Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13920,10 +16261,9 @@ goog.string.StringBuffer.prototype.toString = function() {
 
 goog.provide('goog.proto2.Serializer');
 
-goog.require('goog.proto2.Descriptor');
+goog.require('goog.asserts');
 goog.require('goog.proto2.FieldDescriptor');
 goog.require('goog.proto2.Message');
-goog.require('goog.proto2.Util');
 
 
 
@@ -13938,19 +16278,27 @@ goog.proto2.Serializer = function() {};
 
 
 /**
+ * @define {boolean} Whether to decode and convert symbolic enum values to
+ * actual enum values or leave them as strings.
+ */
+goog.define('goog.proto2.Serializer.DECODE_SYMBOLIC_ENUMS', false);
+
+
+/**
  * Serializes a message to the expected format.
  *
  * @param {goog.proto2.Message} message The message to be serialized.
  *
- * @return {Object} The serialized form of the message.
+ * @return {*} The serialized form of the message.
  */
 goog.proto2.Serializer.prototype.serialize = goog.abstractMethod;
 
 
 /**
- * Returns the serialized form of the given value for the given field
- * if the field is a Message or Group and returns the value unchanged
- * otherwise.
+ * Returns the serialized form of the given value for the given field if the
+ * field is a Message or Group and returns the value unchanged otherwise, except
+ * for Infinity, -Infinity and NaN numerical values which are converted to
+ * string representation.
  *
  * @param {goog.proto2.FieldDescriptor} field The field from which this
  *     value came.
@@ -13963,6 +16311,8 @@ goog.proto2.Serializer.prototype.serialize = goog.abstractMethod;
 goog.proto2.Serializer.prototype.getSerializedValue = function(field, value) {
   if (field.isCompositeType()) {
     return this.serialize(/** @type {goog.proto2.Message} */ (value));
+  } else if (goog.isNumber(value) && !isFinite(value)) {
+    return value.toString();
   } else {
     return value;
   }
@@ -13976,12 +16326,12 @@ goog.proto2.Serializer.prototype.getSerializedValue = function(field, value) {
  *     to be created.
  * @param {*} data The data of the message.
  *
- * @return {goog.proto2.Message} The message created.
+ * @return {!goog.proto2.Message} The message created.
  */
 goog.proto2.Serializer.prototype.deserialize = function(descriptor, data) {
   var message = descriptor.createMessageInstance();
   this.deserializeTo(message, data);
-  goog.proto2.Util.assert(message instanceof goog.proto2.Message);
+  goog.asserts.assert(message instanceof goog.proto2.Message);
   return message;
 };
 
@@ -14013,7 +16363,27 @@ goog.proto2.Serializer.prototype.deserializeTo = goog.abstractMethod;
 goog.proto2.Serializer.prototype.getDeserializedValue = function(field, value) {
   // Composite types are deserialized recursively.
   if (field.isCompositeType()) {
+    if (value instanceof goog.proto2.Message) {
+      return value;
+    }
+
     return this.deserialize(field.getFieldMessageType(), value);
+  }
+
+  // Decode enum values.
+  if (field.getFieldType() == goog.proto2.FieldDescriptor.FieldType.ENUM) {
+    // If it's a string, get enum value by name.
+    // NB: In order this feature to work, property renaming should be turned off
+    // for the respective enums.
+    if (goog.proto2.Serializer.DECODE_SYMBOLIC_ENUMS && goog.isString(value)) {
+      // enumType is a regular Javascript enum as defined in field's metadata.
+      var enumType = field.getNativeType();
+      if (enumType.hasOwnProperty(value)) {
+        return enumType[value];
+      }
+    }
+    // Return unknown values as is for backward compatibility.
+    return value;
   }
 
   // Return the raw value if the field does not allow the JSON input to be
@@ -14028,15 +16398,20 @@ goog.proto2.Serializer.prototype.getDeserializedValue = function(field, value) {
   // could be either Number or String (depending on field options in the .proto
   // file).  All four combinations should work correctly.
   var nativeType = field.getNativeType();
-
   if (nativeType === String) {
     // JSON numbers can be converted to strings.
-    if (typeof value === 'number') {
+    if (goog.isNumber(value)) {
       return String(value);
     }
   } else if (nativeType === Number) {
-    // JSON strings are sometimes used for large integer numeric values.
-    if (typeof value === 'string') {
+    // JSON strings are sometimes used for large integer numeric values, as well
+    // as Infinity, -Infinity and NaN.
+    if (goog.isString(value)) {
+      // Handle +/- Infinity and NaN values.
+      if (value === 'Infinity' || value === '-Infinity' || value === 'NaN') {
+        return Number(value);
+      }
+
       // Validate the string.  If the string is not an integral number, we would
       // rather have an assertion or error in the caller than a mysterious NaN
       // value.
@@ -14048,6 +16423,7 @@ goog.proto2.Serializer.prototype.getDeserializedValue = function(field, value) {
 
   return value;
 };
+
 // Copyright 2009 The Closure Library Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14073,8 +16449,9 @@ goog.proto2.Serializer.prototype.getDeserializedValue = function(field, value) {
 
 goog.provide('goog.proto2.LazyDeserializer');
 
+goog.require('goog.asserts');
+goog.require('goog.proto2.Message');
 goog.require('goog.proto2.Serializer');
-goog.require('goog.proto2.Util');
 
 
 
@@ -14090,10 +16467,10 @@ goog.inherits(goog.proto2.LazyDeserializer, goog.proto2.Serializer);
 
 /** @override */
 goog.proto2.LazyDeserializer.prototype.deserialize =
-  function(descriptor, data) {
+    function(descriptor, data) {
   var message = descriptor.createMessageInstance();
   message.initializeForLazyDeserializer(this, data);
-  goog.proto2.Util.assert(message instanceof goog.proto2.Message);
+  goog.asserts.assert(message instanceof goog.proto2.Message);
   return message;
 };
 
@@ -14117,6 +16494,7 @@ goog.proto2.LazyDeserializer.prototype.deserializeTo = function(message, data) {
  * @return {*} The deserialized data or null for no value found.
  */
 goog.proto2.LazyDeserializer.prototype.deserializeField = goog.abstractMethod;
+
 // Copyright 2008 The Closure Library Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14157,8 +16535,10 @@ goog.proto2.LazyDeserializer.prototype.deserializeField = goog.abstractMethod;
 
 goog.provide('goog.proto2.PbLiteSerializer');
 
+goog.require('goog.asserts');
+goog.require('goog.proto2.FieldDescriptor');
 goog.require('goog.proto2.LazyDeserializer');
-goog.require('goog.proto2.Util');
+goog.require('goog.proto2.Serializer');
 
 
 
@@ -14173,17 +16553,42 @@ goog.inherits(goog.proto2.PbLiteSerializer, goog.proto2.LazyDeserializer);
 
 
 /**
+ * If true, fields will be serialized with 0-indexed tags (i.e., the proto
+ * field with tag id 1 will have index 0 in the array).
+ * @type {boolean}
+ * @private
+ */
+goog.proto2.PbLiteSerializer.prototype.zeroIndexing_ = false;
+
+
+/**
+ * By default, the proto tag with id 1 will have index 1 in the serialized
+ * array.
+ *
+ * If the serializer is set to use zero-indexing, the tag with id 1 will have
+ * index 0.
+ *
+ * @param {boolean} zeroIndexing Whether this serializer should deal with
+ *     0-indexed protos.
+ */
+goog.proto2.PbLiteSerializer.prototype.setZeroIndexed = function(zeroIndexing) {
+  this.zeroIndexing_ = zeroIndexing;
+};
+
+
+/**
  * Serializes a message to a PB-Lite object.
  *
  * @param {goog.proto2.Message} message The message to be serialized.
- *
- * @return {!Array} The serialized form of the message.
+ * @return {!Array<?>} The serialized form of the message.
+ * @override
  */
 goog.proto2.PbLiteSerializer.prototype.serialize = function(message) {
   var descriptor = message.getDescriptor();
   var fields = descriptor.getFields();
 
   var serialized = [];
+  var zeroIndexing = this.zeroIndexing_;
 
   // Add the known fields.
   for (var i = 0; i < fields.length; i++) {
@@ -14194,22 +16599,24 @@ goog.proto2.PbLiteSerializer.prototype.serialize = function(message) {
     }
 
     var tag = field.getTag();
+    var index = zeroIndexing ? tag - 1 : tag;
 
     if (field.isRepeated()) {
-      serialized[tag] = [];
+      serialized[index] = [];
 
       for (var j = 0; j < message.countOf(field); j++) {
-        serialized[tag][j] =
+        serialized[index][j] =
             this.getSerializedValue(field, message.get(field, j));
       }
     } else {
-      serialized[tag] = this.getSerializedValue(field, message.get(field));
+      serialized[index] = this.getSerializedValue(field, message.get(field));
     }
   }
 
   // Add any unknown fields.
   message.forEachUnknown(function(tag, value) {
-    serialized[tag] = value;
+    var index = zeroIndexing ? tag - 1 : tag;
+    serialized[index] = value;
   });
 
   return serialized;
@@ -14223,13 +16630,15 @@ goog.proto2.PbLiteSerializer.prototype.deserializeField =
   if (value == null) {
     // Since value double-equals null, it may be either null or undefined.
     // Ensure we return the same one, since they have different meanings.
+    // TODO(user): If the field is repeated, this method should probably
+    // return [] instead of null.
     return value;
   }
 
   if (field.isRepeated()) {
     var data = [];
 
-    goog.proto2.Util.assert(goog.isArray(value));
+    goog.asserts.assert(goog.isArray(value), 'Value must be array: %s', value);
 
     for (var i = 0; i < value.length; i++) {
       data[i] = this.getDeserializedValue(field, value[i]);
@@ -14260,16 +16669,35 @@ goog.proto2.PbLiteSerializer.prototype.getDeserializedValue =
     function(field, value) {
 
   if (field.getFieldType() == goog.proto2.FieldDescriptor.FieldType.BOOL) {
-    // Booleans are serialized in numeric form.
-    return value === 1;
+    goog.asserts.assert(goog.isNumber(value) || goog.isBoolean(value),
+        'Value is expected to be a number or boolean');
+    return !!value;
   }
 
   return goog.proto2.Serializer.prototype.getDeserializedValue.apply(this,
                                                                      arguments);
 };
+
+
+/** @override */
+goog.proto2.PbLiteSerializer.prototype.deserialize =
+    function(descriptor, data) {
+  var toConvert = data;
+  if (this.zeroIndexing_) {
+    // Make the data align with tag-IDs (1-indexed) by shifting everything
+    // up one.
+    toConvert = [];
+    for (var key in data) {
+      toConvert[parseInt(key, 10) + 1] = data[key];
+    }
+  }
+  return goog.proto2.PbLiteSerializer.base(
+      this, 'deserialize', descriptor, toConvert);
+};
+
 /**
  * @license
- * Copyright (C) 2010 The Libphonenumber Authors
+ * Copyright (C) 2010 The Libphonenumber Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14302,6 +16730,8 @@ goog.provide('i18n.phonenumbers.Error');
 goog.provide('i18n.phonenumbers.PhoneNumberFormat');
 goog.provide('i18n.phonenumbers.PhoneNumberType');
 goog.provide('i18n.phonenumbers.PhoneNumberUtil');
+goog.provide('i18n.phonenumbers.PhoneNumberUtil.MatchType');
+goog.provide('i18n.phonenumbers.PhoneNumberUtil.ValidationResult');
 
 goog.require('goog.array');
 goog.require('goog.proto2.PbLiteSerializer');
@@ -14370,7 +16800,7 @@ i18n.phonenumbers.PhoneNumberUtil.NANPA_COUNTRY_CODE_ = 1;
  * @type {number}
  * @private
  */
-i18n.phonenumbers.PhoneNumberUtil.MIN_LENGTH_FOR_NSN_ = 3;
+i18n.phonenumbers.PhoneNumberUtil.MIN_LENGTH_FOR_NSN_ = 2;
 
 
 /**
@@ -14381,7 +16811,7 @@ i18n.phonenumbers.PhoneNumberUtil.MIN_LENGTH_FOR_NSN_ = 3;
  * @type {number}
  * @private
  */
-i18n.phonenumbers.PhoneNumberUtil.MAX_LENGTH_FOR_NSN_ = 16;
+i18n.phonenumbers.PhoneNumberUtil.MAX_LENGTH_FOR_NSN_ = 17;
 
 
 /**
@@ -14392,6 +16822,17 @@ i18n.phonenumbers.PhoneNumberUtil.MAX_LENGTH_FOR_NSN_ = 16;
  * @private
  */
 i18n.phonenumbers.PhoneNumberUtil.MAX_LENGTH_COUNTRY_CODE_ = 3;
+
+
+/**
+ * We don't allow input strings for parsing to be longer than 250 chars. This
+ * prevents malicious input from consuming CPU.
+ *
+ * @const
+ * @type {number}
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.MAX_INPUT_STRING_LENGTH_ = 250;
 
 
 /**
@@ -14416,12 +16857,36 @@ i18n.phonenumbers.PhoneNumberUtil.COLOMBIA_MOBILE_TO_FIXED_LINE_PREFIX_ = '3';
 
 
 /**
+ * Map of country calling codes that use a mobile token before the area code.
+ * One example of when this is relevant is when determining the length of the
+ * national destination code, which should be the length of the area code plus
+ * the length of the mobile token.
+ *
+ * @const
+ * @type {!Object.<number, string>}
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.MOBILE_TOKEN_MAPPINGS_ = {
+  52: '1',
+  54: '9'
+};
+
+
+/**
  * The PLUS_SIGN signifies the international prefix.
  *
  * @const
  * @type {string}
  */
 i18n.phonenumbers.PhoneNumberUtil.PLUS_SIGN = '+';
+
+
+/**
+ * @const
+ * @type {string}
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.STAR_SIGN_ = '*';
 
 
 /**
@@ -14432,6 +16897,30 @@ i18n.phonenumbers.PhoneNumberUtil.PLUS_SIGN = '+';
  * @private
  */
 i18n.phonenumbers.PhoneNumberUtil.RFC3966_EXTN_PREFIX_ = ';ext=';
+
+
+/**
+ * @const
+ * @type {string}
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.RFC3966_PREFIX_ = 'tel:';
+
+
+/**
+ * @const
+ * @type {string}
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.RFC3966_PHONE_CONTEXT_ = ';phone-context=';
+
+
+/**
+ * @const
+ * @type {string}
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.RFC3966_ISDN_SUBADDRESS_ = ';isub=';
 
 
 /**
@@ -14483,6 +16972,31 @@ i18n.phonenumbers.PhoneNumberUtil.DIGIT_MAPPINGS = {
   '\u06F7': '7', // Eastern-Arabic digit 7
   '\u06F8': '8', // Eastern-Arabic digit 8
   '\u06F9': '9'  // Eastern-Arabic digit 9
+};
+
+
+/**
+ * A map that contains characters that are essential when dialling. That means
+ * any of the characters in this map must not be removed from a number when
+ * dialling, otherwise the call will not reach the intended destination.
+ *
+ * @const
+ * @type {!Object.<string, string>}
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.DIALLABLE_CHAR_MAPPINGS_ = {
+  '0': '0',
+  '1': '1',
+  '2': '2',
+  '3': '3',
+  '4': '4',
+  '5': '5',
+  '6': '6',
+  '7': '7',
+  '8': '8',
+  '9': '9',
+  '+': i18n.phonenumbers.PhoneNumberUtil.PLUS_SIGN,
+  '*': '*'
 };
 
 
@@ -14720,8 +17234,8 @@ i18n.phonenumbers.PhoneNumberUtil.UNIQUE_INTERNATIONAL_PREFIX_ =
  * @type {string}
  */
 i18n.phonenumbers.PhoneNumberUtil.VALID_PUNCTUATION =
-    '-x\u2010-\u2015\u2212\u30FC\uFF0D-\uFF0F \u00A0\u200B\u2060\u3000()' +
-    '\uFF08\uFF09\uFF3B\uFF3D.\\[\\]/~\u2053\u223C\uFF5E';
+    '-x\u2010-\u2015\u2212\u30FC\uFF0D-\uFF0F \u00A0\u00AD\u200B\u2060\u3000' +
+    '()\uFF08\uFF09\uFF3B\uFF3D.\\[\\]/~\u2053\u223C\uFF5E';
 
 
 /**
@@ -14774,12 +17288,11 @@ i18n.phonenumbers.PhoneNumberUtil.LEADING_PLUS_CHARS_PATTERN_ =
 
 /**
  * @const
- * @type {!RegExp}
+ * @type {string}
  * @private
  */
 i18n.phonenumbers.PhoneNumberUtil.SEPARATOR_PATTERN_ =
-    new RegExp('[' + i18n.phonenumbers.PhoneNumberUtil.VALID_PUNCTUATION +
-               ']+', 'g');
+    '[' + i18n.phonenumbers.PhoneNumberUtil.VALID_PUNCTUATION + ']+';
 
 
 /**
@@ -14858,8 +17371,31 @@ i18n.phonenumbers.PhoneNumberUtil.VALID_ALPHA_PHONE_PATTERN_ =
  * used as a placeholder for carrier codes, for example in Brazilian phone
  * numbers. We also allow multiple '+' characters at the start.
  * Corresponds to the following:
- * plus_sign*([punctuation]*[digits]){3,}([punctuation]|[digits]|[alpha])*
+ * [digits]{minLengthNsn}|
+ * plus_sign*
+ * (([punctuation]|[star])*[digits]){3,}([punctuation]|[star]|[digits]|[alpha])*
+ *
+ * The first reg-ex is to allow short numbers (two digits long) to be parsed if
+ * they are entered as "15" etc, but only if there is no punctuation in them.
+ * The second expression restricts the number of digits to three or more, but
+ * then allows them to be in international form, and to have alpha-characters
+ * and punctuation. We split up the two reg-exes here and combine them when
+ * creating the reg-ex VALID_PHONE_NUMBER_PATTERN_ itself so we can prefix it
+ * with ^ and append $ to each branch.
+ *
  * Note VALID_PUNCTUATION starts with a -, so must be the first in the range.
+ *
+ * @const
+ * @type {string}
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.MIN_LENGTH_PHONE_NUMBER_PATTERN_ =
+    '[' + i18n.phonenumbers.PhoneNumberUtil.VALID_DIGITS_ + ']{' +
+    i18n.phonenumbers.PhoneNumberUtil.MIN_LENGTH_FOR_NSN_ + '}';
+
+
+/**
+ * See MIN_LENGTH_PHONE_NUMBER_PATTERN_ for a full description of this reg-exp.
  *
  * @const
  * @type {string}
@@ -14867,9 +17403,11 @@ i18n.phonenumbers.PhoneNumberUtil.VALID_ALPHA_PHONE_PATTERN_ =
  */
 i18n.phonenumbers.PhoneNumberUtil.VALID_PHONE_NUMBER_ =
     '[' + i18n.phonenumbers.PhoneNumberUtil.PLUS_CHARS_ + ']*(?:[' +
-    i18n.phonenumbers.PhoneNumberUtil.VALID_PUNCTUATION + ']*[' +
+    i18n.phonenumbers.PhoneNumberUtil.VALID_PUNCTUATION +
+    i18n.phonenumbers.PhoneNumberUtil.STAR_SIGN_ + ']*[' +
     i18n.phonenumbers.PhoneNumberUtil.VALID_DIGITS_ + ']){3,}[' +
     i18n.phonenumbers.PhoneNumberUtil.VALID_PUNCTUATION +
+    i18n.phonenumbers.PhoneNumberUtil.STAR_SIGN_ +
     i18n.phonenumbers.PhoneNumberUtil.VALID_ALPHA_ +
     i18n.phonenumbers.PhoneNumberUtil.VALID_DIGITS_ + ']*';
 
@@ -14922,7 +17460,7 @@ i18n.phonenumbers.PhoneNumberUtil.EXTN_PATTERNS_FOR_PARSING_ =
     i18n.phonenumbers.PhoneNumberUtil.RFC3966_EXTN_PREFIX_ +
     i18n.phonenumbers.PhoneNumberUtil.CAPTURING_EXTN_DIGITS_ + '|' +
     '[ \u00A0\\t,]*' +
-    '(?:ext(?:ensi(?:o\u0301?|\u00F3))?n?|\uFF45\uFF58\uFF54\uFF4E?|' +
+    '(?:e?xt(?:ensi(?:o\u0301?|\u00F3))?n?|\uFF45?\uFF58\uFF54\uFF4E?|' +
     '[,x\uFF58#\uFF03~\uFF5E]|int|anexo|\uFF49\uFF4E\uFF54)' +
     '[:\\.\uFF0E]?[ \u00A0\\t,-]*' +
     i18n.phonenumbers.PhoneNumberUtil.CAPTURING_EXTN_DIGITS_ + '#?|' +
@@ -14952,10 +17490,13 @@ i18n.phonenumbers.PhoneNumberUtil.EXTN_PATTERN_ =
  * @private
  */
 i18n.phonenumbers.PhoneNumberUtil.VALID_PHONE_NUMBER_PATTERN_ =
-    new RegExp('^' + i18n.phonenumbers.PhoneNumberUtil.VALID_PHONE_NUMBER_ +
-               '(?:' +
-               i18n.phonenumbers.PhoneNumberUtil.EXTN_PATTERNS_FOR_PARSING_ +
-               ')?' + '$', 'i');
+    new RegExp(
+        '^' +
+        i18n.phonenumbers.PhoneNumberUtil.MIN_LENGTH_PHONE_NUMBER_PATTERN_ +
+        '$|' +
+        '^' + i18n.phonenumbers.PhoneNumberUtil.VALID_PHONE_NUMBER_ +
+        '(?:' + i18n.phonenumbers.PhoneNumberUtil.EXTN_PATTERNS_FOR_PARSING_ +
+        ')?' + '$', 'i');
 
 
 /**
@@ -15003,14 +17544,34 @@ i18n.phonenumbers.PhoneNumberUtil.CC_PATTERN_ = /\$CC/;
 
 
 /**
+ * A pattern that is used to determine if the national prefix formatting rule
+ * has the first group only, i.e., does not start with the national prefix.
+ * Note that the pattern explicitly allows for unbalanced parentheses.
+ * @const
+ * @type {!RegExp}
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.FIRST_GROUP_ONLY_PREFIX_PATTERN_ =
+    /^\(?\$1\)?$/;
+
+
+/**
+ * @const
+ * @type {string}
+ */
+i18n.phonenumbers.PhoneNumberUtil.REGION_CODE_FOR_NON_GEO_ENTITY = '001';
+
+
+/**
  * INTERNATIONAL and NATIONAL formats are consistent with the definition in
- * ITU-T Recommendation E. 123. For example, the number of the Google
- * Switzerland office will be written as '+41 44 668 1800' in INTERNATIONAL
- * format, and as '044 668 1800' in NATIONAL format. E164 format is as per
- * INTERNATIONAL format but with no formatting applied, e.g. +41446681800.
- * RFC3966 is as per INTERNATIONAL format, but with all spaces and other
- * separating symbols replaced with a hyphen, and with any phone number
- * extension appended with ';ext='.
+ * ITU-T Recommendation E123. For example, the number of the Google Switzerland
+ * office will be written as '+41 44 668 1800' in INTERNATIONAL format, and as
+ * '044 668 1800' in NATIONAL format. E164 format is as per INTERNATIONAL format
+ * but with no formatting applied, e.g. '+41446681800'. RFC3966 is as per
+ * INTERNATIONAL format, but with all spaces and other separating symbols
+ * replaced with a hyphen, and with any phone number extension appended with
+ * ';ext='. It also will have a prefix of 'tel:' added, e.g.
+ * 'tel:+41-44-668-1800'.
  *
  * Note: If you are considering storing the number in a neutral format, you are
  * highly advised to use the PhoneNumber class.
@@ -15053,9 +17614,11 @@ i18n.phonenumbers.PhoneNumberType = {
   // further routed to specific offices, but allow one number to be used for a
   // company.
   UAN: 9,
+  // Used for 'Voice Mail Access Numbers'.
+  VOICEMAIL: 10,
   // A phone number is of type UNKNOWN when it does not fit any of the known
   // patterns for a specific region.
-  UNKNOWN: 10
+  UNKNOWN: -1
 };
 
 
@@ -15133,7 +17696,7 @@ i18n.phonenumbers.PhoneNumberUtil.extractPossibleNumber = function(number) {
 
 /**
  * Checks to see if the string of characters could possibly be a phone number at
- * all. At the moment, checks to see that the string begins with at least 3
+ * all. At the moment, checks to see that the string begins with at least 2
  * digits, ignoring any punctuation commonly found in phone numbers. This method
  * does not require the number to be normalized in advance - but does assume
  * that leading non-number symbols have been removed, such as by the method
@@ -15229,12 +17792,12 @@ i18n.phonenumbers.PhoneNumberUtil.convertAlphaCharactersInNumber =
 
 
 /**
- * Gets the length of the geographical area code in the {@code national_number}
- * field of the PhoneNumber object passed in, so that clients could use it to
- * split a national significant number into geographical area code and
- * subscriber number. It works in such a way that the resultant subscriber
- * number should be diallable, at least on some devices. An example of how this
- * could be used:
+ * Gets the length of the geographical area code from the
+ * {@code national_number} field of the PhoneNumber object passed in, so that
+ * clients could use it to split a national significant number into geographical
+ * area code and subscriber number. It works in such a way that the resultant
+ * subscriber number should be diallable, at least on some devices. An example
+ * of how this could be used:
  *
  * <pre>
  * var phoneUtil = i18n.phonenumbers.PhoneNumberUtil.getInstance();
@@ -15265,7 +17828,8 @@ i18n.phonenumbers.PhoneNumberUtil.convertAlphaCharactersInNumber =
  *  <li> subscriber numbers may not be diallable from all devices (notably
  *    mobile devices, which typically requires the full national_number to be
  *    dialled in most regions).
- *  <li> most non-geographical numbers have no area codes.
+ *  <li> most non-geographical numbers have no area codes, including numbers
+ *    from non-geographical entities.
  *  <li> some geographical numbers have no area codes.
  * </ul>
  *
@@ -15275,27 +17839,19 @@ i18n.phonenumbers.PhoneNumberUtil.convertAlphaCharactersInNumber =
  */
 i18n.phonenumbers.PhoneNumberUtil.prototype.getLengthOfGeographicalAreaCode =
     function(number) {
-
-  if (number == null) {
-    return 0;
-  }
-  /** @type {?string} */
-  var regionCode = this.getRegionCodeForNumber(number);
-  if (!this.isValidRegionCode_(regionCode)) {
-    return 0;
-  }
   /** @type {i18n.phonenumbers.PhoneMetadata} */
-  var metadata = this.getMetadataForRegion(regionCode);
-  if (!metadata.hasNationalPrefix()) {
+  var metadata = this.getMetadataForRegion(this.getRegionCodeForNumber(number));
+  if (metadata == null) {
+    return 0;
+  }
+  // If a country doesn't use a national prefix, and this number doesn't have
+  // an Italian leading zero, we assume it is a closed dialling plan with no
+  // area codes.
+  if (!metadata.hasNationalPrefix() && !number.hasItalianLeadingZero()) {
     return 0;
   }
 
-  /** @type {i18n.phonenumbers.PhoneNumberType} */
-  var type = this.getNumberTypeHelper_(
-      this.getNationalSignificantNumber(number), metadata);
-  // Most numbers other than the two types below have to be dialled in full.
-  if (type != i18n.phonenumbers.PhoneNumberType.FIXED_LINE &&
-      type != i18n.phonenumbers.PhoneNumberType.FIXED_LINE_OR_MOBILE) {
+  if (!this.isNumberGeographical(number)) {
     return 0;
   }
 
@@ -15374,18 +17930,72 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getLengthOfNationalDestinationCode =
     return 0;
   }
 
-  if (this.getRegionCodeForNumber(number) == 'AR' &&
-      this.getNumberType(number) == i18n.phonenumbers.PhoneNumberType.MOBILE) {
-    // Argentinian mobile numbers, when formatted in the international format,
-    // are in the form of +54 9 NDC XXXX.... As a result, we take the length of
-    // the third group (NDC) and add 1 for the digit 9, which also forms part of
-    // the national significant number.
-    //
-    // TODO: Investigate the possibility of better modeling the metadata to make
-    // it easier to obtain the NDC.
-    return numberGroups[2].length + 1;
+  if (this.getNumberType(number) == i18n.phonenumbers.PhoneNumberType.MOBILE) {
+    // For example Argentinian mobile numbers, when formatted in the
+    // international format, are in the form of +54 9 NDC XXXX.... As a result,
+    // we take the length of the third group (NDC) and add the length of the
+    // mobile token, which also forms part of the national significant number.
+    // This assumes that the mobile token is always formatted separately from
+    // the rest of the phone number.
+    /** @type {string} */
+    var mobileToken = i18n.phonenumbers.PhoneNumberUtil.getCountryMobileToken(
+        number.getCountryCodeOrDefault());
+    if (mobileToken != '') {
+      return numberGroups[2].length + mobileToken.length;
+    }
   }
   return numberGroups[1].length;
+};
+
+
+/**
+ * Returns the mobile token for the provided country calling code if it has
+ * one, otherwise returns an empty string. A mobile token is a number inserted
+ * before the area code when dialing a mobile number from that country from
+ * abroad.
+ *
+ * @param {number} countryCallingCode the country calling code for which we
+ *     want the mobile token.
+ * @return {string} the mobile token for the given country calling code.
+ */
+i18n.phonenumbers.PhoneNumberUtil.getCountryMobileToken =
+    function(countryCallingCode) {
+  return i18n.phonenumbers.PhoneNumberUtil.MOBILE_TOKEN_MAPPINGS_[
+      countryCallingCode] || '';
+};
+
+
+/**
+ * Convenience method to get a list of what regions the library has metadata
+ * for.
+ * @return {!Array.<string>} region codes supported by the library.
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.getSupportedRegions = function() {
+  return goog.array.filter(
+      Object.keys(i18n.phonenumbers.metadata.countryToMetadata),
+      function(regionCode) {
+        return isNaN(regionCode);
+      });
+};
+
+
+/**
+ * Convenience method to get a list of what global network calling codes the
+ * library has metadata for.
+ * @return {!Array.<number>} global network calling codes supported by the
+ *     library.
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.
+    getSupportedGlobalNetworkCallingCodes = function() {
+  var callingCodesAsStrings = goog.array.filter(
+      Object.keys(i18n.phonenumbers.metadata.countryToMetadata),
+      function(regionCode) {
+        return !isNaN(regionCode);
+      });
+  return goog.array.map(callingCodesAsStrings,
+      function(callingCode) {
+        return parseInt(callingCode, 10);
+      });
 };
 
 
@@ -15430,6 +18040,42 @@ i18n.phonenumbers.PhoneNumberUtil.normalizeHelper_ =
 
 
 /**
+ * Helper function to check if the national prefix formatting rule has the first
+ * group only, i.e., does not start with the national prefix.
+ *
+ * @param {string} nationalPrefixFormattingRule The formatting rule for the
+ *     national prefix.
+ * @return {boolean} true if the national prefix formatting rule has the first
+ *     group only.
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.formattingRuleHasFirstGroupOnly =
+    function(nationalPrefixFormattingRule) {
+  return nationalPrefixFormattingRule.length == 0 ||
+      i18n.phonenumbers.PhoneNumberUtil.FIRST_GROUP_ONLY_PREFIX_PATTERN_.
+          test(nationalPrefixFormattingRule);
+};
+
+
+/**
+ * Tests whether a phone number has a geographical association. It checks if
+ * the number is associated to a certain region in the country where it belongs
+ * to. Note that this doesn't verify if the number is actually in use.
+ *
+ * @param {i18n.phonenumbers.PhoneNumber} phoneNumber The phone number to test.
+ * @return {boolean} true if the phone number has a geographical association.
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.isNumberGeographical =
+    function(phoneNumber) {
+  /** @type {i18n.phonenumbers.PhoneNumberType} */
+  var numberType = this.getNumberType(phoneNumber);
+  // TODO: Include mobile phone numbers from countries like Indonesia, which
+  // has some mobile numbers that are geographical.
+  return numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE ||
+      numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE_OR_MOBILE;
+};
+
+
+/**
  * Helper function to check region code is not unknown or null.
  *
  * @param {?string} regionCode the ISO 3166-1 two-letter region code.
@@ -15439,8 +18085,32 @@ i18n.phonenumbers.PhoneNumberUtil.normalizeHelper_ =
 i18n.phonenumbers.PhoneNumberUtil.prototype.isValidRegionCode_ =
     function(regionCode) {
 
+  // In Java we check whether the regionCode is contained in supportedRegions
+  // that is built out of all the values of countryCallingCodeToRegionCodeMap
+  // (countryCodeToRegionCodeMap in JS) minus REGION_CODE_FOR_NON_GEO_ENTITY.
+  // In JS we check whether the regionCode is contained in the keys of
+  // countryToMetadata but since for non-geographical country calling codes
+  // (e.g. +800) we use the country calling codes instead of the region code as
+  // key in the map we have to make sure regionCode is not a number to prevent
+  // returning true for non-geographical country calling codes.
   return regionCode != null &&
+      isNaN(regionCode) &&
       regionCode.toUpperCase() in i18n.phonenumbers.metadata.countryToMetadata;
+};
+
+
+/**
+ * Helper function to check the country calling code is valid.
+ *
+ * @param {number} countryCallingCode the country calling code.
+ * @return {boolean} true if country calling code code is valid.
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.hasValidCountryCallingCode_ =
+    function(countryCallingCode) {
+
+  return countryCallingCode in
+      i18n.phonenumbers.metadata.countryCodeToRegionCodeMap;
 };
 
 
@@ -15465,6 +18135,11 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.format =
     function(number, numberFormat) {
 
   if (number.getNationalNumber() == 0 && number.hasRawInput()) {
+    // Unparseable numbers that kept their raw input just use that.
+    // This is the only case where a number can be formatted as E164 without a
+    // leading '+' symbol (but the original number wasn't parseable anyway).
+    // TODO: Consider removing the 'if' above so that unparseable strings
+    // without raw input format to the empty string instead of "+00"
     /** @type {string} */
     var rawInput = number.getRawInputOrDefault();
     if (rawInput.length > 0) {
@@ -15476,11 +18151,15 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.format =
   /** @type {string} */
   var nationalSignificantNumber = this.getNationalSignificantNumber(number);
   if (numberFormat == i18n.phonenumbers.PhoneNumberFormat.E164) {
-    // Early exit for E164 case since no formatting of the national number needs
-    // to be applied. Extensions are not formatted.
-    return this.formatNumberByFormat_(countryCallingCode,
-                                      i18n.phonenumbers.PhoneNumberFormat.E164,
-                                      nationalSignificantNumber, '');
+    // Early exit for E164 case (even if the country calling code is invalid)
+    // since no formatting of the national number needs to be applied.
+    // Extensions are not formatted.
+    return this.prefixNumberWithCountryCallingCode_(
+        countryCallingCode, i18n.phonenumbers.PhoneNumberFormat.E164,
+        nationalSignificantNumber, '');
+  }
+  if (!this.hasValidCountryCallingCode_(countryCallingCode)) {
+    return nationalSignificantNumber;
   }
   // Note getRegionCodeForCountryCode() is used because formatting information
   // for regions which share a country calling code is contained by only one
@@ -15488,22 +18167,23 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.format =
   // contained in the metadata for US.
   /** @type {string} */
   var regionCode = this.getRegionCodeForCountryCode(countryCallingCode);
-  if (!this.isValidRegionCode_(regionCode)) {
-    return nationalSignificantNumber;
-  }
 
+  // Metadata cannot be null because the country calling code is valid (which
+  // means that the region code cannot be ZZ and must be one of our supported
+  // region codes).
+  /** @type {i18n.phonenumbers.PhoneMetadata} */
+  var metadata =
+      this.getMetadataForRegionOrCallingCode_(countryCallingCode, regionCode);
   /** @type {string} */
   var formattedExtension =
-      this.maybeGetFormattedExtension_(number, regionCode, numberFormat);
+      this.maybeGetFormattedExtension_(number, metadata, numberFormat);
   /** @type {string} */
   var formattedNationalNumber =
-      this.formatNationalNumber_(nationalSignificantNumber,
-                                 regionCode,
-                                 numberFormat);
-  return this.formatNumberByFormat_(countryCallingCode,
-                                    numberFormat,
-                                    formattedNationalNumber,
-                                    formattedExtension);
+      this.formatNsn_(nationalSignificantNumber, metadata, numberFormat);
+  return this.prefixNumberWithCountryCallingCode_(countryCallingCode,
+                                                  numberFormat,
+                                                  formattedNationalNumber,
+                                                  formattedExtension);
 };
 
 
@@ -15530,35 +18210,41 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatByPattern =
   var countryCallingCode = number.getCountryCodeOrDefault();
   /** @type {string} */
   var nationalSignificantNumber = this.getNationalSignificantNumber(number);
+  if (!this.hasValidCountryCallingCode_(countryCallingCode)) {
+    return nationalSignificantNumber;
+  }
   // Note getRegionCodeForCountryCode() is used because formatting information
   // for regions which share a country calling code is contained by only one
   // region for performance reasons. For example, for NANPA regions it will be
   // contained in the metadata for US.
   /** @type {string} */
   var regionCode = this.getRegionCodeForCountryCode(countryCallingCode);
-  if (!this.isValidRegionCode_(regionCode)) {
-    return nationalSignificantNumber;
-  }
-  /** @type {Array.<i18n.phonenumbers.NumberFormat>} */
-  var userDefinedFormatsCopy = [];
-  /** @type {number} */
-  var size = userDefinedFormats.length;
-  for (var i = 0; i < size; ++i) {
+  // Metadata cannot be null because the country calling code is valid
+  /** @type {i18n.phonenumbers.PhoneMetadata} */
+  var metadata =
+      this.getMetadataForRegionOrCallingCode_(countryCallingCode, regionCode);
+
+  /** @type {string} */
+  var formattedNumber = '';
+
+  /** @type {i18n.phonenumbers.NumberFormat} */
+  var formattingPattern = this.chooseFormattingPatternForNumber_(
+      userDefinedFormats, nationalSignificantNumber);
+  if (formattingPattern == null) {
+    // If no pattern above is matched, we format the number as a whole.
+    formattedNumber = nationalSignificantNumber;
+  } else {
+    // Before we do a replacement of the national prefix pattern $NP with the
+    // national prefix, we need to copy the rule so that subsequent replacements
+    // for different numbers have the appropriate national prefix.
     /** @type {i18n.phonenumbers.NumberFormat} */
-    var numFormat = userDefinedFormats[i];
+    var numFormatCopy = formattingPattern.clone();
     /** @type {string} */
     var nationalPrefixFormattingRule =
-        numFormat.getNationalPrefixFormattingRuleOrDefault();
+        formattingPattern.getNationalPrefixFormattingRuleOrDefault();
     if (nationalPrefixFormattingRule.length > 0) {
-      // Before we do a replacement of the national prefix pattern $NP with the
-      // national prefix, we need to copy the rule so that subsequent
-      // replacements for different numbers have the appropriate national
-      // prefix.
-      /** type {i18n.phonenumbers.NumberFormat} */
-      var numFormatCopy = numFormat.clone();
       /** @type {string} */
-      var nationalPrefix =
-          this.getMetadataForRegion(regionCode).getNationalPrefixOrDefault();
+      var nationalPrefix = metadata.getNationalPrefixOrDefault();
       if (nationalPrefix.length > 0) {
         // Replace $NP with national prefix and $FG with the first group ($1).
         nationalPrefixFormattingRule = nationalPrefixFormattingRule
@@ -15572,26 +18258,18 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatByPattern =
         // there isn't one.
         numFormatCopy.clearNationalPrefixFormattingRule();
       }
-      userDefinedFormatsCopy.push(numFormatCopy);
-    } else {
-      // Otherwise, we just add the original rule to the modified list of
-      // formats.
-      userDefinedFormatsCopy.push(numFormat);
     }
+    formattedNumber = this.formatNsnUsingPattern_(
+        nationalSignificantNumber, numFormatCopy, numberFormat);
   }
 
   /** @type {string} */
   var formattedExtension =
-      this.maybeGetFormattedExtension_(number, regionCode, numberFormat);
-  /** @type {string} */
-  var formattedNationalNumber =
-      this.formatAccordingToFormats_(nationalSignificantNumber,
-                                     userDefinedFormatsCopy,
-                                     numberFormat);
-  return this.formatNumberByFormat_(countryCallingCode,
-                                    numberFormat,
-                                    formattedNationalNumber,
-                                    formattedExtension);
+      this.maybeGetFormattedExtension_(number, metadata, numberFormat);
+  return this.prefixNumberWithCountryCallingCode_(countryCallingCode,
+                                                  numberFormat,
+                                                  formattedNumber,
+                                                  formattedExtension);
 };
 
 
@@ -15615,28 +18293,45 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.
   var countryCallingCode = number.getCountryCodeOrDefault();
   /** @type {string} */
   var nationalSignificantNumber = this.getNationalSignificantNumber(number);
+  if (!this.hasValidCountryCallingCode_(countryCallingCode)) {
+    return nationalSignificantNumber;
+  }
+
   // Note getRegionCodeForCountryCode() is used because formatting information
   // for regions which share a country calling code is contained by only one
   // region for performance reasons. For example, for NANPA regions it will be
   // contained in the metadata for US.
   /** @type {string} */
   var regionCode = this.getRegionCodeForCountryCode(countryCallingCode);
-  if (!this.isValidRegionCode_(regionCode)) {
-    return nationalSignificantNumber;
-  }
-
+  // Metadata cannot be null because the country calling code is valid.
+  /** @type {i18n.phonenumbers.PhoneMetadata} */
+  var metadata =
+      this.getMetadataForRegionOrCallingCode_(countryCallingCode, regionCode);
   /** @type {string} */
   var formattedExtension = this.maybeGetFormattedExtension_(
-      number, regionCode, i18n.phonenumbers.PhoneNumberFormat.NATIONAL);
+      number, metadata, i18n.phonenumbers.PhoneNumberFormat.NATIONAL);
   /** @type {string} */
-  var formattedNationalNumber =
-      this.formatNationalNumber_(nationalSignificantNumber,
-                                 regionCode,
-                                 i18n.phonenumbers.PhoneNumberFormat.NATIONAL,
-                                 carrierCode);
-  return this.formatNumberByFormat_(
+  var formattedNationalNumber = this.formatNsn_(
+      nationalSignificantNumber, metadata,
+      i18n.phonenumbers.PhoneNumberFormat.NATIONAL, carrierCode);
+  return this.prefixNumberWithCountryCallingCode_(
       countryCallingCode, i18n.phonenumbers.PhoneNumberFormat.NATIONAL,
       formattedNationalNumber, formattedExtension);
+};
+
+
+/**
+ * @param {number} countryCallingCode
+ * @param {?string} regionCode
+ * @return {i18n.phonenumbers.PhoneMetadata}
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.getMetadataForRegionOrCallingCode_ =
+    function(countryCallingCode, regionCode) {
+  return i18n.phonenumbers.PhoneNumberUtil.REGION_CODE_FOR_NON_GEO_ENTITY ==
+      regionCode ?
+      this.getMetadataForNonGeographicalRegion(countryCallingCode) :
+      this.getMetadataForRegion(regionCode);
 };
 
 
@@ -15687,51 +18382,113 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.
 i18n.phonenumbers.PhoneNumberUtil.prototype.formatNumberForMobileDialing =
     function(number, regionCallingFrom, withFormatting) {
 
-  /** @type {?string} */
-  var regionCode = this.getRegionCodeForNumber(number);
-  if (!this.isValidRegionCode_(regionCode)) {
+  /** @type {number} */
+  var countryCallingCode = number.getCountryCodeOrDefault();
+  if (!this.hasValidCountryCallingCode_(countryCallingCode)) {
     return number.hasRawInput() ? number.getRawInputOrDefault() : '';
   }
 
   /** @type {string} */
-  var formattedNumber;
+  var formattedNumber = '';
   // Clear the extension, as that part cannot normally be dialed together with
   // the main number.
   /** @type {i18n.phonenumbers.PhoneNumber} */
   var numberNoExt = number.clone();
   numberNoExt.clearExtension();
+  /** @type {string} */
+  var regionCode = this.getRegionCodeForCountryCode(countryCallingCode);
   /** @type {i18n.phonenumbers.PhoneNumberType} */
   var numberType = this.getNumberType(numberNoExt);
-  if ((regionCode == 'CO') && (regionCallingFrom == 'CO') &&
-      (numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE)) {
-    formattedNumber = this.formatNationalNumberWithCarrierCode(
-        numberNoExt,
-        i18n.phonenumbers.PhoneNumberUtil
-            .COLOMBIA_MOBILE_TO_FIXED_LINE_PREFIX_);
-  } else if ((regionCode == 'BR') && (regionCallingFrom == 'BR') &&
-      ((numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE) ||
-      (numberType == i18n.phonenumbers.PhoneNumberType.MOBILE) ||
-      (numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE_OR_MOBILE))) {
-    formattedNumber = numberNoExt.hasPreferredDomesticCarrierCode() ?
-        this.formatNationalNumberWithPreferredCarrierCode(numberNoExt, '') :
-        // Brazilian fixed line and mobile numbers need to be dialed with a
-        // carrier code when called within Brazil. Without that, most of the
-        // carriers won't connect the call. Because of that, we return an empty
-        // string here.
-        '';
-  } else if (this.canBeInternationallyDialled(numberNoExt)) {
+  /** @type {boolean} */
+  var isValidNumber = (numberType != i18n.phonenumbers.PhoneNumberType.UNKNOWN);
+  if (regionCallingFrom == regionCode) {
+    /** @type {boolean} */
+    var isFixedLineOrMobile =
+        (numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE) ||
+        (numberType == i18n.phonenumbers.PhoneNumberType.MOBILE) ||
+        (numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE_OR_MOBILE);
+    // Carrier codes may be needed in some countries. We handle this here.
+    if (regionCode == 'CO' &&
+        numberType == i18n.phonenumbers.PhoneNumberType.FIXED_LINE) {
+      formattedNumber = this.formatNationalNumberWithCarrierCode(
+          numberNoExt,
+          i18n.phonenumbers.PhoneNumberUtil
+              .COLOMBIA_MOBILE_TO_FIXED_LINE_PREFIX_);
+    } else if (regionCode == 'BR' && isFixedLineOrMobile) {
+      formattedNumber = numberNoExt.hasPreferredDomesticCarrierCode() ?
+          this.formatNationalNumberWithPreferredCarrierCode(numberNoExt, '') :
+          // Brazilian fixed line and mobile numbers need to be dialed with a
+          // carrier code when called within Brazil. Without that, most of the
+          // carriers won't connect the call. Because of that, we return an
+          // empty string here.
+          '';
+    } else if (isValidNumber && regionCode == 'HU') {
+      // The national format for HU numbers doesn't contain the national prefix,
+      // because that is how numbers are normally written down. However, the
+      // national prefix is obligatory when dialing from a mobile phone. As a
+      // result, we add it back here if it is a valid regular length phone
+      // number.
+      formattedNumber =
+          this.getNddPrefixForRegion(regionCode, true /* strip non-digits */) +
+          ' ' + this.format(numberNoExt,
+              i18n.phonenumbers.PhoneNumberFormat.NATIONAL);
+    } else if (countryCallingCode ==
+               i18n.phonenumbers.PhoneNumberUtil.NANPA_COUNTRY_CODE_) {
+      // For NANPA countries, we output international format for numbers that
+      // can be dialed internationally, since that always works, except for
+      // numbers which might potentially be short numbers, which are always
+      // dialled in national format.
+      /** @type {i18n.phonenumbers.PhoneMetadata} */
+      var regionMetadata = this.getMetadataForRegion(regionCallingFrom);
+      if (this.canBeInternationallyDialled(numberNoExt) &&
+          !this.isShorterThanPossibleNormalNumber_(
+              regionMetadata, this.getNationalSignificantNumber(numberNoExt))) {
+        formattedNumber = this.format(
+            numberNoExt, i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL);
+      } else {
+        formattedNumber = this.format(
+            numberNoExt, i18n.phonenumbers.PhoneNumberFormat.NATIONAL);
+      }
+    } else {
+      // For non-geographical countries, Mexican and Chilean fixed line and
+      // mobile numbers, we output international format for numbers that can be
+      // dialed internationally, as that always works.
+      if ((regionCode ==
+           i18n.phonenumbers.PhoneNumberUtil.REGION_CODE_FOR_NON_GEO_ENTITY ||
+          // MX fixed line and mobile numbers should always be formatted in
+          // international format, even when dialed within MX. For national
+          // format to work, a carrier code needs to be used, and the correct
+          // carrier code depends on if the caller and callee are from the
+          // same local area. It is trickier to get that to work correctly than
+          // using international format, which is tested to work fine on all
+          // carriers.
+          // CL fixed line numbers need the national prefix when dialing in the
+          // national format, but don't have it when used for display. The
+          // reverse is true for mobile numbers. As a result, we output them in
+          // the international format to make it work.
+          ((regionCode == 'MX' || regionCode == 'CL') &&
+              isFixedLineOrMobile)) &&
+          this.canBeInternationallyDialled(numberNoExt)) {
+        formattedNumber = this.format(
+            numberNoExt, i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL);
+      } else {
+        formattedNumber = this.format(
+            numberNoExt, i18n.phonenumbers.PhoneNumberFormat.NATIONAL);
+      }
+    }
+  } else if (isValidNumber && this.canBeInternationallyDialled(numberNoExt)) {
+    // We assume that short numbers are not diallable from outside their region,
+    // so if a number is not a valid regular length phone number, we treat it as
+    // if it cannot be internationally dialled.
     return withFormatting ?
         this.format(numberNoExt,
                     i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL) :
         this.format(numberNoExt, i18n.phonenumbers.PhoneNumberFormat.E164);
-  } else {
-    formattedNumber = (regionCallingFrom == regionCode) ?
-        this.format(numberNoExt, i18n.phonenumbers.PhoneNumberFormat.NATIONAL) :
-        '';
   }
   return withFormatting ?
       formattedNumber :
-      i18n.phonenumbers.PhoneNumberUtil.normalizeDigitsOnly(formattedNumber);
+      i18n.phonenumbers.PhoneNumberUtil.normalizeHelper_(formattedNumber,
+          i18n.phonenumbers.PhoneNumberUtil.DIALLABLE_CHAR_MAPPINGS_, true);
 };
 
 
@@ -15766,10 +18523,8 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatOutOfCountryCallingNumber =
   /** @type {number} */
   var countryCallingCode = number.getCountryCodeOrDefault();
   /** @type {string} */
-  var regionCode = this.getRegionCodeForCountryCode(countryCallingCode);
-  /** @type {string} */
   var nationalSignificantNumber = this.getNationalSignificantNumber(number);
-  if (!this.isValidRegionCode_(regionCode)) {
+  if (!this.hasValidCountryCallingCode_(countryCallingCode)) {
     return nationalSignificantNumber;
   }
   if (countryCallingCode ==
@@ -15781,10 +18536,10 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatOutOfCountryCallingNumber =
           this.format(number, i18n.phonenumbers.PhoneNumberFormat.NATIONAL);
     }
   } else if (countryCallingCode ==
-                 this.getCountryCodeForRegion(regionCallingFrom)) {
-    // For regions that share a country calling code, the country calling code
-    // need not be dialled. This also applies when dialling within a region, so
-    // this if clause covers both these cases. Technically this is the case for
+                 this.getCountryCodeForValidRegion_(regionCallingFrom)) {
+    // If regions share a country calling code, the country calling code need
+    // not be dialled. This also applies when dialling within a region, so this
+    // if clause covers both these cases. Technically this is the case for
     // dialling from La Reunion to other overseas departments of France (French
     // Guiana, Martinique, Guadeloupe), but not vice versa - so we don't cover
     // this edge case for now and for those cases return the version including
@@ -15793,17 +18548,13 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatOutOfCountryCallingNumber =
     return this.format(number,
                        i18n.phonenumbers.PhoneNumberFormat.NATIONAL);
   }
-  /** @type {string} */
-  var formattedNationalNumber =
-      this.formatNationalNumber_(nationalSignificantNumber, regionCode,
-          i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL);
+  // Metadata cannot be null because we checked 'isValidRegionCode()' above.
   /** @type {i18n.phonenumbers.PhoneMetadata} */
-  var metadata = this.getMetadataForRegion(regionCallingFrom);
+  var metadataForRegionCallingFrom =
+      this.getMetadataForRegion(regionCallingFrom);
   /** @type {string} */
-  var internationalPrefix = metadata.getInternationalPrefixOrDefault();
-  /** @type {string} */
-  var formattedExtension = this.maybeGetFormattedExtension_(
-      number, regionCode, i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL);
+  var internationalPrefix =
+      metadataForRegionCallingFrom.getInternationalPrefixOrDefault();
 
   // For regions that have multiple international prefixes, the international
   // format of the number is returned, unless there is a preferred international
@@ -15814,15 +18565,28 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatOutOfCountryCallingNumber =
       i18n.phonenumbers.PhoneNumberUtil.UNIQUE_INTERNATIONAL_PREFIX_,
       internationalPrefix)) {
     internationalPrefixForFormatting = internationalPrefix;
-  } else if (metadata.hasPreferredInternationalPrefix()) {
+  } else if (metadataForRegionCallingFrom.hasPreferredInternationalPrefix()) {
     internationalPrefixForFormatting =
-        metadata.getPreferredInternationalPrefixOrDefault();
+        metadataForRegionCallingFrom.getPreferredInternationalPrefixOrDefault();
   }
 
+  /** @type {string} */
+  var regionCode = this.getRegionCodeForCountryCode(countryCallingCode);
+  // Metadata cannot be null because the country calling code is valid.
+  /** @type {i18n.phonenumbers.PhoneMetadata} */
+  var metadataForRegion =
+      this.getMetadataForRegionOrCallingCode_(countryCallingCode, regionCode);
+  /** @type {string} */
+  var formattedNationalNumber = this.formatNsn_(
+      nationalSignificantNumber, metadataForRegion,
+      i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL);
+  /** @type {string} */
+  var formattedExtension = this.maybeGetFormattedExtension_(number,
+      metadataForRegion, i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL);
   return internationalPrefixForFormatting.length > 0 ?
       internationalPrefixForFormatting + ' ' + countryCallingCode + ' ' +
           formattedNationalNumber + formattedExtension :
-      this.formatNumberByFormat_(
+      this.prefixNumberWithCountryCallingCode_(
           countryCallingCode, i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL,
           formattedNationalNumber, formattedExtension);
 };
@@ -15833,8 +18597,12 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatOutOfCountryCallingNumber =
  * is parsed from. The original format is embedded in the country_code_source
  * field of the PhoneNumber object passed in. If such information is missing,
  * the number will be formatted into the NATIONAL format by default. When the
- * number is an invalid number, the method returns the raw input when it is
- * available.
+ * number contains a leading zero and this is unexpected for this country, or we
+ * don't have a formatting pattern for the number, the method returns the raw
+ * input when it is available.
+ *
+ * Note this method guarantees no digit will be inserted, removed or modified as
+ * a result of formatting.
  *
  * @param {i18n.phonenumbers.PhoneNumber} number the phone number that needs to
  *     be formatted in its original number format.
@@ -15845,27 +18613,207 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatOutOfCountryCallingNumber =
 i18n.phonenumbers.PhoneNumberUtil.prototype.formatInOriginalFormat =
     function(number, regionCallingFrom) {
 
-  if (number.hasRawInput() && !this.isValidNumber(number)) {
+  if (number.hasRawInput() &&
+      (this.hasUnexpectedItalianLeadingZero_(number) ||
+       !this.hasFormattingPatternForNumber_(number))) {
+    // We check if we have the formatting pattern because without that, we might
+    // format the number as a group without national prefix.
     return number.getRawInputOrDefault();
   }
   if (!number.hasCountryCodeSource()) {
     return this.format(number, i18n.phonenumbers.PhoneNumberFormat.NATIONAL);
   }
+  /** @type {string} */
+  var formattedNumber;
   switch (number.getCountryCodeSource()) {
     case i18n.phonenumbers.PhoneNumber.CountryCodeSource
         .FROM_NUMBER_WITH_PLUS_SIGN:
-      return this.format(number,
+      formattedNumber = this.format(number,
           i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL);
+      break;
     case i18n.phonenumbers.PhoneNumber.CountryCodeSource.FROM_NUMBER_WITH_IDD:
-      return this.formatOutOfCountryCallingNumber(number, regionCallingFrom);
+      formattedNumber =
+          this.formatOutOfCountryCallingNumber(number, regionCallingFrom);
+      break;
     case i18n.phonenumbers.PhoneNumber.CountryCodeSource
         .FROM_NUMBER_WITHOUT_PLUS_SIGN:
-      return this.format(number,
+      formattedNumber = this.format(number,
           i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL).substring(1);
+      break;
     case i18n.phonenumbers.PhoneNumber.CountryCodeSource.FROM_DEFAULT_COUNTRY:
+      // Fall-through to default case.
     default:
-      return this.format(number, i18n.phonenumbers.PhoneNumberFormat.NATIONAL);
+      /** @type {string} */
+      var regionCode =
+          this.getRegionCodeForCountryCode(number.getCountryCodeOrDefault());
+      // We strip non-digits from the NDD here, and from the raw input later,
+      // so that we can compare them easily.
+      /** @type {?string} */
+      var nationalPrefix = this.getNddPrefixForRegion(regionCode, true);
+      /** @type {string} */
+      var nationalFormat =
+          this.format(number, i18n.phonenumbers.PhoneNumberFormat.NATIONAL);
+      if (nationalPrefix == null || nationalPrefix.length == 0) {
+        // If the region doesn't have a national prefix at all, we can safely
+        // return the national format without worrying about a national prefix
+        // being added.
+        formattedNumber = nationalFormat;
+        break;
+      }
+      // Otherwise, we check if the original number was entered with a national
+      // prefix.
+      if (this.rawInputContainsNationalPrefix_(
+          number.getRawInputOrDefault(), nationalPrefix, regionCode)) {
+        // If so, we can safely return the national format.
+        formattedNumber = nationalFormat;
+        break;
+      }
+      // Metadata cannot be null here because getNddPrefixForRegion() (above)
+      // returns null if there is no metadata for the region.
+      /** @type {i18n.phonenumbers.PhoneMetadata} */
+      var metadata = this.getMetadataForRegion(regionCode);
+      /** @type {string} */
+      var nationalNumber = this.getNationalSignificantNumber(number);
+      /** @type {i18n.phonenumbers.NumberFormat} */
+      var formatRule = this.chooseFormattingPatternForNumber_(
+          metadata.numberFormatArray(), nationalNumber);
+      // The format rule could still be null here if the national number was 0
+      // and there was no raw input (this should not be possible for numbers
+      // generated by the phonenumber library as they would also not have a
+      // country calling code and we would have exited earlier).
+      if (formatRule == null) {
+        formattedNumber = nationalFormat;
+        break;
+      }
+      // When the format we apply to this number doesn't contain national
+      // prefix, we can just return the national format.
+      // TODO: Refactor the code below with the code in
+      // isNationalPrefixPresentIfRequired.
+      /** @type {string} */
+      var candidateNationalPrefixRule =
+          formatRule.getNationalPrefixFormattingRuleOrDefault();
+      // We assume that the first-group symbol will never be _before_ the
+      // national prefix.
+      /** @type {number} */
+      var indexOfFirstGroup = candidateNationalPrefixRule.indexOf('$1');
+      if (indexOfFirstGroup <= 0) {
+        formattedNumber = nationalFormat;
+        break;
+      }
+      candidateNationalPrefixRule =
+          candidateNationalPrefixRule.substring(0, indexOfFirstGroup);
+      candidateNationalPrefixRule = i18n.phonenumbers.PhoneNumberUtil
+          .normalizeDigitsOnly(candidateNationalPrefixRule);
+      if (candidateNationalPrefixRule.length == 0) {
+        // National prefix not used when formatting this number.
+        formattedNumber = nationalFormat;
+        break;
+      }
+      // Otherwise, we need to remove the national prefix from our output.
+      /** @type {i18n.phonenumbers.NumberFormat} */
+      var numFormatCopy = formatRule.clone();
+      numFormatCopy.clearNationalPrefixFormattingRule();
+      formattedNumber = this.formatByPattern(number,
+          i18n.phonenumbers.PhoneNumberFormat.NATIONAL, [numFormatCopy]);
+      break;
   }
+  /** @type {string} */
+  var rawInput = number.getRawInputOrDefault();
+  // If no digit is inserted/removed/modified as a result of our formatting, we
+  // return the formatted phone number; otherwise we return the raw input the
+  // user entered.
+  if (formattedNumber != null && rawInput.length > 0) {
+    /** @type {string} */
+    var normalizedFormattedNumber =
+        i18n.phonenumbers.PhoneNumberUtil.normalizeHelper_(formattedNumber,
+            i18n.phonenumbers.PhoneNumberUtil.DIALLABLE_CHAR_MAPPINGS_,
+            true /* remove non matches */);
+    /** @type {string} */
+    var normalizedRawInput =
+        i18n.phonenumbers.PhoneNumberUtil.normalizeHelper_(rawInput,
+            i18n.phonenumbers.PhoneNumberUtil.DIALLABLE_CHAR_MAPPINGS_,
+            true /* remove non matches */);
+    if (normalizedFormattedNumber != normalizedRawInput) {
+      formattedNumber = rawInput;
+    }
+  }
+  return formattedNumber;
+};
+
+
+/**
+ * Check if rawInput, which is assumed to be in the national format, has a
+ * national prefix. The national prefix is assumed to be in digits-only form.
+ * @param {string} rawInput
+ * @param {string} nationalPrefix
+ * @param {string} regionCode
+ * @return {boolean}
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.rawInputContainsNationalPrefix_ =
+    function(rawInput, nationalPrefix, regionCode) {
+
+  /** @type {string} */
+  var normalizedNationalNumber =
+      i18n.phonenumbers.PhoneNumberUtil.normalizeDigitsOnly(rawInput);
+  if (goog.string.startsWith(normalizedNationalNumber, nationalPrefix)) {
+    try {
+      // Some Japanese numbers (e.g. 00777123) might be mistaken to contain the
+      // national prefix when written without it (e.g. 0777123) if we just do
+      // prefix matching. To tackle that, we check the validity of the number if
+      // the assumed national prefix is removed (777123 won't be valid in
+      // Japan).
+      return this.isValidNumber(
+          this.parse(normalizedNationalNumber.substring(nationalPrefix.length),
+                     regionCode));
+    } catch (e) {
+      return false;
+    }
+  }
+  return false;
+};
+
+
+/**
+ * Returns true if a number is from a region whose national significant number
+ * couldn't contain a leading zero, but has the italian_leading_zero field set
+ * to true.
+ * @param {i18n.phonenumbers.PhoneNumber} number
+ * @return {boolean}
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.hasUnexpectedItalianLeadingZero_ =
+    function(number) {
+
+  return number.hasItalianLeadingZero() &&
+      !this.isLeadingZeroPossible(number.getCountryCodeOrDefault());
+};
+
+
+/**
+ * @param {i18n.phonenumbers.PhoneNumber} number
+ * @return {boolean}
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.hasFormattingPatternForNumber_ =
+    function(number) {
+
+  /** @type {number} */
+  var countryCallingCode = number.getCountryCodeOrDefault();
+  /** @type {string} */
+  var phoneNumberRegion = this.getRegionCodeForCountryCode(countryCallingCode);
+  /** @type {i18n.phonenumbers.PhoneMetadata} */
+  var metadata = this.getMetadataForRegionOrCallingCode_(
+      countryCallingCode, phoneNumberRegion);
+  if (metadata == null) {
+    return false;
+  }
+  /** @type {string} */
+  var nationalNumber = this.getNationalSignificantNumber(number);
+  /** @type {i18n.phonenumbers.NumberFormat} */
+  var formatRule = this.chooseFormattingPatternForNumber_(
+      metadata.numberFormatArray(), nationalNumber);
+  return formatRule != null;
 };
 
 
@@ -15906,9 +18854,7 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.
   }
   /** @type {number} */
   var countryCode = number.getCountryCodeOrDefault();
-  /** @type {string} */
-  var regionCode = this.getRegionCodeForCountryCode(countryCode);
-  if (!this.isValidRegionCode_(regionCode)) {
+  if (!this.hasValidCountryCallingCode_(countryCode)) {
     return rawInput;
   }
   // Strip any prefix such as country calling code, IDD, that was present. We do
@@ -15934,56 +18880,75 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.
     }
   }
   /** @type {i18n.phonenumbers.PhoneMetadata} */
-  var metadata = this.getMetadataForRegion(regionCallingFrom);
+  var metadataForRegionCallingFrom =
+      this.getMetadataForRegion(regionCallingFrom);
   if (countryCode == i18n.phonenumbers.PhoneNumberUtil.NANPA_COUNTRY_CODE_) {
     if (this.isNANPACountry(regionCallingFrom)) {
       return countryCode + ' ' + rawInput;
     }
-  } else if (countryCode == this.getCountryCodeForRegion(regionCallingFrom)) {
-    // Here we copy the formatting rules so we can modify the pattern we expect
-    // to match against.
-    /** @type {Array.<i18n.phonenumbers.NumberFormat>} */
-    var availableFormats = [];
-    for (var i = 0; i < metadata.numberFormatArray().length; ++i) {
-      /** @type {i18n.phonenumbers.NumberFormat} */
-      var newFormat = metadata.numberFormatArray()[i].clone();
-      // The first group is the first group of digits that the user determined.
-      newFormat.setPattern('(\\d+)(.*)');
-      // Here we just concatenate them back together after the national prefix
-      // has been fixed.
-      newFormat.setFormat('$1$2');
-      availableFormats.push(newFormat);
+  } else if (metadataForRegionCallingFrom != null &&
+      countryCode == this.getCountryCodeForValidRegion_(regionCallingFrom)) {
+    /** @type {i18n.phonenumbers.NumberFormat} */
+    var formattingPattern = this.chooseFormattingPatternForNumber_(
+        metadataForRegionCallingFrom.numberFormatArray(), nationalNumber);
+    if (formattingPattern == null) {
+      // If no pattern above is matched, we format the original input.
+      return rawInput;
     }
-    // Now we format using these patterns instead of the default pattern, but
-    // with the national prefix prefixed if necessary, by choosing the format
-    // rule based on the leading digits present in the unformatted national
-    // number. This will not work in the cases where the pattern (and not the
-    // leading digits) decide whether a national prefix needs to be used, since
-    // we have overridden the pattern to match anything, but that is not the
-    // case in the metadata to date.
-    return this.formatAccordingToFormats_(rawInput, availableFormats,
+    /** @type {i18n.phonenumbers.NumberFormat} */
+    var newFormat = formattingPattern.clone();
+    // The first group is the first group of digits that the user wrote
+    // together.
+    newFormat.setPattern('(\\d+)(.*)');
+    // Here we just concatenate them back together after the national prefix
+    // has been fixed.
+    newFormat.setFormat('$1$2');
+    // Now we format using this pattern instead of the default pattern, but
+    // with the national prefix prefixed if necessary.
+    // This will not work in the cases where the pattern (and not the leading
+    // digits) decide whether a national prefix needs to be used, since we have
+    // overridden the pattern to match anything, but that is not the case in the
+    // metadata to date.
+    return this.formatNsnUsingPattern_(rawInput, newFormat,
         i18n.phonenumbers.PhoneNumberFormat.NATIONAL);
   }
   /** @type {string} */
-  var internationalPrefix = metadata.getInternationalPrefixOrDefault();
-  // For countries that have multiple international prefixes, the international
-  // format of the number is returned, unless there is a preferred international
-  // prefix.
+  var internationalPrefixForFormatting = '';
+  // If an unsupported region-calling-from is entered, or a country with
+  // multiple international prefixes, the international format of the number is
+  // returned, unless there is a preferred international prefix.
+  if (metadataForRegionCallingFrom != null) {
+    /** @type {string} */
+    var internationalPrefix =
+        metadataForRegionCallingFrom.getInternationalPrefixOrDefault();
+    internationalPrefixForFormatting =
+        i18n.phonenumbers.PhoneNumberUtil.matchesEntirely_(
+            i18n.phonenumbers.PhoneNumberUtil.UNIQUE_INTERNATIONAL_PREFIX_,
+            internationalPrefix) ?
+        internationalPrefix :
+        metadataForRegionCallingFrom.getPreferredInternationalPrefixOrDefault();
+  }
   /** @type {string} */
-  var internationalPrefixForFormatting =
-      i18n.phonenumbers.PhoneNumberUtil.matchesEntirely_(
-          i18n.phonenumbers.PhoneNumberUtil.UNIQUE_INTERNATIONAL_PREFIX_,
-          internationalPrefix) ?
-      internationalPrefix : metadata.getPreferredInternationalPrefixOrDefault();
+  var regionCode = this.getRegionCodeForCountryCode(countryCode);
+  // Metadata cannot be null because the country calling code is valid.
+  /** @type {i18n.phonenumbers.PhoneMetadata} */
+  var metadataForRegion =
+      this.getMetadataForRegionOrCallingCode_(countryCode, regionCode);
   /** @type {string} */
   var formattedExtension = this.maybeGetFormattedExtension_(
-      number, regionCode, i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL);
-  return internationalPrefixForFormatting.length > 0 ?
-      internationalPrefixForFormatting + ' ' + countryCode + ' ' +
-          rawInput + formattedExtension :
-      this.formatNumberByFormat_(
-          countryCode, i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL,
-          rawInput, formattedExtension);
+      number, metadataForRegion,
+      i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL);
+  if (internationalPrefixForFormatting.length > 0) {
+    return internationalPrefixForFormatting + ' ' + countryCode + ' ' +
+        rawInput + formattedExtension;
+  } else {
+    // Invalid region entered as country-calling-from (so no metadata was found
+    // for it) or the region chosen has multiple international dialling
+    // prefixes.
+    return this.prefixNumberWithCountryCallingCode_(
+        countryCode, i18n.phonenumbers.PhoneNumberFormat.INTERNATIONAL,
+        rawInput, formattedExtension);
+  }
 };
 
 
@@ -15999,12 +18964,13 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.
 i18n.phonenumbers.PhoneNumberUtil.prototype.getNationalSignificantNumber =
     function(number) {
 
-  // If a leading zero has been set, we prefix this now. Note this is not a
+  // If leading zero(s) have been set, we prefix this now. Note this is not a
   // national prefix.
   /** @type {string} */
   var nationalNumber = '' + number.getNationalNumber();
   if (number.hasItalianLeadingZero() && number.getItalianLeadingZero()) {
-    return '0' + nationalNumber;
+    return Array(number.getNumberOfLeadingZerosOrDefault() + 1).join('0') +
+        nationalNumber;
   }
   return nationalNumber;
 };
@@ -16021,9 +18987,11 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getNationalSignificantNumber =
  * @return {string} the formatted phone number.
  * @private
  */
-i18n.phonenumbers.PhoneNumberUtil.prototype.formatNumberByFormat_ =
-    function(countryCallingCode, numberFormat,
-             formattedNationalNumber, formattedExtension) {
+i18n.phonenumbers.PhoneNumberUtil.prototype.
+    prefixNumberWithCountryCallingCode_ = function(countryCallingCode,
+                                                   numberFormat,
+                                                   formattedNationalNumber,
+                                                   formattedExtension) {
 
   switch (numberFormat) {
     case i18n.phonenumbers.PhoneNumberFormat.E164:
@@ -16033,7 +19001,8 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatNumberByFormat_ =
       return i18n.phonenumbers.PhoneNumberUtil.PLUS_SIGN + countryCallingCode +
           ' ' + formattedNationalNumber + formattedExtension;
     case i18n.phonenumbers.PhoneNumberFormat.RFC3966:
-      return i18n.phonenumbers.PhoneNumberUtil.PLUS_SIGN + countryCallingCode +
+      return i18n.phonenumbers.PhoneNumberUtil.RFC3966_PREFIX_ +
+          i18n.phonenumbers.PhoneNumberUtil.PLUS_SIGN + countryCallingCode +
           '-' + formattedNationalNumber + formattedExtension;
     case i18n.phonenumbers.PhoneNumberFormat.NATIONAL:
     default:
@@ -16050,18 +19019,17 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatNumberByFormat_ =
  * be inserted into the formatted string to replace $CC.
  *
  * @param {string} number a string of characters representing a phone number.
- * @param {string} regionCode the ISO 3166-1 two-letter region code.
+ * @param {i18n.phonenumbers.PhoneMetadata} metadata the metadata for the
+ *     region that we think this number is from.
  * @param {i18n.phonenumbers.PhoneNumberFormat} numberFormat the format the
  *     phone number should be formatted into.
  * @param {string=} opt_carrierCode
  * @return {string} the formatted phone number.
  * @private
  */
-i18n.phonenumbers.PhoneNumberUtil.prototype.formatNationalNumber_ =
-    function(number, regionCode, numberFormat, opt_carrierCode) {
+i18n.phonenumbers.PhoneNumberUtil.prototype.formatNsn_ =
+    function(number, metadata, numberFormat, opt_carrierCode) {
 
-  /** @type {i18n.phonenumbers.PhoneMetadata} */
-  var metadata = this.getMetadataForRegion(regionCode);
   /** @type {Array.<i18n.phonenumbers.NumberFormat>} */
   var intlNumberFormats = metadata.intlNumberFormatArray();
   // When the intlNumberFormats exists, we use that to format national number
@@ -16071,33 +19039,26 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatNationalNumber_ =
       (intlNumberFormats.length == 0 ||
           numberFormat == i18n.phonenumbers.PhoneNumberFormat.NATIONAL) ?
       metadata.numberFormatArray() : metadata.intlNumberFormatArray();
-  /** @type {string} */
-  var formattedNationalNumber = this.formatAccordingToFormats_(
-      number, availableFormats, numberFormat, opt_carrierCode);
-  if (numberFormat == i18n.phonenumbers.PhoneNumberFormat.RFC3966) {
-    formattedNationalNumber = formattedNationalNumber.replace(
-        i18n.phonenumbers.PhoneNumberUtil.SEPARATOR_PATTERN_, '-');
-  }
-  return formattedNationalNumber;
+  /** @type {i18n.phonenumbers.NumberFormat} */
+  var formattingPattern = this.chooseFormattingPatternForNumber_(
+      availableFormats, number);
+  return (formattingPattern == null) ?
+      number :
+      this.formatNsnUsingPattern_(number, formattingPattern,
+                                  numberFormat, opt_carrierCode);
 };
 
 
 /**
- * Note that carrierCode is optional - if NULL or an empty string, no carrier
- * code replacement will take place.
- *
- * @param {string} nationalNumber a string of characters representing a phone
- *     number.
  * @param {Array.<i18n.phonenumbers.NumberFormat>} availableFormats the
  *     available formats the phone number could be formatted into.
- * @param {i18n.phonenumbers.PhoneNumberFormat} numberFormat the format the
- *     phone number should be formatted into.
- * @param {string=} opt_carrierCode
- * @return {string} the formatted phone number.
+ * @param {string} nationalNumber a string of characters representing a phone
+ *     number.
+ * @return {i18n.phonenumbers.NumberFormat}
  * @private
  */
-i18n.phonenumbers.PhoneNumberUtil.prototype.formatAccordingToFormats_ =
-    function(nationalNumber, availableFormats, numberFormat, opt_carrierCode) {
+i18n.phonenumbers.PhoneNumberUtil.prototype.chooseFormattingPatternForNumber_ =
+    function(availableFormats, nationalNumber) {
 
   /** @type {i18n.phonenumbers.NumberFormat} */
   var numFormat;
@@ -16116,47 +19077,83 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatAccordingToFormats_ =
       var patternToMatch = new RegExp(numFormat.getPattern());
       if (i18n.phonenumbers.PhoneNumberUtil.matchesEntirely_(patternToMatch,
                                                              nationalNumber)) {
-        /** @type {string} */
-        var numberFormatRule = numFormat.getFormatOrDefault();
-        /** @type {string} */
-        var domesticCarrierCodeFormattingRule =
-            numFormat.getDomesticCarrierCodeFormattingRuleOrDefault();
-        if (numberFormat == i18n.phonenumbers.PhoneNumberFormat.NATIONAL &&
-            opt_carrierCode != null && opt_carrierCode.length > 0 &&
-            domesticCarrierCodeFormattingRule.length > 0) {
-          // Replace the $CC in the formatting rule with the desired carrier
-          // code.
-          /** @type {string} */
-          var carrierCodeFormattingRule = domesticCarrierCodeFormattingRule
-              .replace(i18n.phonenumbers.PhoneNumberUtil.CC_PATTERN_,
-                       opt_carrierCode);
-          // Now replace the $FG in the formatting rule with the first group and
-          // the carrier code combined in the appropriate way.
-          numberFormatRule = numberFormatRule.replace(
-              i18n.phonenumbers.PhoneNumberUtil.FIRST_GROUP_PATTERN_,
-              carrierCodeFormattingRule);
-          return nationalNumber.replace(patternToMatch, numberFormatRule);
-        } else {
-          // Use the national prefix formatting rule instead.
-          /** @type {string} */
-          var nationalPrefixFormattingRule =
-              numFormat.getNationalPrefixFormattingRuleOrDefault();
-          if (numberFormat == i18n.phonenumbers.PhoneNumberFormat.NATIONAL &&
-              nationalPrefixFormattingRule != null &&
-              nationalPrefixFormattingRule.length > 0) {
-            return nationalNumber.replace(patternToMatch, numberFormatRule
-                .replace(i18n.phonenumbers.PhoneNumberUtil.FIRST_GROUP_PATTERN_,
-                         nationalPrefixFormattingRule));
-          } else {
-            return nationalNumber.replace(patternToMatch, numberFormatRule);
-          }
-        }
+        return numFormat;
       }
     }
   }
+  return null;
+};
 
-  // If no pattern above is matched, we format the number as a whole.
-  return nationalNumber;
+
+/**
+ * Note that carrierCode is optional - if null or an empty string, no carrier
+ * code replacement will take place.
+ *
+ * @param {string} nationalNumber a string of characters representing a phone
+ *     number.
+ * @param {i18n.phonenumbers.NumberFormat} formattingPattern the formatting rule
+ *     the phone number should be formatted into.
+ * @param {i18n.phonenumbers.PhoneNumberFormat} numberFormat the format the
+ *     phone number should be formatted into.
+ * @param {string=} opt_carrierCode
+ * @return {string} the formatted phone number.
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.formatNsnUsingPattern_ =
+    function(nationalNumber, formattingPattern, numberFormat, opt_carrierCode) {
+
+  /** @type {string} */
+  var numberFormatRule = formattingPattern.getFormatOrDefault();
+  /** @type {!RegExp} */
+  var patternToMatch = new RegExp(formattingPattern.getPattern());
+  /** @type {string} */
+  var domesticCarrierCodeFormattingRule =
+      formattingPattern.getDomesticCarrierCodeFormattingRuleOrDefault();
+  /** @type {string} */
+  var formattedNationalNumber = '';
+  if (numberFormat == i18n.phonenumbers.PhoneNumberFormat.NATIONAL &&
+      opt_carrierCode != null && opt_carrierCode.length > 0 &&
+      domesticCarrierCodeFormattingRule.length > 0) {
+    // Replace the $CC in the formatting rule with the desired carrier code.
+    /** @type {string} */
+    var carrierCodeFormattingRule = domesticCarrierCodeFormattingRule
+        .replace(i18n.phonenumbers.PhoneNumberUtil.CC_PATTERN_,
+                 opt_carrierCode);
+    // Now replace the $FG in the formatting rule with the first group and
+    // the carrier code combined in the appropriate way.
+    numberFormatRule = numberFormatRule.replace(
+        i18n.phonenumbers.PhoneNumberUtil.FIRST_GROUP_PATTERN_,
+        carrierCodeFormattingRule);
+    formattedNationalNumber =
+        nationalNumber.replace(patternToMatch, numberFormatRule);
+  } else {
+    // Use the national prefix formatting rule instead.
+    /** @type {string} */
+    var nationalPrefixFormattingRule =
+        formattingPattern.getNationalPrefixFormattingRuleOrDefault();
+    if (numberFormat == i18n.phonenumbers.PhoneNumberFormat.NATIONAL &&
+        nationalPrefixFormattingRule != null &&
+        nationalPrefixFormattingRule.length > 0) {
+      formattedNationalNumber = nationalNumber.replace(patternToMatch,
+          numberFormatRule.replace(
+              i18n.phonenumbers.PhoneNumberUtil.FIRST_GROUP_PATTERN_,
+              nationalPrefixFormattingRule));
+    } else {
+      formattedNationalNumber =
+          nationalNumber.replace(patternToMatch, numberFormatRule);
+    }
+  }
+  if (numberFormat == i18n.phonenumbers.PhoneNumberFormat.RFC3966) {
+    // Strip any leading punctuation.
+    formattedNationalNumber = formattedNationalNumber.replace(
+        new RegExp('^' + i18n.phonenumbers.PhoneNumberUtil.SEPARATOR_PATTERN_),
+        '');
+    // Replace the rest with a dash between each number group.
+    formattedNationalNumber = formattedNationalNumber.replace(
+        new RegExp(i18n.phonenumbers.PhoneNumberUtil.SEPARATOR_PATTERN_, 'g'),
+        '-');
+  }
+  return formattedNationalNumber;
 };
 
 
@@ -16166,7 +19163,9 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.formatAccordingToFormats_ =
  * @param {string} regionCode the region for which an example number is needed.
  * @return {i18n.phonenumbers.PhoneNumber} a valid fixed-line number for the
  *     specified region. Returns null when the metadata does not contain such
- *     information.
+ *     information, or the region 001 is passed in. For 001 (representing non-
+ *     geographical numbers), call {@link #getExampleNumberForNonGeoEntity}
+ *     instead.
  */
 i18n.phonenumbers.PhoneNumberUtil.prototype.getExampleNumber =
     function(regionCode) {
@@ -16184,7 +19183,9 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getExampleNumber =
  *     needed.
  * @return {i18n.phonenumbers.PhoneNumber} a valid number for the specified
  *     region and type. Returns null when the metadata does not contain such
- *     information or if an invalid region was entered.
+ *     information or if an invalid region or region 001 was entered.
+ *     For 001 (representing non-geographical numbers), call
+ *     {@link #getExampleNumberForNonGeoEntity} instead.
  */
 i18n.phonenumbers.PhoneNumberUtil.prototype.getExampleNumberForType =
     function(regionCode, type) {
@@ -16207,19 +19208,51 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getExampleNumberForType =
 
 
 /**
+ * Gets a valid number for the specified country calling code for a
+ * non-geographical entity.
+ *
+ * @param {number} countryCallingCode the country calling code for a
+ *     non-geographical entity.
+ * @return {i18n.phonenumbers.PhoneNumber} a valid number for the
+ *     non-geographical entity. Returns null when the metadata does not contain
+ *     such information, or the country calling code passed in does not belong
+ *     to a non-geographical entity.
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.getExampleNumberForNonGeoEntity =
+    function(countryCallingCode) {
+  /** @type {i18n.phonenumbers.PhoneMetadata} */
+  var metadata =
+      this.getMetadataForNonGeographicalRegion(countryCallingCode);
+  if (metadata != null) {
+    /** @type {i18n.phonenumbers.PhoneNumberDesc} */
+    var desc = metadata.getGeneralDesc();
+    try {
+      if (desc.hasExampleNumber()) {
+        return this.parse('+' + countryCallingCode + desc.getExampleNumber(),
+                          'ZZ');
+      }
+    } catch (e) {
+    }
+  }
+  return null;
+};
+
+
+/**
  * Gets the formatted extension of a phone number, if the phone number had an
  * extension specified. If not, it returns an empty string.
  *
  * @param {i18n.phonenumbers.PhoneNumber} number the PhoneNumber that might have
  *     an extension.
- * @param {string} regionCode the ISO 3166-1 two-letter region code.
+ * @param {i18n.phonenumbers.PhoneMetadata} metadata the metadata for the
+ *     region that we think this number is from.
  * @param {i18n.phonenumbers.PhoneNumberFormat} numberFormat the format the
  *     phone number should be formatted into.
  * @return {string} the formatted extension if any.
  * @private
  */
 i18n.phonenumbers.PhoneNumberUtil.prototype.maybeGetFormattedExtension_ =
-    function(number, regionCode, numberFormat) {
+    function(number, metadata, numberFormat) {
 
   if (!number.hasExtension() || number.getExtension().length == 0) {
     return '';
@@ -16227,32 +19260,15 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.maybeGetFormattedExtension_ =
     if (numberFormat == i18n.phonenumbers.PhoneNumberFormat.RFC3966) {
       return i18n.phonenumbers.PhoneNumberUtil.RFC3966_EXTN_PREFIX_ +
           number.getExtension();
+    } else {
+      if (metadata.hasPreferredExtnPrefix()) {
+        return metadata.getPreferredExtnPrefix() +
+            number.getExtensionOrDefault();
+      } else {
+        return i18n.phonenumbers.PhoneNumberUtil.DEFAULT_EXTN_PREFIX_ +
+            number.getExtensionOrDefault();
+      }
     }
-    return this.formatExtension_(number.getExtensionOrDefault(), regionCode);
-  }
-};
-
-
-/**
- * Formats the extension part of the phone number by prefixing it with the
- * appropriate extension prefix. This will be the default extension prefix,
- * unless overridden by a preferred extension prefix for this region.
- *
- * @param {string} extensionDigits the extension digits.
- * @param {string} regionCode the ISO 3166-1 two-letter region code.
- * @return {string} the formatted extension.
- * @private
- */
-i18n.phonenumbers.PhoneNumberUtil.prototype.formatExtension_ =
-    function(extensionDigits, regionCode) {
-
-  /** @type {i18n.phonenumbers.PhoneMetadata} */
-  var metadata = this.getMetadataForRegion(regionCode);
-  if (metadata.hasPreferredExtnPrefix()) {
-    return metadata.getPreferredExtnPrefix() + extensionDigits;
-  } else {
-    return i18n.phonenumbers.PhoneNumberUtil.DEFAULT_EXTN_PREFIX_ +
-        extensionDigits;
   }
 };
 
@@ -16286,6 +19302,8 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getNumberDescByType_ =
       return metadata.getPager();
     case i18n.phonenumbers.PhoneNumberType.UAN:
       return metadata.getUan();
+    case i18n.phonenumbers.PhoneNumberType.VOICEMAIL:
+      return metadata.getVoicemail();
     default:
       return metadata.getGeneralDesc();
   }
@@ -16304,13 +19322,15 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getNumberType =
 
   /** @type {?string} */
   var regionCode = this.getRegionCodeForNumber(number);
-  if (!this.isValidRegionCode_(regionCode)) {
+  /** @type {i18n.phonenumbers.PhoneMetadata} */
+  var metadata = this.getMetadataForRegionOrCallingCode_(
+      number.getCountryCodeOrDefault(), regionCode);
+  if (metadata == null) {
     return i18n.phonenumbers.PhoneNumberType.UNKNOWN;
   }
   /** @type {string} */
   var nationalSignificantNumber = this.getNationalSignificantNumber(number);
-  return this.getNumberTypeHelper_(nationalSignificantNumber,
-      this.getMetadataForRegion(regionCode));
+  return this.getNumberTypeHelper_(nationalSignificantNumber, metadata);
 };
 
 
@@ -16323,10 +19343,7 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getNumberType =
 i18n.phonenumbers.PhoneNumberUtil.prototype.getNumberTypeHelper_ =
     function(nationalNumber, metadata) {
 
-  /** @type {i18n.phonenumbers.PhoneNumberDesc} */
-  var generalNumberDesc = metadata.getGeneralDesc();
-  if (!generalNumberDesc.hasNationalNumberPattern() ||
-      !this.isNumberMatchingDesc_(nationalNumber, generalNumberDesc)) {
+  if (!this.isNumberMatchingDesc_(nationalNumber, metadata.getGeneralDesc())) {
     return i18n.phonenumbers.PhoneNumberType.UNKNOWN;
   }
 
@@ -16352,6 +19369,9 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getNumberTypeHelper_ =
   if (this.isNumberMatchingDesc_(nationalNumber, metadata.getUan())) {
     return i18n.phonenumbers.PhoneNumberType.UAN;
   }
+  if (this.isNumberMatchingDesc_(nationalNumber, metadata.getVoicemail())) {
+    return i18n.phonenumbers.PhoneNumberType.VOICEMAIL;
+  }
 
   /** @type {boolean} */
   var isFixedLine = this.isNumberMatchingDesc_(nationalNumber, metadata
@@ -16376,6 +19396,9 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getNumberTypeHelper_ =
 
 
 /**
+ * Returns the metadata for the given region code or {@code null} if the region
+ * code is invalid or unknown.
+ *
  * @param {?string} regionCode
  * @return {i18n.phonenumbers.PhoneMetadata}
  */
@@ -16403,6 +19426,17 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getMetadataForRegion =
     this.regionToMetadataMap[regionCode] = metadata;
   }
   return metadata;
+};
+
+
+/**
+ * @param {number} countryCallingCode
+ * @return {i18n.phonenumbers.PhoneMetadata}
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.
+    getMetadataForNonGeographicalRegion = function(countryCallingCode) {
+
+  return this.getMetadataForRegion('' + countryCallingCode);
 };
 
 
@@ -16435,8 +19469,7 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.isNumberMatchingDesc_ =
 i18n.phonenumbers.PhoneNumberUtil.prototype.isValidNumber = function(number) {
   /** @type {?string} */
   var regionCode = this.getRegionCodeForNumber(number);
-  return this.isValidRegionCode_(regionCode) &&
-      this.isValidNumberForRegion(number, /** @type {string} */ (regionCode));
+  return this.isValidNumberForRegion(number, regionCode);
 };
 
 
@@ -16448,10 +19481,14 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.isValidNumber = function(number) {
  * After this, the specific number pattern rules for the region are examined.
  * This is useful for determining for example whether a particular number is
  * valid for Canada, rather than just a valid NANPA number.
+ * Warning: In most cases, you want to use {@link #isValidNumber} instead. For
+ * example, this method will mark numbers from British Crown dependencies such
+ * as the Isle of Man as invalid for the region "GB" (United Kingdom), since it
+ * has its own region code, "IM", which may be undesirable.
  *
  * @param {i18n.phonenumbers.PhoneNumber} number the phone number that we want
  *     to validate.
- * @param {string} regionCode the region that we want to validate the phone
+ * @param {?string} regionCode the region that we want to validate the phone
  *     number for.
  * @return {boolean} a boolean that indicates whether the number is of a valid
  *     pattern.
@@ -16459,28 +19496,22 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.isValidNumber = function(number) {
 i18n.phonenumbers.PhoneNumberUtil.prototype.isValidNumberForRegion =
     function(number, regionCode) {
 
-  if (number.getCountryCodeOrDefault() !=
-      this.getCountryCodeForRegion(regionCode)) {
+  /** @type {number} */
+  var countryCode = number.getCountryCodeOrDefault();
+  /** @type {i18n.phonenumbers.PhoneMetadata} */
+  var metadata =
+      this.getMetadataForRegionOrCallingCode_(countryCode, regionCode);
+  if (metadata == null ||
+      (i18n.phonenumbers.PhoneNumberUtil.REGION_CODE_FOR_NON_GEO_ENTITY !=
+       regionCode &&
+       countryCode != this.getCountryCodeForValidRegion_(regionCode))) {
+    // Either the region code was invalid, or the country calling code for this
+    // number does not match that of the region code.
     return false;
   }
-  /** @type {i18n.phonenumbers.PhoneMetadata} */
-  var metadata = this.getMetadataForRegion(regionCode);
-  /** @type {i18n.phonenumbers.PhoneNumberDesc} */
-  var generalNumDesc = metadata.getGeneralDesc();
   /** @type {string} */
   var nationalSignificantNumber = this.getNationalSignificantNumber(number);
 
-  // For regions where we don't have metadata for PhoneNumberDesc, we treat any
-  // number passed in as a valid number if its national significant number is
-  // between the minimum and maximum lengths defined by ITU for a national
-  // significant number.
-  if (!generalNumDesc.hasNationalNumberPattern()) {
-    /** @type {number} */
-    var numberLength = nationalSignificantNumber.length;
-    return numberLength >
-        i18n.phonenumbers.PhoneNumberUtil.MIN_LENGTH_FOR_NSN_ &&
-        numberLength <= i18n.phonenumbers.PhoneNumberUtil.MAX_LENGTH_FOR_NSN_;
-  }
   return this.getNumberTypeHelper_(nationalSignificantNumber, metadata) !=
       i18n.phonenumbers.PhoneNumberType.UNKNOWN;
 };
@@ -16535,6 +19566,8 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.
   for (var i = 0; i < regionCodesLength; i++) {
     regionCode = regionCodes[i];
     // If leadingDigits is present, use this. Otherwise, do full validation.
+    // Metadata cannot be null because the region codes come from the country
+    // calling code map.
     /** @type {i18n.phonenumbers.PhoneMetadata} */
     var metadata = this.getMetadataForRegion(regionCode);
     if (metadata.hasLeadingDigits()) {
@@ -16571,6 +19604,25 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getRegionCodeForCountryCode =
 
 
 /**
+ * Returns a list with the region codes that match the specific country calling
+ * code. For non-geographical country calling codes, the region code 001 is
+ * returned. Also, in the case of no region code being found, an empty list is
+ * returned.
+ *
+ * @param {number} countryCallingCode the country calling code.
+ * @return {Array.<string>}
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.getRegionCodesForCountryCode =
+    function(countryCallingCode) {
+
+  /** @type {Array.<string>} */
+  var regionCodes =
+      i18n.phonenumbers.metadata.countryCodeToRegionCodeMap[countryCallingCode];
+  return regionCodes == null ? [] : regionCodes;
+};
+
+
+/**
  * Returns the country calling code for a specific region. For example, this
  * would be 1 for the United States, and 64 for New Zealand.
  *
@@ -16585,8 +19637,30 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getCountryCodeForRegion =
   if (!this.isValidRegionCode_(regionCode)) {
     return 0;
   }
+  return this.getCountryCodeForValidRegion_(regionCode);
+};
+
+
+/**
+ * Returns the country calling code for a specific region. For example, this
+ * would be 1 for the United States, and 64 for New Zealand. Assumes the region
+ * is already valid.
+ *
+ * @param {?string} regionCode the region that we want to get the country
+ *     calling code for.
+ * @return {number} the country calling code for the region denoted by
+ *     regionCode.
+ * @throws {string} if the region is invalid
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.getCountryCodeForValidRegion_ =
+    function(regionCode) {
+
   /** @type {i18n.phonenumbers.PhoneMetadata} */
   var metadata = this.getMetadataForRegion(regionCode);
+  if (metadata == null) {
+    throw 'Invalid region code: ' + regionCode;
+  }
   return metadata.getCountryCodeOrDefault();
 };
 
@@ -16612,11 +19686,11 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.getCountryCodeForRegion =
  */
 i18n.phonenumbers.PhoneNumberUtil.prototype.getNddPrefixForRegion = function(
     regionCode, stripNonDigits) {
-  if (!this.isValidRegionCode_(regionCode)) {
-    return null;
-  }
   /** @type {i18n.phonenumbers.PhoneMetadata} */
   var metadata = this.getMetadataForRegion(regionCode);
+  if (metadata == null) {
+    return null;
+  }
   /** @type {string} */
   var nationalPrefix = metadata.getNationalPrefixOrDefault();
   // If no national prefix was found, we return null.
@@ -16661,7 +19735,8 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.isNANPACountry =
 i18n.phonenumbers.PhoneNumberUtil.prototype.isLeadingZeroPossible =
     function(countryCallingCode) {
   /** @type {i18n.phonenumbers.PhoneMetadata} */
-  var mainMetadataForCallingCode = this.getMetadataForRegion(
+  var mainMetadataForCallingCode = this.getMetadataForRegionOrCallingCode_(
+      countryCallingCode,
       this.getRegionCodeForCountryCode(countryCallingCode));
   return mainMetadataForCallingCode != null &&
       mainMetadataForCallingCode.getLeadingZeroPossibleOrDefault();
@@ -16736,6 +19811,25 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.testNumberLengthAgainstPattern_ =
 
 
 /**
+ * Helper method to check whether a number is too short to be a regular length
+ * phone number in a region.
+ *
+ * @param {i18n.phonenumbers.PhoneMetadata} regionMetadata
+ * @param {string} number
+ * @return {boolean}
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.isShorterThanPossibleNormalNumber_ =
+    function(regionMetadata, number) {
+  /** @type {string} */
+  var possibleNumberPattern =
+      regionMetadata.getGeneralDesc().getPossibleNumberPatternOrDefault();
+  return this.testNumberLengthAgainstPattern_(possibleNumberPattern, number) ==
+      i18n.phonenumbers.PhoneNumberUtil.ValidationResult.TOO_SHORT;
+};
+
+
+/**
  * Check whether a phone number is a possible number. It provides a more lenient
  * check than {@link #isValidNumber} in the following sense:
  * <ol>
@@ -16772,30 +19866,19 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.isPossibleNumberWithReason =
   // work if the number is possible but not valid. This would need to be
   // revisited if the possible number pattern ever differed between various
   // regions within those plans.
-  /** @type {string} */
-  var regionCode = this.getRegionCodeForCountryCode(countryCode);
-  if (!this.isValidRegionCode_(regionCode)) {
+  if (!this.hasValidCountryCallingCode_(countryCode)) {
     return i18n.phonenumbers.PhoneNumberUtil.ValidationResult
         .INVALID_COUNTRY_CODE;
   }
-  /** @type {i18n.phonenumbers.PhoneNumberDesc} */
-  var generalNumDesc = this.getMetadataForRegion(regionCode).getGeneralDesc();
-  // Handling case of numbers with no metadata.
-  if (!generalNumDesc.hasNationalNumberPattern()) {
-    /** @type {number} */
-    var numberLength = nationalNumber.length;
-    if (numberLength < i18n.phonenumbers.PhoneNumberUtil.MIN_LENGTH_FOR_NSN_) {
-      return i18n.phonenumbers.PhoneNumberUtil.ValidationResult.TOO_SHORT;
-    } else if (numberLength >
-               i18n.phonenumbers.PhoneNumberUtil.MAX_LENGTH_FOR_NSN_) {
-      return i18n.phonenumbers.PhoneNumberUtil.ValidationResult.TOO_LONG;
-    } else {
-      return i18n.phonenumbers.PhoneNumberUtil.ValidationResult.IS_POSSIBLE;
-    }
-  }
+  /** @type {string} */
+  var regionCode = this.getRegionCodeForCountryCode(countryCode);
+  // Metadata cannot be null because the country calling code is valid.
+  /** @type {i18n.phonenumbers.PhoneMetadata} */
+  var metadata =
+      this.getMetadataForRegionOrCallingCode_(countryCode, regionCode);
   /** @type {string} */
   var possibleNumberPattern =
-      generalNumDesc.getPossibleNumberPatternOrDefault();
+      metadata.getGeneralDesc().getPossibleNumberPatternOrDefault();
   return this.testNumberLengthAgainstPattern_(possibleNumberPattern,
                                               nationalNumber);
 };
@@ -16972,7 +20055,7 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.maybeExtractCountryCode =
   }
   if (countryCodeSource !=
       i18n.phonenumbers.PhoneNumber.CountryCodeSource.FROM_DEFAULT_COUNTRY) {
-    if (fullNumber.getLength() <
+    if (fullNumber.getLength() <=
         i18n.phonenumbers.PhoneNumberUtil.MIN_LENGTH_FOR_NSN_) {
       throw i18n.phonenumbers.Error.TOO_SHORT_AFTER_IDD;
     }
@@ -17006,8 +20089,9 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.maybeExtractCountryCode =
       /** @type {!RegExp} */
       var validNumberPattern =
           new RegExp(generalDesc.getNationalNumberPatternOrDefault());
+      // Passing null since we don't need the carrier code.
       this.maybeStripNationalPrefixAndCarrierCode(
-          potentialNationalNumber, defaultRegionMetadata);
+          potentialNationalNumber, defaultRegionMetadata, null);
       /** @type {string} */
       var potentialNationalNumberStr = potentialNationalNumber.toString();
       /** @type {string} */
@@ -17131,14 +20215,14 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.
  *     that we wish to strip any national dialing prefix from.
  * @param {i18n.phonenumbers.PhoneMetadata} metadata the metadata for the
  *     region that we think this number is from.
- * @return {string} the carrier code extracted if it is present, otherwise
- *     return an empty string.
+ * @param {goog.string.StringBuffer} carrierCode a place to insert the carrier
+ *     code if one is extracted.
+ * @return {boolean} true if a national prefix or carrier code (or both) could
+ *     be extracted.
  */
 i18n.phonenumbers.PhoneNumberUtil.prototype.
-    maybeStripNationalPrefixAndCarrierCode = function(number, metadata) {
-
-  /** @type {string} */
-  var carrierCode = '';
+    maybeStripNationalPrefixAndCarrierCode = function(number, metadata,
+                                                      carrierCode) {
   /** @type {string} */
   var numberStr = number.toString();
   /** @type {number} */
@@ -17148,7 +20232,7 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.
   if (numberLength == 0 || possibleNationalPrefix == null ||
       possibleNationalPrefix.length == 0) {
     // Early return for numbers of zero length.
-    return '';
+    return false;
   }
   // Attempt to parse the first digits as a national prefix.
   /** @type {!RegExp} */
@@ -17159,6 +20243,11 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.
     /** @type {!RegExp} */
     var nationalNumberRule = new RegExp(
         metadata.getGeneralDesc().getNationalNumberPatternOrDefault());
+    // Check if the original number is viable.
+    /** @type {boolean} */
+    var isViableOriginalNumber =
+        i18n.phonenumbers.PhoneNumberUtil.matchesEntirely_(
+            nationalNumberRule, numberStr);
     // prefixMatcher[numOfGroups] == null implies nothing was captured by the
     // capturing groups in possibleNationalPrefix; therefore, no transformation
     // is necessary, and we just remove the national prefix.
@@ -17166,33 +20255,45 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.
     var numOfGroups = prefixMatcher.length - 1;
     /** @type {?string} */
     var transformRule = metadata.getNationalPrefixTransformRule();
-    /** @type {string} */
-    var transformedNumber;
     /** @type {boolean} */
     var noTransform = transformRule == null || transformRule.length == 0 ||
                       prefixMatcher[numOfGroups] == null ||
                       prefixMatcher[numOfGroups].length == 0;
     if (noTransform) {
-      transformedNumber = numberStr.substring(prefixMatcher[0].length);
+      // If the original number was viable, and the resultant number is not,
+      // we return.
+      if (isViableOriginalNumber &&
+          !i18n.phonenumbers.PhoneNumberUtil.matchesEntirely_(
+              nationalNumberRule,
+              numberStr.substring(prefixMatcher[0].length))) {
+        return false;
+      }
+      if (carrierCode != null &&
+          numOfGroups > 0 && prefixMatcher[numOfGroups] != null) {
+        carrierCode.append(prefixMatcher[1]);
+      }
+      number.set(numberStr.substring(prefixMatcher[0].length));
+      return true;
     } else {
+      // Check that the resultant number is still viable. If not, return. Check
+      // this by copying the string buffer and making the transformation on the
+      // copy first.
+      /** @type {string} */
+      var transformedNumber;
       transformedNumber = numberStr.replace(prefixPattern, transformRule);
+      if (isViableOriginalNumber &&
+          !i18n.phonenumbers.PhoneNumberUtil.matchesEntirely_(
+              nationalNumberRule, transformedNumber)) {
+        return false;
+      }
+      if (carrierCode != null && numOfGroups > 0) {
+        carrierCode.append(prefixMatcher[1]);
+      }
+      number.set(transformedNumber);
+      return true;
     }
-    // If the original number was viable, and the resultant number is not,
-    // we return.
-    if (i18n.phonenumbers.PhoneNumberUtil.matchesEntirely_(
-            nationalNumberRule, numberStr) &&
-        !i18n.phonenumbers.PhoneNumberUtil.matchesEntirely_(
-            nationalNumberRule, transformedNumber)) {
-      return '';
-    }
-    if ((noTransform && numOfGroups > 0 && prefixMatcher[1] != null) ||
-        (!noTransform && numOfGroups > 1)) {
-      carrierCode = prefixMatcher[1];
-    }
-    number.clear();
-    number.append(transformedNumber);
   }
-  return carrierCode;
+  return false;
 };
 
 
@@ -17267,7 +20368,7 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.checkRegionForParsing_ = function(
  *
  * @param {?string} numberToParse number that we are attempting to parse. This
  *     can contain formatting such as +, ( and -, as well as a phone number
- *     extension.
+ *     extension. It can also be provided in RFC3966 format.
  * @param {?string} defaultRegion region that we are expecting the number to be
  *     from. This is only used if the number being parsed is not written in
  *     international format. The country_code for the number in this case would
@@ -17317,6 +20418,33 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.parseAndKeepRawInput =
 
 
 /**
+ * A helper function to set the values related to leading zeros in a
+ * PhoneNumber.
+ *
+ * @param {string} nationalNumber the number we are parsing.
+ * @param {i18n.phonenumbers.PhoneNumber} phoneNumber a phone number proto
+ *     buffer to fill in.
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.setItalianLeadingZerosForPhoneNumber_ =
+    function(nationalNumber, phoneNumber) {
+  if (nationalNumber.length > 1 && nationalNumber.charAt(0) == '0') {
+    phoneNumber.setItalianLeadingZero(true);
+    var numberOfLeadingZeros = 1;
+    // Note that if the national number is all "0"s, the last "0" is not counted
+    // as a leading zero.
+    while (numberOfLeadingZeros < nationalNumber.length - 1 &&
+           nationalNumber.charAt(numberOfLeadingZeros) == '0') {
+      numberOfLeadingZeros++;
+    }
+    if (numberOfLeadingZeros != 1) {
+      phoneNumber.setNumberOfLeadingZeros(numberOfLeadingZeros);
+    }
+  }
+};
+
+
+/**
  * Parses a string and returns it in proto buffer format. This method is the
  * same as the public {@link #parse} method, with the exception that it allows
  * the default region to be null, for use by {@link #isNumberMatch}.
@@ -17342,19 +20470,24 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.parseHelper_ =
 
   if (numberToParse == null) {
     throw i18n.phonenumbers.Error.NOT_A_NUMBER;
+  } else if (numberToParse.length >
+      i18n.phonenumbers.PhoneNumberUtil.MAX_INPUT_STRING_LENGTH_) {
+    throw i18n.phonenumbers.Error.TOO_LONG;
   }
-  // Extract a possible number from the string passed in (this strips leading
-  // characters that could not be the start of a phone number.)
-  /** @type {string} */
-  var number =
-      i18n.phonenumbers.PhoneNumberUtil.extractPossibleNumber(numberToParse);
-  if (!i18n.phonenumbers.PhoneNumberUtil.isViablePhoneNumber(number)) {
+
+  /** @type {!goog.string.StringBuffer} */
+  var nationalNumber = new goog.string.StringBuffer();
+  this.buildNationalNumberForParsing_(numberToParse, nationalNumber);
+
+  if (!i18n.phonenumbers.PhoneNumberUtil.isViablePhoneNumber(
+      nationalNumber.toString())) {
     throw i18n.phonenumbers.Error.NOT_A_NUMBER;
   }
 
   // Check the region supplied is valid, or that the extracted number starts
   // with some sort of + sign so the number's region can be determined.
-  if (checkRegion && !this.checkRegionForParsing_(number, defaultRegion)) {
+  if (checkRegion &&
+      !this.checkRegionForParsing_(nationalNumber.toString(), defaultRegion)) {
     throw i18n.phonenumbers.Error.INVALID_COUNTRY_CODE;
   }
 
@@ -17363,8 +20496,6 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.parseHelper_ =
   if (keepRawInput) {
     phoneNumber.setRawInput(numberToParse);
   }
-  /** @type {!goog.string.StringBuffer} */
-  var nationalNumber = new goog.string.StringBuffer(number);
   // Attempt to parse extension first, since it doesn't require region-specific
   // data and we want to have the non-normalised number here.
   /** @type {string} */
@@ -17406,7 +20537,9 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.parseHelper_ =
     /** @type {string} */
     var phoneNumberRegion = this.getRegionCodeForCountryCode(countryCode);
     if (phoneNumberRegion != defaultRegion) {
-      regionMetadata = this.getMetadataForRegion(phoneNumberRegion);
+      // Metadata cannot be null because the country calling code is valid.
+      regionMetadata = this.getMetadataForRegionOrCallingCode_(
+          countryCode, phoneNumberRegion);
     }
   } else {
     // If no extracted country calling code, use the region supplied instead.
@@ -17427,11 +20560,19 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.parseHelper_ =
   }
 
   if (regionMetadata != null) {
-    /** @type {string} */
-    var carrierCode = this.maybeStripNationalPrefixAndCarrierCode(
-        normalizedNationalNumber, regionMetadata);
-    if (keepRawInput) {
-      phoneNumber.setPreferredDomesticCarrierCode(carrierCode);
+    /** @type {!goog.string.StringBuffer} */
+    var carrierCode = new goog.string.StringBuffer();
+    /** @type {!goog.string.StringBuffer} */
+    var potentialNationalNumber =
+        new goog.string.StringBuffer(normalizedNationalNumber.toString());
+    this.maybeStripNationalPrefixAndCarrierCode(
+        potentialNationalNumber, regionMetadata, carrierCode);
+    if (!this.isShorterThanPossibleNormalNumber_(
+            regionMetadata, potentialNationalNumber.toString())) {
+      normalizedNationalNumber = potentialNationalNumber;
+      if (keepRawInput) {
+        phoneNumber.setPreferredDomesticCarrierCode(carrierCode.toString());
+      }
     }
   }
   /** @type {string} */
@@ -17446,11 +20587,85 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.parseHelper_ =
       i18n.phonenumbers.PhoneNumberUtil.MAX_LENGTH_FOR_NSN_) {
     throw i18n.phonenumbers.Error.TOO_LONG;
   }
-  if (normalizedNationalNumberStr.charAt(0) == '0') {
-    phoneNumber.setItalianLeadingZero(true);
-  }
+  this.setItalianLeadingZerosForPhoneNumber_(
+      normalizedNationalNumberStr, phoneNumber);
   phoneNumber.setNationalNumber(parseInt(normalizedNationalNumberStr, 10));
   return phoneNumber;
+};
+
+
+/**
+ * Converts numberToParse to a form that we can parse and write it to
+ * nationalNumber if it is written in RFC3966; otherwise extract a possible
+ * number out of it and write to nationalNumber.
+ *
+ * @param {?string} numberToParse number that we are attempting to parse. This
+ *     can contain formatting such as +, ( and -, as well as a phone number
+ *     extension.
+ * @param {!goog.string.StringBuffer} nationalNumber a string buffer for storing
+ *     the national significant number.
+ * @private
+ */
+i18n.phonenumbers.PhoneNumberUtil.prototype.buildNationalNumberForParsing_ =
+    function(numberToParse, nationalNumber) {
+
+  /** @type {number} */
+  var indexOfPhoneContext = numberToParse.indexOf(
+      i18n.phonenumbers.PhoneNumberUtil.RFC3966_PHONE_CONTEXT_);
+  if (indexOfPhoneContext > 0) {
+    var phoneContextStart = indexOfPhoneContext +
+        i18n.phonenumbers.PhoneNumberUtil.RFC3966_PHONE_CONTEXT_.length;
+    // If the phone context contains a phone number prefix, we need to capture
+    // it, whereas domains will be ignored.
+    if (numberToParse.charAt(phoneContextStart) ==
+        i18n.phonenumbers.PhoneNumberUtil.PLUS_SIGN) {
+      // Additional parameters might follow the phone context. If so, we will
+      // remove them here because the parameters after phone context are not
+      // important for parsing the phone number.
+      var phoneContextEnd = numberToParse.indexOf(';', phoneContextStart);
+      if (phoneContextEnd > 0) {
+        nationalNumber.append(numberToParse.substring(phoneContextStart,
+            phoneContextEnd));
+      } else {
+        nationalNumber.append(numberToParse.substring(phoneContextStart));
+      }
+    }
+
+    // Now append everything between the "tel:" prefix and the phone-context.
+    // This should include the national number, an optional extension or
+    // isdn-subaddress component. Note we also handle the case when "tel:" is
+    // missing, as we have seen in some of the phone number inputs.
+    // In that case, we append everything from the beginning.
+    var indexOfRfc3966Prefix = numberToParse.indexOf(
+        i18n.phonenumbers.PhoneNumberUtil.RFC3966_PREFIX_);
+    var indexOfNationalNumber = (indexOfRfc3966Prefix >= 0) ?
+        indexOfRfc3966Prefix +
+        i18n.phonenumbers.PhoneNumberUtil.RFC3966_PREFIX_.length : 0;
+    nationalNumber.append(numberToParse.substring(indexOfNationalNumber,
+        indexOfPhoneContext));
+  } else {
+    // Extract a possible number from the string passed in (this strips leading
+    // characters that could not be the start of a phone number.)
+    nationalNumber.append(
+        i18n.phonenumbers.PhoneNumberUtil.extractPossibleNumber(numberToParse));
+  }
+
+  // Delete the isdn-subaddress and everything after it if it is present.
+  // Note extension won't appear at the same time with isdn-subaddress
+  // according to paragraph 5.3 of the RFC3966 spec,
+  /** @type {string} */
+  var nationalNumberStr = nationalNumber.toString();
+  var indexOfIsdn = nationalNumberStr.indexOf(
+      i18n.phonenumbers.PhoneNumberUtil.RFC3966_ISDN_SUBADDRESS_);
+  if (indexOfIsdn > 0) {
+    nationalNumber.clear();
+    nationalNumber.append(nationalNumberStr.substring(0, indexOfIsdn));
+  }
+  // If both phone context and isdn-subaddress are absent but other
+  // parameters are present, the parameters are left in nationalNumber. This
+  // is because we are concerned about deleting content from a potential
+  // number string when there is no strong evidence that the number is
+  // actually written in RFC3966.
 };
 
 
@@ -17629,28 +20844,28 @@ i18n.phonenumbers.PhoneNumberUtil.prototype.isNationalNumberSuffixOfTheOther_ =
 
 
 /**
- * Returns true if the number can only be dialled from within the region. If
- * unknown, or the number can be dialled from outside the region as well,
- * returns false. Does not check the number is a valid number.
+ * Returns true if the number can be dialled from outside the region, or
+ * unknown. If the number can only be dialled from within the region, returns
+ * false. Does not check the number is a valid number.
  * TODO: Make this method public when we have enough metadata to make it
  * worthwhile. Currently visible for testing purposes only.
  *
  * @param {i18n.phonenumbers.PhoneNumber} number the phone-number for which we
- *     want to know whether it is only diallable from within the region.
+ *     want to know whether it is diallable from outside the region.
  * @return {boolean} true if the number can only be dialled from within the
  *     country.
  */
 i18n.phonenumbers.PhoneNumberUtil.prototype.canBeInternationallyDialled =
     function(number) {
-  /** @type {?string} */
-  var regionCode = this.getRegionCodeForNumber(number);
-  /** @type {string} */
-  var nationalSignificantNumber = this.getNationalSignificantNumber(number);
-  if (!this.isValidRegionCode_(regionCode)) {
+  /** @type {i18n.phonenumbers.PhoneMetadata} */
+  var metadata = this.getMetadataForRegion(this.getRegionCodeForNumber(number));
+  if (metadata == null) {
+    // Note numbers belonging to non-geographical entities (e.g. +800 numbers)
+    // are always internationally diallable, and will be caught here.
     return true;
   }
-  /** @type {i18n.phonenumbers.PhoneMetadata} */
-  var metadata = this.getMetadataForRegion(regionCode);
+  /** @type {string} */
+  var nationalSignificantNumber = this.getNationalSignificantNumber(number);
   return !this.isNumberMatchingDesc_(nationalSignificantNumber,
                                      metadata.getNoInternationalDialling());
 };
@@ -17675,13 +20890,16 @@ i18n.phonenumbers.PhoneNumberUtil.matchesEntirely_ = function(regex, str) {
   return false;
 };
 
+
 (function() {
   var falsy, getE164PhoneNumberWithMeta;
 
   falsy = function(fn) {
+    var err;
     try {
       return fn();
-    } catch (err) {
+    } catch (_error) {
+      err = _error;
       return false;
     }
   };
@@ -17701,19 +20919,23 @@ i18n.phonenumbers.PhoneNumberUtil.matchesEntirely_ = function(regex, str) {
     }
     fixnumber = function(phone_obj) {
       if (phone_obj) {
-        if (inst.isValidNumber(phone_obj)) return phone_obj;
+        if (inst.isValidNumber(phone_obj)) {
+          return phone_obj;
+        }
         if (ndc && inst.getLengthOfNationalDestinationCode(phone_obj) !== ndc.length) {
           phone_obj.setNationalNumber(+("" + ndc + (inst.getNationalSignificantNumber(phone_obj))));
-          if (inst.isValidNumber(phone_obj)) return phone_obj;
+          if (inst.isValidNumber(phone_obj)) {
+            return phone_obj;
+          }
         }
       }
     };
     complete = function(phone_obj) {
-      var formatted, _ref, _ref2;
+      var formatted, _ref, _ref1;
       if (phone_obj) {
         formatted = inst.format(phone_obj, e164);
         cc = "" + ((_ref = phone_obj.getCountryCode()) != null ? _ref : "");
-        ndc = ("" + ((_ref2 = inst.getNationalSignificantNumber(phone_obj)) != null ? _ref2 : "")).substring(0, inst.getLengthOfNationalDestinationCode(phone_obj));
+        ndc = ("" + ((_ref1 = inst.getNationalSignificantNumber(phone_obj)) != null ? _ref1 : "")).substring(0, inst.getLengthOfNationalDestinationCode(phone_obj));
         return [formatted, cc, ndc];
       } else {
         return [];
@@ -17725,11 +20947,15 @@ i18n.phonenumbers.PhoneNumberUtil.matchesEntirely_ = function(regex, str) {
     res = attempt(function() {
       return inst.parse(num);
     });
-    if (res[0]) return res;
+    if (res[0]) {
+      return res;
+    }
     res = attempt(function() {
       return inst.parse(num, regionCode);
     });
-    if (res[0]) return res;
+    if (res[0]) {
+      return res;
+    }
     return [];
   };
 
